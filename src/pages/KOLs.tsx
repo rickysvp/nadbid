@@ -68,17 +68,7 @@ export default function KOLs() {
     <main className="flex-grow pb-20 pt-10 px-container-padding">
       <div className="w-full max-w-7xl mx-auto">
         {/* Header */}
-        <section className="w-full rounded-2xl bg-primary text-black border-3 border-black shadow-neo-lg p-8 md:p-12 relative overflow-hidden mb-10 grid-bg">
-          {/* Decorative flat blobs (§7.2) — no gradient, no blur */}
-          <div
-            className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-tertiary opacity-30 border-3 border-black pointer-events-none"
-            aria-hidden
-          />
-          <div
-            className="absolute -bottom-24 -left-10 w-56 h-56 rounded-full bg-secondary opacity-20 border-3 border-black pointer-events-none"
-            aria-hidden
-          />
-
+        <section className="w-full rounded-2xl bg-primary text-black border-3 border-black shadow-neo-lg p-8 md:p-12 relative overflow-hidden mb-10 card-deco">
           <div className="relative z-10 max-w-3xl">
             <div className="inline-flex items-center gap-2 bg-white text-black font-mono font-black text-xs uppercase border-2 border-black px-3 py-1.5 rounded-full shadow-neo-sm mb-5">
               <GraduationCap className="w-4 h-4" /> The KOL Directory
@@ -137,7 +127,7 @@ export default function KOLs() {
 
         {/* Grid of KOL cards */}
         {isLoading && (
-          <div className="text-center py-16 font-mono font-black text-primary text-xl animate-pulse">
+          <div className="text-center py-16 font-mono font-black text-black text-xl animate-pulse">
             Loading KOLs…
           </div>
         )}
@@ -177,7 +167,7 @@ export default function KOLs() {
                 {/* Banner — grid texture + flat accent strip, NO soft gradient (§1.2) */}
                 <div
                   className={cn(
-                    'h-24 w-full border-b-3 border-black relative grid-bg',
+                    'h-24 w-full border-b-3 border-black relative card-deco',
                     // bannerAccentClass contains gradient tokens like "from-primary via-purple-400 to-pink-500"
                     // we keep the first token via regex to map to a flat solid background:
                     kol.bannerAccentClass.replace(/from-(\S+)\s+via-\S+\s+to-\S+/, (_, $1) =>
@@ -220,14 +210,14 @@ export default function KOLs() {
                   <h3 className="font-display font-black text-2xl text-black leading-none mb-1 group-hover:text-primary transition-colors">
                     {kol.nickname}
                   </h3>
-                  <p className="font-mono text-xs uppercase font-black text-primary mb-4">
+                  <p className="font-mono text-xs uppercase font-black text-black/80 mb-4">
                     @{kol.handle}
                   </p>
                   <p className="font-body text-sm text-on-surface-variant font-bold leading-relaxed line-clamp-3 mb-5 min-h-[4.5rem]">
                     {kol.bio}
                   </p>
                   <div className="flex items-center gap-2 mt-auto pt-3 border-t-2 border-black/10">
-                    <StatItem label="Dividends" value={kol.totalDividendsDistributedMon} />
+                    <StatItem label="Dividends" value={kol.totalDividendsDistributedMon} valueClass="text-monad" />
                     <StatDivider />
                     <StatItem label="Holders" value={kol.holders} valueClass="text-secondary" />
                     <StatDivider />

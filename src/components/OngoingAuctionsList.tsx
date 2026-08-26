@@ -197,7 +197,7 @@ export default function OngoingAuctionsList({
                         <span className="font-mono text-[10px] uppercase text-on-surface-variant font-bold tracking-wider">
                           Bid Price
                         </span>
-                        <span className="font-mono text-xl md:text-2xl font-black text-primary whitespace-nowrap leading-none">
+                        <span className="font-mono text-xl md:text-2xl font-black text-monad whitespace-nowrap leading-none">
                           {auction.bidPrice}
                         </span>
                       </div>

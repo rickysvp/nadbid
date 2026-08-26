@@ -79,7 +79,7 @@ export default function FeaturedAuction({ auction }: FeaturedAuctionProps) {
           <div className="flex flex-col items-center">
             <Link
               to={kolLink}
-              className="font-mono text-lg font-bold text-primary mb-2.5 px-1 hover:text-black transition-colors"
+              className="font-mono text-lg font-bold text-black mb-2.5 px-1 hover:text-primary transition-colors"
             >
               {kol.handle}
             </Link>
@@ -122,7 +122,7 @@ export default function FeaturedAuction({ auction }: FeaturedAuctionProps) {
                   </span>
                   <span className="font-mono font-black text-base md:text-lg text-black whitespace-nowrap">
                     {tvl}
-                    <span className="ml-1 text-[11px] text-primary">$MON</span>
+                    <span className="ml-1 text-[11px] text-monad">$MON</span>
                   </span>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function FeaturedAuction({ auction }: FeaturedAuctionProps) {
               <span className="font-body font-bold text-on-surface-variant text-base md:text-lg leading-none">
                 {priceLabel}
               </span>
-              <span className="font-display font-black text-3xl md:text-4xl xl:text-5xl text-primary leading-none whitespace-nowrap">
+              <span className="font-display font-black text-3xl md:text-4xl xl:text-5xl text-monad leading-none whitespace-nowrap">
                 {bidPrice}
               </span>
             </div>

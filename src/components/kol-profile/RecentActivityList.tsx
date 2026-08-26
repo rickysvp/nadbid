@@ -91,7 +91,7 @@ export function NftTradeList({ trades, handle }: { trades: NftTrade[]; handle: s
             <div
               className={cn(
                 'font-display font-black text-xl md:text-2xl shrink-0 sm:ml-auto',
-                isInflow ? 'text-secondary' : 'text-error',
+                isInflow ? 'text-monad' : 'text-error',
               )}
             >
               {isInflow ? '+' : '−'}

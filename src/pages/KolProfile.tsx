@@ -52,7 +52,7 @@ export default function KolProfile() {
   if (isLoading) {
     return (
       <main className="flex-grow flex items-center justify-center py-20">
-        <div className="font-mono text-primary font-black text-xl animate-pulse">Loading KOL…</div>
+        <div className="font-mono text-black font-black text-xl animate-pulse">Loading KOL…</div>
       </main>
     );
   }
@@ -62,8 +62,6 @@ export default function KolProfile() {
     return (
       <main className="flex-grow flex items-center justify-center py-20 px-container-padding">
         <div className="bg-white border-3 border-black rounded-2xl shadow-neo-xl p-8 max-w-md text-center relative overflow-hidden">
-          <div className="absolute -top-16 -right-10 w-44 h-44 rounded-full bg-primary opacity-20 pointer-events-none" aria-hidden />
-          <div className="absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
           <AlertCircle className="w-14 h-14 text-error mx-auto mb-3 relative z-10" />
           <h1 className="font-display text-3xl font-black text-black mb-2 relative z-10">
             {notFound ? 'KOL not found' : 'Could not load profile'}

@@ -38,7 +38,7 @@ export function PastAuctionList({ auctions }: { auctions: KolAuction[] }) {
                   <Users className="w-3.5 h-3.5" /> {a.participants} bidders · {a.totalBids} bids
                 </span>
                 {a.tvl && (
-                  <span className="font-mono text-[10px] uppercase font-black text-primary">
+                  <span className="font-mono text-[10px] uppercase font-black text-monad">
                     TVL {a.tvl}
                   </span>
                 )}
@@ -50,7 +50,7 @@ export function PastAuctionList({ auctions }: { auctions: KolAuction[] }) {
                 <span className="block font-mono text-[10px] uppercase font-black text-on-surface-variant mb-1">
                   Winning Bid
                 </span>
-                <span className="block font-display font-black text-2xl text-primary leading-none">
+                <span className="block font-display font-black text-2xl text-monad leading-none">
                   {a.winningBid ?? '—'}
                 </span>
                 {a.winnerAddress && (

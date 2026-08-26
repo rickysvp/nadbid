@@ -58,7 +58,7 @@ export default function AuctionSummaryCard({
           </Link>
           <Link
             to={kolLink}
-            className="font-mono text-base font-bold text-primary mb-3 hover:text-black transition-colors"
+            className="font-mono text-base font-bold text-black mb-3 hover:text-primary transition-colors"
           >
             {kol.handle}
           </Link>
@@ -89,7 +89,7 @@ export default function AuctionSummaryCard({
           <span className="font-mono font-black text-on-surface-variant text-[10px] uppercase mb-1">
             Cost Per Bid (X)
           </span>
-          <span className="font-mono font-black text-2xl text-primary">{liveStats.costPerBid}</span>
+          <span className="font-mono font-black text-2xl text-monad">{liveStats.costPerBid}</span>
         </div>
 
         <div className="w-px h-10 bg-black/20 hidden md:block" />

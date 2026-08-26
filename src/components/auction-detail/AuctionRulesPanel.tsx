@@ -52,7 +52,7 @@ export default function AuctionRulesPanel() {
         </h3>
         <a
           href="/docs#auction-rules"
-          className="inline-flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-black uppercase tracking-wider text-primary hover:text-black transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] md:text-xs font-black uppercase tracking-wider text-black hover:text-on-surface-variant transition-colors shrink-0"
         >
           Open full docs
           <ArrowUpRight className="w-3.5 h-3.5 md:w-4 md:h-4" strokeWidth={2.5} />

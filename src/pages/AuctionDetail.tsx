@@ -17,7 +17,7 @@ export default function AuctionDetail() {
   if (isLoading) {
     return (
       <main className="flex-grow flex items-center justify-center py-20">
-        <div className="font-mono text-primary font-black text-xl animate-pulse">
+        <div className="font-mono text-black font-black text-xl animate-pulse">
           Loading auction…
         </div>
       </main>

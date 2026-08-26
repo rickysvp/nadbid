@@ -37,7 +37,7 @@ function StakeGuides() {
   const guides = [
     {
       icon: PiggyBank,
-      color: 'text-primary',
+      color: 'text-black',
       chip: `Every ${DIVIDEND_POOL.WEEKDAY_UTC_LABELS[DIVIDEND_POOL.SETTLEMENT_UTC_DAY]} ${DIVIDEND_POOL.SETTLEMENT_UTC_HOUR.toString().padStart(2, '0')}:00 UTC`,
       title: 'Weekly dividend pool',
       desc: `KOL 拍卖收入按比例进入分红池，每周日 UTC 00:00 自动结算，由当期处于 STAKE_ACTIVE 状态的 NFT 等分。未质押 / 激活中 / 冷却中的 NFT 不参与。`,
@@ -120,7 +120,7 @@ function StakeGuides() {
 function StakePositionRow({ pos, now }: { pos: StakePosition; now: number }) {
   const lockLabel = pos.lockDays ? STAKING.LOCK_LABELS[pos.lockDays] : 'Legacy · no lock';
   let Icon = Lock;
-  let color = 'text-primary';
+  let color = 'text-black';
   let label: string;
   if (pos.state === 'PENDING') {
     Icon = Timer;
@@ -275,7 +275,7 @@ function StakingKolCard({ profile }: { profile: KolProfile }) {
           </div>
         </div>
         <div className="px-3 py-3 text-center bg-primary/10">
-          <div className="font-display font-black text-xl text-primary">{liquid}</div>
+          <div className="font-display font-black text-xl text-black">{liquid}</div>
           <div className="font-mono text-[10px] uppercase font-black text-on-surface-variant">
             FREE_HOLD
           </div>
@@ -407,7 +407,7 @@ function StakingKolCard({ profile }: { profile: KolProfile }) {
         </span>
         <Link
           to={`/kols/${handle}`}
-          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase font-black text-primary hover:text-black underline decoration-dotted underline-offset-4"
+          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase font-black text-black hover:text-on-surface-variant underline decoration-dotted underline-offset-4"
         >
           View profile <ArrowRight className="w-3.5 h-3.5" />
         </Link>
@@ -449,7 +449,7 @@ export default function Staking() {
               <Lock className="w-3.5 h-3.5" /> Staking
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-black text-black tracking-tight leading-none">
-              Stake NFTs · <span className="text-primary">Earn weekly</span>
+              Stake NFTs · <span className="text-black">Earn weekly</span>
             </h1>
             <p className="mt-3 font-body text-base md:text-lg text-on-surface-variant font-bold max-w-2xl leading-relaxed">
               Lock your KOL NFTs to lock in dividend weight. KOL auction income flows into each
@@ -466,7 +466,7 @@ export default function Staking() {
               </div>
             </div>
             <div className="rounded-2xl border-2 border-black bg-primary/15 px-5 py-3 shadow-neo-md text-center min-w-[9rem]">
-              <div className="font-display font-black text-2xl text-primary tabular-nums">
+              <div className="font-display font-black text-2xl text-monad tabular-nums">
                 {formatTokenAmount(totalPending)}
               </div>
               <div className="font-mono text-[10px] uppercase font-black text-on-surface-variant">

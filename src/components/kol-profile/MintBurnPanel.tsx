@@ -332,10 +332,10 @@ export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) 
           <div className="flex items-center gap-2.5 font-mono text-[11px] md:text-xs uppercase font-black tracking-wider">
             <Lock className="w-4 h-4 text-primary" /> Holdings ·{' '}
             {market.userNftBalance} total ·{' '}
-            <span className="text-primary">{activeStaked} staked</span> ·{' '}
+            <span className="text-black">{activeStaked} staked</span> ·{' '}
             <span className="text-secondary">{liquidNfts} FREE_HOLD</span>
           </div>
-          <span className="font-mono text-[11px] md:text-xs uppercase font-black text-primary underline decoration-dotted underline-offset-4">
+          <span className="font-mono text-[11px] md:text-xs uppercase font-black text-black underline decoration-dotted underline-offset-4">
             Stake to earn weekly dividends →
           </span>
         </div>
@@ -481,7 +481,7 @@ export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) 
                 <div className="text-black/60">
                   Treasury · {Math.round(NFT_FEE_RATES.TREASURY * 100)}%
                 </div>
-                <div className="text-primary text-right tabular-nums">
+                <div className="text-monad text-right tabular-nums">
                   −{formatTokenAmount(mint.treasuryShareMon)}
                 </div>
               </div>
@@ -562,7 +562,7 @@ export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) 
                 <div className="text-black/60">
                   Treasury · {Math.round(NFT_FEE_RATES.TREASURY * 100)}%
                 </div>
-                <div className="text-primary text-right tabular-nums">
+                <div className="text-monad text-right tabular-nums">
                   −{formatTokenAmount(burn.treasuryShareMon)}
                 </div>
               </div>

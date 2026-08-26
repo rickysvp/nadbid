@@ -31,7 +31,7 @@ export default function Home() {
   if (loading) {
     return (
       <main className="flex-grow flex items-center justify-center py-20">
-        <div className="font-mono text-primary font-black text-xl animate-pulse">
+        <div className="font-mono text-black font-black text-xl animate-pulse">
           Loading auctions…
         </div>
       </main>
@@ -67,9 +67,7 @@ export default function Home() {
           {featured ? (
             <FeaturedAuction auction={featured} />
           ) : (
-            <div className="w-full flex flex-col items-center justify-center gap-4 bg-surface-container-lowest rounded-2xl border-3 border-black shadow-neo-lg p-12 text-center grid-bg relative overflow-hidden">
-              <div className="absolute -top-16 -right-10 w-52 h-52 rounded-full bg-primary opacity-20 pointer-events-none" aria-hidden />
-              <div className="absolute -bottom-16 -left-8 w-44 h-44 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
+            <div className="w-full flex flex-col items-center justify-center gap-4 bg-surface-container-lowest rounded-2xl border-3 border-black shadow-neo-lg p-12 text-center card-deco relative overflow-hidden">
               <Gavel className="w-12 h-12 text-primary relative z-10" />
               <h2 className="font-display text-3xl font-black text-black relative z-10">
                 No featured auction right now

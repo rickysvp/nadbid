@@ -80,7 +80,7 @@ export default function BidBoard({ bidders }: BidBoardProps) {
                     {displayName}
                   </span>
                   {bidder.handle ? (
-                    <span className="font-mono text-[10px] font-bold text-primary uppercase mt-0.5 truncate">
+                    <span className="font-mono text-[10px] font-bold text-black uppercase mt-0.5 truncate">
                       {bidder.handle}
                     </span>
                   ) : (
@@ -93,7 +93,7 @@ export default function BidBoard({ bidders }: BidBoardProps) {
 
               <div className="flex flex-col items-end shrink-0 ml-3">
                 <span className="font-mono font-black text-black text-lg md:text-xl leading-none mb-1 whitespace-nowrap">
-                  {bidder.totalAmount} <span className="text-[10px] md:text-xs text-primary">$MON</span>
+                  {bidder.totalAmount} <span className="text-[10px] md:text-xs text-monad">$MON</span>
                 </span>
                 <span className="font-mono text-[10px] font-bold text-on-surface-variant uppercase">
                   {bidder.bidCount} bids placed

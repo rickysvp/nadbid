@@ -15,7 +15,7 @@ interface StatItemProps {
 export default function StatItem({
   label,
   value,
-  valueClass = 'text-primary',
+  valueClass = 'text-black',
   orientation = 'horizontal',
   className = '',
 }: StatItemProps) {

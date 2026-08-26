@@ -49,6 +49,11 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
     market.dividendsClaimedMon > 0 ||
     market.dividendsPendingMon > 0.0001;
 
+  const stakeCountNfts =
+    selectActiveStakedQty(market) +
+    selectPendingStakedQty(market) +
+    selectUnlockingStakedQty(market);
+
   return (
     <div className="relative">
       {/* ========== NFT CARD ========== */}
@@ -60,14 +65,10 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
             //  - NO soft gradients (§1.2 MUST NOT). Use warm cream canvas + grid
             //    texture (§7.1) + decorative accent blobs instead of gradient.
             //  - heavy 3px black border + hard offset xl shadow.
-            'relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden p-6 md:p-8 grid-bg bg-surface-container-low',
+            'relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden p-6 md:p-8 card-deco bg-surface-container-low',
             bannerAccentClass.replace(/bg-gradient-to-br\s+\S+/, ''),
           )}
         >
-          {/* Decorative corner blobs (§7.2) — opaque flat colors, no blur gradient */}
-          <div className="absolute -top-20 -right-16 w-60 h-60 rounded-full bg-primary opacity-30 pointer-events-none" aria-hidden />
-          <div className="absolute -bottom-24 -left-10 w-72 h-72 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
-
           <div className="absolute -top-1 -left-1 -right-1 h-1.5 bg-primary border-b-2 border-black" aria-hidden />
 
           <div className="relative flex items-start justify-between mb-4 z-10">
@@ -246,8 +247,8 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
               <div className="font-mono text-[9px] uppercase font-black text-black/60 leading-none tracking-widest">
                 Staked NFT
               </div>
-              <div className="mt-1.5 font-display font-black text-xl md:text-2xl text-primary tabular-nums">
-                {selectActiveStakedQty(market)}
+              <div className="mt-1.5 font-display font-black text-xl md:text-2xl text-black tabular-nums">
+                {stakeCountNfts}
               </div>
               <div className="font-mono text-[10px] text-black/60 mt-0.5">NFT</div>
             </div>
@@ -255,7 +256,7 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
               <div className="font-mono text-[9px] uppercase font-black text-black/60 leading-none tracking-widest">
                 Pending claim
               </div>
-              <div className="mt-1.5 font-display font-black text-xl md:text-2xl text-secondary tabular-nums">
+              <div className="mt-1.5 font-display font-black text-xl md:text-2xl text-monad tabular-nums">
                 {market.dividendsPendingMon.toFixed(2)}
               </div>
               <div className="font-mono text-[10px] text-black/60 mt-0.5">$MON</div>
@@ -276,7 +277,7 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
       <button
         type="button"
         onClick={onJumpToRecords}
-        className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase font-bold text-primary hover:text-black transition-colors"
+        className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase font-bold text-black hover:text-on-surface-variant transition-colors"
       >
         <Sparkles className="w-4 h-4" /> View {nickname} records →
       </button>

@@ -56,6 +56,13 @@
   /* Third-party brand colors */
   --color-twitter: #1da1f2;
 
+  /* Monad ecosystem token — used for MON-value numbers (balances, bids, TVL).
+     Use a 4.7:1 contrast violet-600 against #F7F6F2 cream canvas so digits stay
+     legible at small sizes (never the loud lime/tertiary accent). */
+  --color-monad: #6d28d9;                  /* Monad violet-700 (default text) */
+  --color-monad-soft: rgba(109, 40, 217, 0.10); /* pill / tag backdrop */
+  --color-on-monad: #ffffff;               /* white text on monad fill */
+
   /* Continent palette — these are globally locked by spec */
   --color-continent-americas: #4caf50;
   --color-continent-europe: #5b9bd5;
@@ -196,12 +203,38 @@ li {
   }
 }
 
-/* Subtle grid texture (spec §7.1) — meant for hero / map containers */
-.grid-bg {
-  background-size: 32px 32px;
+/* ==============================================================
+   CARD-LEVEL decorative accents (replaces old .grid-bg mesh)
+   — per §7 Decorative Elements: small corner seeds only.
+   · NO multiply blend, NO global opacity (that made cards look
+     fogged / masked); each deco layer is transparent on its own.
+   · Use this on hero panels, KOL headers, div-pool cards…
+   ============================================================== */
+.card-deco {
   background-image:
-    linear-gradient(rgba(17, 17, 17, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 17, 17, 0.03) 1px, transparent 1px);
+    /* top-left: tiny halftone 4-dot cluster (primary lime) */
+    radial-gradient(circle at 6% 6%, var(--color-primary) 1.4px, transparent 1.8px),
+    radial-gradient(circle at 9% 10%, var(--color-primary) 1.1px, transparent 1.5px),
+    radial-gradient(circle at 12% 5%, var(--color-primary) 1.1px, transparent 1.5px),
+    radial-gradient(circle at 10% 14%, var(--color-primary) 1px, transparent 1.4px),
+    /* bottom-right: 2 concentric outline rings (monad violet), ~16px across */
+    radial-gradient(circle at 94% 93%, transparent 11px, var(--color-monad) 11.3px, var(--color-monad) 12.5px, transparent 12.8px),
+    radial-gradient(circle at 94% 93%, transparent 7px, var(--color-monad) 7.3px, var(--color-monad) 8.5px, transparent 8.8px),
+    /* top-right: 1 small rotated square mask (secondary coral square-corner) */
+    conic-gradient(from 45deg at 90% 10%, var(--color-secondary) 0 25%, transparent 25% 100%),
+    /* bottom-left: 2 short diagonal dashes (tertiary blue) */
+    linear-gradient(135deg, transparent 0 22%, var(--color-tertiary) 22% 23.2%, transparent 23.2% 25%, var(--color-tertiary) 25% 26.2%, transparent 26.2% 100%),
+    /* 4 scattered seed dots, 1px each */
+    radial-gradient(circle at 28% 58%, var(--color-error) 1px, transparent 1.4px),
+    radial-gradient(circle at 55% 28%, var(--color-primary) 1.1px, transparent 1.5px),
+    radial-gradient(circle at 74% 65%, var(--color-tertiary) 1px, transparent 1.4px),
+    radial-gradient(circle at 18% 82%, var(--color-monad) 1px, transparent 1.4px);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.card-deco > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Hard 3px border (neo-brutalist card / button stroke) */

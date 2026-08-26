@@ -22,7 +22,7 @@ const NFT_STATS_LABEL_MAP: Record<string, string> = {
 const NFT_STATS_CLASSES: Record<string, string> = {
   supply: 'text-black',
   staked: 'text-secondary',
-  holders: 'text-primary',
+  holders: 'text-black',
 };
 
 /** NFT floor price chart, stats and mint CTA. */
@@ -39,7 +39,7 @@ export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPa
           <span className="font-mono text-[10px] uppercase font-black text-on-surface-variant">
             Floor Price
           </span>
-          <div className="font-mono text-xl font-black text-secondary">{info.floorPrice}</div>
+          <div className="font-mono text-xl font-black text-monad">{info.floorPrice}</div>
         </div>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={floorPriceHistory} margin={{ top: 20, right: 5, left: -25, bottom: 0 }}>
@@ -104,7 +104,7 @@ export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPa
           <span className="font-mono text-xs font-bold text-on-surface-variant uppercase flex items-center gap-1">
             <TrendingUp className="w-4 h-4" /> Shared Revenue
           </span>
-          <span className="font-mono text-sm font-black text-primary">{info.sharedRevenue}</span>
+          <span className="font-mono text-sm font-black text-monad">{info.sharedRevenue}</span>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPa
       >
         <span>MINT NFT</span>
         <div className="w-1.5 h-1.5 rounded-full bg-white/50" aria-hidden="true" />
-        <span className="text-secondary">{info.mintPrice}</span>
+        <span className="text-monad">{info.mintPrice}</span>
       </button>
     </div>
   );

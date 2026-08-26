@@ -126,7 +126,7 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
                   <div className="font-mono text-[10px] uppercase font-black text-on-surface-variant">
                     Starting Bid
                   </div>
-                  <div className="font-display font-black text-2xl text-primary leading-tight">
+                  <div className="font-display font-black text-2xl text-monad leading-tight">
                     {a.bidPrice}
                   </div>
                 </div>

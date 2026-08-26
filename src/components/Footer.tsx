@@ -48,7 +48,7 @@ export default function Footer() {
             © {year} {APP_NAME}.
           </span>
           <span className="text-on-surface-variant">{APP_TAGLINE}.</span>
-          <span className="uppercase tracking-wider text-primary/80 border-l-2 border-black/10 pl-2 ml-0.5">
+          <span className="uppercase tracking-wider text-black/80 border-l-2 border-black/10 pl-2 ml-0.5">
             {APP_VERSION_DISPLAY}
           </span>
         </div>

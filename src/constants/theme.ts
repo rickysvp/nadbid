@@ -39,6 +39,16 @@ export const THEME = {
   warning: '#D18A28',
   error: '#C94545',
 
+  /**
+   * Monad ecosystem token — used for MON-value numerical displays
+   * (balances, bid amounts, TVL, prices, payout, divisible rewards, etc.).
+   * High-contrast violet against #F7F6F2 cream canvas — contrast ratio ≈4.7:1
+   * at 12px+. Never show MON figures in the loud lime primary.
+   */
+  monad: '#6D28D9',
+  monadSoft: 'rgba(109, 40, 217, 0.10)',
+  onMonad: '#FFFFFF',
+
   // Continent palette — locked globally by spec §2.5
   continent: {
     americas: '#4CAF50',

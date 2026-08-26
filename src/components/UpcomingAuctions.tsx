@@ -117,7 +117,7 @@ export default function UpcomingAuctions({ auctions, showCount = false }: Upcomi
                   </span>
                 </div>
                 <div className="flex justify-between items-end">
-                  <span className="font-mono font-black text-[22px] text-primary leading-none">
+                  <span className="font-mono font-black text-[22px] text-monad leading-none">
                     {auction.bidPrice}
                   </span>
                   <span className="font-mono font-black text-[18px] text-black leading-none tabular-nums">

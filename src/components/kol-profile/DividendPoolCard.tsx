@@ -25,10 +25,7 @@ export default function DividendPoolCard({ handle, dividendPool }: DividendPoolC
   const countdownStr = useLiveCountdown(dividendPool.nextSettlementAtUtcMs);
 
   return (
-    <section className="relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden bg-surface-container-low grid-bg">
-      {/* Decorative blobs (§7.2) — flat opaque colors, no gradient */}
-      <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-24 -left-10 w-64 h-64 rounded-full bg-tertiary opacity-25 pointer-events-none" aria-hidden />
+    <section className="relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden bg-surface-container-low card-deco">
       <div className="px-5 md:px-7 pt-5 md:pt-6 pb-5 flex flex-col gap-4 md:gap-5 relative z-10">
         {/* Row 1：左 Pool label · 右 倒计时大 Pill（两块并排不堆内联） */}
         <div className="flex flex-wrap items-center justify-between gap-3 md:gap-5">
