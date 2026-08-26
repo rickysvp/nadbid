@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Gavel } from 'lucide-react';
+import AuctionRulesPanel from '@/components/auction-detail/AuctionRulesPanel';
 import AuctionSummaryCard from '@/components/auction-detail/AuctionSummaryCard';
 import BidBoard from '@/components/auction-detail/BidBoard';
 import FulfillmentStatus from '@/components/auction-detail/FulfillmentStatus';
@@ -97,6 +98,7 @@ export default function AuctionDetail() {
             }
           />
           <FulfillmentStatus info={fulfillmentInfo} />
+          <AuctionRulesPanel />
         </div>
       </section>
     </main>

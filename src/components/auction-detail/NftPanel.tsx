@@ -14,6 +14,11 @@ const NFT_STATS_LABELS: Array<keyof Pick<NftInfo, 'supply' | 'staked' | 'holders
   'staked',
   'holders',
 ];
+const NFT_STATS_LABEL_MAP: Record<string, string> = {
+  supply: 'SUPPLY',
+  staked: 'STAKING',
+  holders: 'HOLDERS',
+};
 const NFT_STATS_CLASSES: Record<string, string> = {
   supply: 'text-black',
   staked: 'text-secondary',
@@ -23,7 +28,7 @@ const NFT_STATS_CLASSES: Record<string, string> = {
 /** NFT floor price chart, stats and mint CTA. */
 export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPanelProps) {
   return (
-    <div className="bg-zinc-100 rounded-2xl p-6 md:p-8 border-3 border-black shadow-neo-lg flex flex-col transform rotate-1">
+    <div className="bg-bg-deep rounded-xl p-6 md:p-8 border-3 border-black shadow-neo-lg flex flex-col">
       <h3 className="font-display text-2xl font-black mb-4 flex items-center gap-2 text-black">
         <Sparkles className="w-6 h-6 stroke-[2.5]" />
         {info.name}
@@ -76,10 +81,10 @@ export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPa
         {NFT_STATS_LABELS.map((key) => (
           <div
             key={key}
-            className="bg-white border-2 border-black rounded-xl p-3 shadow-neo-sm flex flex-col items-center text-center capitalize"
+            className="bg-white border-2 border-black rounded-xl p-3 shadow-neo-sm flex flex-col items-center text-center"
           >
             <span className="font-mono text-[10px] font-bold text-on-surface-variant uppercase mb-1">
-              {key}
+              {NFT_STATS_LABEL_MAP[key]}
             </span>
             <span className={`font-mono text-lg font-black ${NFT_STATS_CLASSES[key]}`}>
               {info[key]}
@@ -106,7 +111,7 @@ export default function NftPanel({ info, floorPriceHistory, onMintClick }: NftPa
       <button
         type="button"
         onClick={onMintClick}
-        className="bg-black text-white w-full py-4 rounded-xl font-display font-black text-xl hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_var(--color-primary)] active:translate-y-0 active:shadow-none transition-all flex items-center justify-center gap-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] mt-auto"
+        className="bg-black text-white w-full px-6 py-3 rounded-lg font-display font-black text-xl btn-hover active:scale-95 flex items-center justify-center gap-3 border-2 border-black shadow-dark-btn mt-auto"
       >
         <span>MINT NFT</span>
         <div className="w-1.5 h-1.5 rounded-full bg-white/50" aria-hidden="true" />

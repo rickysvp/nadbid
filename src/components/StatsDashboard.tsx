@@ -20,7 +20,7 @@ export default function StatsDashboard({ stats }: StatsDashboardProps) {
         return (
           <div
             key={stat.id}
-            className="bg-white rounded-[2rem] p-6 shadow-neo-lg flex flex-col justify-center border-3 border-black flex-1 min-h-[150px] hover:-translate-y-1 transition-transform cursor-default"
+            className="bg-white rounded-xl p-6 shadow-neo-lg flex flex-col justify-center border-3 border-black flex-1 min-h-[150px] hover:-translate-y-1 transition-transform cursor-default"
           >
             <div className="flex items-center gap-2 mb-4 text-primary">
               <Icon className="w-5 h-5" />

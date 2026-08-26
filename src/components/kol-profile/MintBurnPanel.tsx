@@ -74,7 +74,7 @@ function RulesModal({
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-black/55 backdrop-blur-sm"
       />
-      <div className="relative z-10 w-full max-w-2xl max-h-[86vh] overflow-y-auto rounded-3xl border-3 border-black bg-white shadow-neo-xl">
+      <div className="relative z-10 w-full max-w-2xl max-h-[86vh] overflow-y-auto rounded-2xl border-3 border-black bg-white shadow-neo-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b-2 border-black bg-[#FFF8E7] px-5 md:px-6 py-4">
           <div className="flex items-center gap-2 font-mono text-xs uppercase font-black tracking-wider text-black">
             <BookOpen className="w-4 h-4 text-tertiary" strokeWidth={2.4} /> Rules · @{handle}
@@ -282,7 +282,7 @@ export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) 
   };
 
   return (
-    <section className="rounded-3xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
+    <section className="rounded-2xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
       {/* Header：左标题+次要元信息 · 右上角 RULES 弹窗入口 */}
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 md:px-8 py-5 md:py-6 border-b-2 border-black bg-surface-container-lowest">
         <div className="min-w-0">

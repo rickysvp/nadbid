@@ -68,24 +68,25 @@ export default function KOLs() {
     <main className="flex-grow pb-20 pt-10 px-container-padding">
       <div className="w-full max-w-7xl mx-auto">
         {/* Header */}
-        <section className="w-full rounded-[2.5rem] bg-primary text-white border-3 border-black shadow-neo-lg p-8 md:p-12 relative overflow-hidden mb-10 transform -rotate-[0.25deg]">
+        <section className="w-full rounded-2xl bg-primary text-black border-3 border-black shadow-neo-lg p-8 md:p-12 relative overflow-hidden mb-10 grid-bg">
+          {/* Decorative flat blobs (§7.2) — no gradient, no blur */}
           <div
-            className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-tertiary/30 border-3 border-black"
+            className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-tertiary opacity-30 border-3 border-black pointer-events-none"
             aria-hidden
           />
           <div
-            className="absolute -bottom-24 -left-10 w-56 h-56 rounded-full bg-secondary/20 border-3 border-black"
+            className="absolute -bottom-24 -left-10 w-56 h-56 rounded-full bg-secondary opacity-20 border-3 border-black pointer-events-none"
             aria-hidden
           />
 
           <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-white text-black font-mono font-black text-xs uppercase border-2 border-black px-3 py-1.5 rounded-full shadow-neo-sm mb-5 transform -rotate-1">
+            <div className="inline-flex items-center gap-2 bg-white text-black font-mono font-black text-xs uppercase border-2 border-black px-3 py-1.5 rounded-full shadow-neo-sm mb-5">
               <GraduationCap className="w-4 h-4" /> The KOL Directory
             </div>
             <h1 className="font-display font-black text-4xl md:text-6xl leading-[1.05] tracking-tight mb-4">
               Back a creator. <span className="text-tertiary">Trade their attention.</span>
             </h1>
-            <p className="font-body text-lg md:text-xl text-white/90 font-bold leading-relaxed mb-8 max-w-2xl">
+            <p className="font-body text-lg md:text-xl text-black/85 font-bold leading-relaxed mb-8 max-w-2xl">
               Every KOL has their own bonding curve ticket. Buy early, sell on hype, earn rewards
               when they hit new milestones — all on-chain and transparent.
             </p>
@@ -97,9 +98,9 @@ export default function KOLs() {
               >
                 Explore top KOL →
               </Link>
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur text-white px-5 py-3 rounded-full font-mono font-black text-[12px] uppercase border-2 border-white/30">
+              <div className="inline-flex items-center gap-2 bg-black/5 text-black px-5 py-3 rounded-full font-mono font-black text-[12px] uppercase border-2 border-black/30">
                 <Search className="w-4 h-4" />
-                <span className="text-white/80 hidden sm:inline">Beta · 4 creators live</span>
+                <span className="text-black/80 hidden sm:inline">Beta · 4 creators live</span>
                 <span className="sm:hidden">Beta · 4 live</span>
               </div>
             </div>
@@ -124,7 +125,7 @@ export default function KOLs() {
                 className={cn(
                   'px-4 py-1.5 font-mono text-[11px] uppercase font-black transition-all rounded-full',
                   activeFilter === tag
-                    ? 'bg-primary text-white shadow-neo-sm'
+                    ? 'bg-primary text-black shadow-neo-sm'
                     : 'text-black hover:bg-black/5',
                 )}
               >
@@ -141,7 +142,7 @@ export default function KOLs() {
           </div>
         )}
         {error && !isLoading && (
-          <div className="bg-white border-3 border-black rounded-3xl shadow-neo-xl p-8 text-center max-w-md mx-auto">
+          <div className="bg-white border-3 border-black rounded-2xl shadow-neo-xl p-8 text-center max-w-md mx-auto">
             <X className="w-12 h-12 text-error mx-auto mb-3" />
             <h2 className="font-display font-black text-2xl mb-2">Failed to load KOLs</h2>
             <p className="font-body text-on-surface-variant font-bold">Try refreshing the page.</p>
@@ -149,7 +150,7 @@ export default function KOLs() {
         )}
 
         {!isLoading && filteredKols.length === 0 && (
-          <div className="bg-white border-3 border-black rounded-3xl shadow-neo-xl p-10 text-center max-w-md mx-auto">
+          <div className="bg-white border-3 border-black rounded-2xl shadow-neo-xl p-10 text-center max-w-md mx-auto">
             <X className="w-12 h-12 text-on-surface-variant mx-auto mb-3" />
             <h2 className="font-display font-black text-2xl mb-2">No creators match</h2>
             <p className="font-body text-on-surface-variant font-bold mb-5">
@@ -158,7 +159,7 @@ export default function KOLs() {
             <button
               type="button"
               onClick={() => setActiveFilter('All')}
-              className="bg-primary text-on-primary px-6 py-3 rounded-full font-mono font-bold uppercase text-sm border-2 border-black shadow-neo-md btn-hover"
+              className="bg-primary text-black px-6 py-3 rounded-full font-mono font-bold uppercase text-sm border-2 border-black shadow-neo-md btn-hover"
             >
               Show all creators
             </button>
@@ -171,17 +172,29 @@ export default function KOLs() {
               <Link
                 to={`/kols/${kol.handle}`}
                 key={kol.handle}
-                className="group relative rounded-[2rem] border-3 border-black shadow-neo-lg bg-surface-container-lowest overflow-hidden transform rotate-[-0.5deg] hover:rotate-0 hover:-translate-y-1 transition-all flex flex-col"
+                className="group relative rounded-2xl border-3 border-black shadow-neo-lg bg-surface-container-lowest overflow-hidden hover:-translate-y-1 transition-all flex flex-col"
               >
-                {/* Banner with gradient */}
+                {/* Banner — grid texture + flat accent strip, NO soft gradient (§1.2) */}
                 <div
                   className={cn(
-                    'h-24 w-full bg-gradient-to-br border-b-3 border-black relative',
-                    kol.bannerAccentClass,
+                    'h-24 w-full border-b-3 border-black relative grid-bg',
+                    // bannerAccentClass contains gradient tokens like "from-primary via-purple-400 to-pink-500"
+                    // we keep the first token via regex to map to a flat solid background:
+                    kol.bannerAccentClass.replace(/from-(\S+)\s+via-\S+\s+to-\S+/, (_, $1) =>
+                      $1 === 'primary'
+                        ? 'bg-brand-100'
+                        : $1 === 'secondary'
+                          ? 'bg-secondary/40'
+                          : $1 === 'tertiary'
+                            ? 'bg-tertiary/40'
+                            : 'bg-error/25',
+                    ),
                   )}
                 >
+                  {/* Accent diagonal stripes instead of gradient */}
+                  <div className="absolute inset-0 opacity-40 [background:repeating-linear-gradient(135deg,transparent_0px,transparent_10px,rgba(17,17,17,0.14)_10px,rgba(17,17,17,0.14)_12px)] pointer-events-none" aria-hidden />
                   {kol.verified && (
-                    <div className="absolute top-3 right-3 bg-primary text-white inline-flex items-center gap-1 font-mono text-[10px] uppercase font-black border-2 border-black px-2.5 py-1 rounded-full shadow-neo-sm transform rotate-2">
+                    <div className="absolute top-3 right-3 bg-primary text-black inline-flex items-center gap-1 font-mono text-[10px] uppercase font-black border-2 border-black px-2.5 py-1 rounded-full shadow-neo-sm">
                       <BadgeCheck className="w-3.5 h-3.5" /> Verified
                     </div>
                   )}
@@ -228,7 +241,7 @@ export default function KOLs() {
                 </div>
 
                 {/* Hover CTA chip */}
-                <div className="absolute bottom-5 right-5 bg-primary text-white px-3.5 py-1.5 rounded-full font-mono text-[11px] uppercase font-black border-2 border-black shadow-neo-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all pointer-events-none">
+                <div className="absolute bottom-5 right-5 bg-primary text-black px-3.5 py-1.5 rounded-full font-mono text-[11px] uppercase font-black border-2 border-black shadow-neo-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all pointer-events-none">
                   View Profile →
                 </div>
               </Link>

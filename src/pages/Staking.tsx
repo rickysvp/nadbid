@@ -68,8 +68,8 @@ function StakeGuides() {
   ];
 
   return (
-    <div className="rounded-3xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 md:px-8 py-5 border-b-2 border-black bg-[#FFF8E7]">
+    <div className="rounded-2xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 md:px-8 py-5 border-b-2 border-black bg-brand-50/70">
         <div className="min-w-0">
           <h2 className="font-display font-black text-xl md:text-2xl uppercase tracking-tight text-black leading-tight">
             Stake &amp; Earn · 权益说明
@@ -234,7 +234,7 @@ function StakingKolCard({ profile }: { profile: KolProfile }) {
   };
 
   return (
-    <div className="rounded-3xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
+    <div className="rounded-2xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 px-5 md:px-6 py-4 border-b-2 border-black bg-surface-container-lowest">
         <img
           src={avatarUrl}

@@ -80,10 +80,44 @@ const BIDDER_POOL: Pick<Bidder, 'address' | 'nickname' | 'handle' | 'avatarUrl'>
     avatarUrl:
       'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=100',
   },
+  {
+    address: '0x77...D2cA',
+    nickname: 'Moon Dev',
+    handle: '@0xMoonDev',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
+  },
+  {
+    address: '0xD3...9e0F',
+    nickname: 'Satoshi Jr.',
+    handle: '@SatoshiJr',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1463453091185-61582044d556?auto=format&fit=crop&q=80&w=100',
+  },
+  {
+    address: '0xA1...7f6E',
+    nickname: null,
+    handle: null,
+    avatarUrl: null,
+  },
+  {
+    address: '0x8b...A319',
+    nickname: 'Defi Llama',
+    handle: '@LlamaDefi',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100',
+  },
+  {
+    address: '0xF0...5Ba7',
+    nickname: 'Alpha Chad',
+    handle: '@AlphaChad',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100',
+  },
 ];
 
 /** Relative bid-depth per tier, used to split totalBids across the board. */
-const TIER_BID_RATIOS = [10, 6, 4, 2, 1];
+const TIER_BID_RATIOS = [10, 6, 4, 3, 2.5, 2, 1.5, 1.2, 1, 0.8];
 
 const parseMonAmount = (price: string): number => {
   const n = Number.parseFloat(price.replace(/[^0-9.]/g, ''));
@@ -104,9 +138,35 @@ function buildBidBoard(auction: KolAuction): { board: Bidder[]; latest: Bidder }
     };
   });
 
-  // The most recent placed bid is the current leader (rank #1) — the banner
-  // bidder always exists on the board and is chronologically last.
-  return { board, latest: board[0] };
+  // Rank #1 → highest cumulative bid amount (board is sorted descending).
+  board.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount));
+  board.forEach((b, i) => {
+    b.rank = i + 1;
+  });
+
+  // Per SPEC §6.4 + §6.5: lastBidder is updated by `updateLastBidder(bidder)`
+  // for every BidPlaced — it reflects CHRONOLOGICAL order (most recent tx),
+  // which does NOT always equal rank #1. For the mock we pick a "live last"
+  // by looking at the auction's latest bidder handle / deterministically
+  // rotating through the pool so the banner and the #1 rank are visually
+  // distinct and the banner's "latest" label is honest.
+  const lastIdx =
+    typeof auction.totalBids === 'number'
+      ? auction.totalBids % BIDDER_POOL.length
+      : (BIDDER_POOL.length - 2 + BIDDER_POOL.length) % BIDDER_POOL.length;
+  const lastIdentity = BIDDER_POOL[lastIdx];
+  const lastBidCount = Math.max(
+    1,
+    Math.round((totalBids * TIER_BID_RATIOS[lastIdx]) / TIER_BID_RATIOS[0]),
+  );
+  const latest: Bidder = {
+    rank: board.find((b) => b.address === lastIdentity.address)?.rank ?? lastIdx + 1,
+    ...lastIdentity,
+    totalAmount: (lastBidCount * unit).toFixed(1),
+    bidCount: lastBidCount,
+  };
+
+  return { board, latest };
 }
 
 /* ---------- Lookup across every KOL bundle ---------- */
@@ -159,12 +219,28 @@ export function buildAuctionDetail(rawId: string): AuctionDetailData {
 
   // NFT panel mirrors the KOL profile numbers exactly (supply / staked / price),
   // so the two pages can never disagree again.
+  //
+  // IMPORTANT: `profile.holders` is a *KOL account-level* metric (follower-scale number),
+  // NOT the count of unique addresses holding the KOL's NFT. For the NFT stats panel we
+  // must show a unique-NFT-holder count, which is strictly < totalSupplyNfts (you can't
+  // have more holder addresses than issued NFTs). Derive it from supply so the ratio is
+  // always consistent across KOLs.
+  const uniqueNftHolderRatioByKol: Record<string, number> = {
+    CryptoChad: 0.62,
+    NFTQueen: 0.71,
+    DogeFather: 0.48,
+    CryptoKing: 0.55,
+  };
+  const uniqueHolderCount = Math.round(
+    profile.market.totalSupplyNfts *
+      (uniqueNftHolderRatioByKol[profile.handle] ?? 0.55),
+  );
   const nftInfo: NftInfo = {
     name: `${profile.nickname} NFT`,
     floorPrice: profile.market.currentPrice,
     supply: profile.market.totalSupplyNfts.toLocaleString('en-US'),
     staked: profile.market.totalStakedNfts.toLocaleString('en-US'),
-    holders: profile.holders,
+    holders: uniqueHolderCount.toLocaleString('en-US'),
     revenueShare: `${profile.dividendPool.ratioBps / 100}% of KOL Revenue`,
     sharedRevenue: formatTokenAmount(profile.dividendPool.pendingThisWeekMon),
     mintPrice: profile.market.currentPrice,

@@ -44,10 +44,10 @@ export default function KolRecords({
   ];
 
   return (
-    <section className="rounded-3xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
+    <section className="rounded-2xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
       {/* Header sticker + tab bar */}
       <header className="relative px-6 md:px-8 pt-6 pb-4 md:pb-5 bg-surface-container-lowest border-b-2 border-black">
-        <div className="inline-flex items-center gap-1.5 bg-black text-white font-mono font-black text-[11px] uppercase border-2 border-black px-4 py-1.5 shadow-neo-sm transform -rotate-1 mb-5">
+        <div className="inline-flex items-center gap-1.5 bg-black text-white font-mono font-black text-[11px] uppercase border-2 border-black px-4 py-1.5 shadow-neo-sm mb-5">
           <History className="w-3.5 h-3.5" /> Records · @{handle}
         </div>
 
@@ -122,7 +122,7 @@ export default function KolRecords({
                   className={cn(
                     'inline-flex items-center gap-1 px-4 py-1.5 font-mono text-[11px] uppercase font-black transition-all',
                     filter === f
-                      ? 'bg-primary text-white rounded-full shadow-neo-sm'
+                      ? 'bg-primary text-black rounded-full shadow-neo-sm'
                       : 'text-black hover:bg-black/5',
                   )}
                 >

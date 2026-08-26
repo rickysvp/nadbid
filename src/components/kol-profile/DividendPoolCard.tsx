@@ -25,8 +25,11 @@ export default function DividendPoolCard({ handle, dividendPool }: DividendPoolC
   const countdownStr = useLiveCountdown(dividendPool.nextSettlementAtUtcMs);
 
   return (
-    <section className="rounded-3xl border-3 border-black shadow-neo-xl bg-gradient-to-br from-[#E8F5FF] via-[#F2ECFF] to-[#FFE9F1] overflow-hidden">
-      <div className="px-5 md:px-7 pt-5 md:pt-6 pb-5 flex flex-col gap-4 md:gap-5">
+    <section className="relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden bg-surface-container-low grid-bg">
+      {/* Decorative blobs (§7.2) — flat opaque colors, no gradient */}
+      <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-24 -left-10 w-64 h-64 rounded-full bg-tertiary opacity-25 pointer-events-none" aria-hidden />
+      <div className="px-5 md:px-7 pt-5 md:pt-6 pb-5 flex flex-col gap-4 md:gap-5 relative z-10">
         {/* Row 1：左 Pool label · 右 倒计时大 Pill（两块并排不堆内联） */}
         <div className="flex flex-wrap items-center justify-between gap-3 md:gap-5">
           <div className="inline-flex items-center gap-2 font-mono text-[11px] md:text-xs uppercase font-black border-2 border-black px-3.5 py-1.5 bg-black text-white rounded-full shadow-neo-sm">
@@ -48,7 +51,7 @@ export default function DividendPoolCard({ handle, dividendPool }: DividendPoolC
         {/* Row 2：三句短说明（小屏单列 md 三列），替代长段文 */}
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 text-[13px] md:text-sm font-body">
           <li className="flex items-start gap-2.5 bg-white/90 border-2 border-black/10 rounded-2xl px-3.5 py-3 shadow-sm">
-            <span className="shrink-0 inline-flex w-7 h-7 items-center justify-center rounded-full bg-primary text-white font-mono text-[11px] font-black shadow-neo-sm">
+            <span className="shrink-0 inline-flex w-7 h-7 items-center justify-center rounded-full bg-primary text-black font-mono text-[11px] font-black shadow-neo-sm">
               ①
             </span>
             <p className="text-black/80 leading-snug">

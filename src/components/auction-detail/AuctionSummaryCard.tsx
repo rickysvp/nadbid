@@ -5,7 +5,7 @@ import type { AuctionKolWithHandle, AuctionLiveStats, KolAuctionStatus } from '@
 import { normalizeKolHandle } from '@/utils/format';
 
 const STATUS_LABEL: Record<KolAuctionStatus, string> = {
-  ongoing: 'Live Now',
+  ongoing: 'Ongoing',
   upcoming: 'Upcoming',
   past: 'Settled',
 };
@@ -33,7 +33,7 @@ export default function AuctionSummaryCard({
     <div className="bg-surface-container-lowest rounded-2xl p-5 md:p-6 border-3 border-black shadow-neo-lg relative">
       <StatusBadge
         label={STATUS_LABEL[status]}
-        className="absolute top-4 right-4 md:top-6 md:right-6 gap-2 px-4 py-1.5 text-[10px] border-2 border-black shadow-neo-sm transform rotate-2"
+        className="absolute top-4 right-4 gap-2 px-4 py-1.5 text-[10px] border-2 border-black shadow-neo-sm"
       />
 
       <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 mb-5 mt-2 md:mt-0">
@@ -80,7 +80,7 @@ export default function AuctionSummaryCard({
         </div>
       </div>
 
-      <p className="font-body text-sm text-on-surface-variant mb-5 bg-zinc-100 p-4 rounded-xl border-2 border-black shadow-neo-md transform -rotate-1">
+      <p className="font-body text-sm text-on-surface-variant mb-5 bg-bg-deep p-4 rounded-xl border-2 border-black shadow-neo-md">
         {description}
       </p>
 
@@ -114,9 +114,9 @@ export default function AuctionSummaryCard({
       <button
         type="button"
         onClick={onPlaceBid}
-        className="bg-primary text-white w-full py-4 rounded-xl font-display font-black text-xl btn-hover active:scale-95 flex items-center justify-center gap-3 border-3 border-black shadow-neo-md"
+        className="bg-primary text-black w-full px-6 py-3 rounded-lg font-display font-black text-xl btn-hover active:scale-95 flex items-center justify-center gap-3 border-2 border-black shadow-neo-lg"
       >
-        <Gavel className="w-6 h-6 fill-white stroke-black stroke-2" />
+        <Gavel className="w-6 h-6 fill-black stroke-black stroke-2" />
         PLACE BID
       </button>
     </div>

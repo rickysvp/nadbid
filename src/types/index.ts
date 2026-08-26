@@ -17,6 +17,8 @@ export interface OngoingAuction {
   /** Canonical auction id used for routing (`/auctions/:id`). */
   id: string;
   kol: AuctionKol;
+  title: string;
+  description: string;
   tvl: string;
   participants: number;
   totalBids: number;
@@ -24,6 +26,10 @@ export interface OngoingAuction {
   timeLeft: string;
   /** Absolute end time (UTC ms) — when present, the card renders a live ticking countdown. */
   endsAtUtcMs?: number;
+  /** Absolute start time (UTC ms) — used only for upcoming-status cards inside the list. */
+  startsAtUtcMs?: number;
+  /** Auction lifecycle status. Cards render different status chips per status. */
+  status?: KolAuctionStatus;
   avatarAccentClass: string;
 }
 
@@ -47,10 +53,14 @@ export interface UpcomingAuction {
 export interface FeaturedAuction {
   kol: AuctionKolWithHandle;
   title: string;
+  description: string;
   countdown: string;
   /** Absolute target time (UTC ms) the hero countdown ticks towards (end for ongoing, start for upcoming). */
   countdownTargetUtcMs?: number;
   bidPrice: string;
+  tvl: string;
+  participants: number;
+  totalBids: number;
   routeId: string;
   /** Live-state of the featured slot; drives the status pill label. */
   status?: KolAuctionStatus;

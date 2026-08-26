@@ -12,7 +12,8 @@ const BADGE_ICON: Record<KolBadge['id'], typeof BadgeCheck> = {
 const BADGE_COLOR: Record<KolBadge['id'], string> = {
   verified: 'bg-secondary text-black',
   og: 'bg-tertiary text-black',
-  top100: 'bg-primary text-white',
+  // busy.land spec §2.2: primary CTA yellow = #DDEA54. Text on yellow MUST be black.
+  top100: 'bg-primary text-black',
 };
 
 interface ProfileHeaderCardProps {
@@ -54,85 +55,64 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
       <div className="relative mb-5">
         <article
           className={cn(
-            'relative rounded-[28px] border-3 border-black shadow-neo-xl overflow-hidden p-6 md:p-8 bg-gradient-to-br',
-            bannerAccentClass,
+            // busy.land spec:
+            //  - radius ≤ 20px → rounded-2xl (16px)
+            //  - NO soft gradients (§1.2 MUST NOT). Use warm cream canvas + grid
+            //    texture (§7.1) + decorative accent blobs instead of gradient.
+            //  - heavy 3px black border + hard offset xl shadow.
+            'relative rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden p-6 md:p-8 grid-bg bg-surface-container-low',
+            bannerAccentClass.replace(/bg-gradient-to-br\s+\S+/, ''),
           )}
         >
-          <div
-            className="absolute inset-0 opacity-50 pointer-events-none mix-blend-overlay"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 20% 15%, rgba(255,255,255,0.55) 0, transparent 38%), radial-gradient(circle at 80% 90%, rgba(0,0,0,0.25) 0, transparent 45%), linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)',
-              backgroundSize: 'auto, auto, 20px 20px, 20px 20px',
-            }}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute -top-1 -left-1 -right-1 h-2 bg-[linear-gradient(90deg,#ff00d4,#00eaff,#ffee00,#7c3aed,#ff00d4)] opacity-70"
-            aria-hidden
-          />
+          {/* Decorative corner blobs (§7.2) — opaque flat colors, no blur gradient */}
+          <div className="absolute -top-20 -right-16 w-60 h-60 rounded-full bg-primary opacity-30 pointer-events-none" aria-hidden />
+          <div className="absolute -bottom-24 -left-10 w-72 h-72 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
+
+          <div className="absolute -top-1 -left-1 -right-1 h-1.5 bg-primary border-b-2 border-black" aria-hidden />
 
           <div className="relative flex items-start justify-between mb-4 z-10">
-            <div className="bg-black text-white px-3 py-1.5 font-mono text-[10px] md:text-[11px] uppercase font-black tracking-widest border-2 border-black shadow-neo-sm transform -rotate-2">
+            <div className="bg-black text-white px-3 py-1.5 font-mono text-[10px] md:text-[11px] uppercase font-black tracking-widest border-2 border-black shadow-neo-sm">
               nadbid · #{String(rank).padStart(3, '0')}
             </div>
             {verified && (
-              <div className="bg-white text-black px-3 py-1.5 font-mono text-[10px] md:text-[11px] uppercase font-black tracking-wider border-2 border-black shadow-neo-sm transform rotate-2 flex items-center gap-1.5">
+              <div className="bg-white text-black px-3 py-1.5 font-mono text-[10px] md:text-[11px] uppercase font-black tracking-wider border-2 border-black shadow-neo-sm flex items-center gap-1.5">
                 <BadgeCheck className="w-3.5 h-3.5" strokeWidth={2.8} /> Verified
               </div>
             )}
           </div>
 
           <div className="relative z-10 flex flex-col items-center">
-            <div
-              className="absolute top-2 w-[190px] h-[190px] md:w-[230px] md:h-[230px] rounded-full blur-2xl opacity-60 bg-white/40"
-              aria-hidden
-            />
             <div className="relative">
+              {/* busy.land spec §8.4 — NO rotate/spin; §1.2 — NO conic soft gradients.
+                  Replace with flat triple-layer sticker border:
+                  outer primary/black ring → white padding → black border ring around photo */}
               <div
                 className={cn(
-                  'rounded-full p-[3px]',
-                  verified
-                    ? 'bg-[conic-gradient(from_0deg,#ffffff,#facc15,#22c55e,#3b82f6,#a855f7,#ec4899,#ffffff)] animate-[spin_8s_linear_infinite]'
-                    : 'bg-[conic-gradient(from_0deg,rgba(255,255,255,0.9),rgba(0,0,0,0.6),rgba(255,255,255,0.9))]',
+                  'rounded-full p-1.5 border-3 border-black shadow-neo-md',
+                  verified ? 'bg-primary' : 'bg-white',
                 )}
               >
-                <div className="rounded-full bg-white p-1.5 border-2 border-black shadow-neo-md">
-                  <div className="relative overflow-hidden rounded-full w-[170px] h-[170px] md:w-[208px] md:h-[208px] ring-1 ring-black/60">
+                <div className="rounded-full bg-white p-1 border-2 border-black">
+                  <div className="relative overflow-hidden rounded-full w-[170px] h-[170px] md:w-[208px] md:h-[208px] border-2 border-black">
                     <img
                       src={avatarUrl}
                       alt={nickname}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
-                    <div
-                      className="absolute inset-0 rounded-full pointer-events-none"
-                      style={{
-                        boxShadow:
-                          'inset 0 0 0 2px rgba(255,255,255,0.25), inset 0 -18px 40px 0 rgba(0,0,0,0.28)',
-                      }}
-                      aria-hidden
-                    />
                   </div>
                 </div>
               </div>
-              <div className="absolute -bottom-2 -right-1 bg-primary text-white px-3 py-1.5 font-mono text-[10px] uppercase font-black tracking-wider border-2 border-black shadow-neo-md transform rotate-[-6deg] flex items-center gap-1">
+              <div className="absolute -bottom-2 -right-1 bg-primary text-black px-3 py-1.5 font-mono text-[10px] uppercase font-black tracking-wider border-2 border-black shadow-neo-md flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" /> Mint me
               </div>
             </div>
 
             <div className="mt-8 md:mt-10 text-center w-full px-1">
-              <h1 className="font-display font-black text-2xl md:text-3xl leading-tight text-black drop-shadow-[0_2px_0_rgba(255,255,255,0.7)] tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+              <h1 className="font-display font-black text-2xl md:text-3xl leading-tight text-black tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
                 {nickname}
               </h1>
-              <p
-                className="mt-2 inline-flex items-center px-3 py-1 rounded-lg font-black text-sm md:text-lg text-white/95 bg-black/25 border border-white/35 drop-shadow-[0_2px_0_rgba(0,0,0,0.45)] whitespace-nowrap tabular-nums"
-                style={{
-                  fontFamily:
-                    '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                  letterSpacing: '0.02em',
-                }}
-              >
+              <p className="mt-2 inline-flex items-center px-3 py-1 rounded-lg font-mono font-black text-sm md:text-lg text-black bg-surface-container-lowest border-2 border-black shadow-neo-sm whitespace-nowrap tabular-nums tracking-wide">
                 @{handle}
               </p>
             </div>
@@ -142,7 +122,7 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
                 href={xUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="group flex-1 inline-flex items-center justify-center gap-2 bg-black text-white px-4 py-2.5 rounded-2xl font-mono text-[11px] md:text-xs uppercase font-black tracking-wider border-2 border-black shadow-neo-md btn-hover"
+                className="group flex-1 inline-flex items-center justify-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl font-mono text-[11px] md:text-xs uppercase font-black tracking-wider border-2 border-black shadow-neo-md btn-hover"
                 title={`Open ${handle} on X`}
               >
                 <svg
@@ -153,15 +133,7 @@ export default function ProfileHeaderCard({ profile, onJumpToRecords }: ProfileH
                 >
                   <path d="M18.244 2H21.5l-7.52 8.6L22.5 22h-6.84l-5.36-6.98L4.05 22H.79l8.02-9.18L.85 2h6.99l4.85 6.37L18.244 2Zm-2.4 18h1.9L7.25 4h-2l11 16Z" />
                 </svg>
-                <span
-                  style={{
-                    fontFamily:
-                      '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  X · @{handle}
-                </span>
+                <span className="font-mono tracking-wide">X · @{handle}</span>
                 <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </a>
               <button

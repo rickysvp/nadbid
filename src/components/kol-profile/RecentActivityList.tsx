@@ -123,10 +123,10 @@ export default function RecentActivityList({
   );
 
   return (
-    <section className="rounded-3xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
+    <section className="rounded-2xl border-3 border-black shadow-neo-xl bg-white overflow-hidden">
       {/* Title sticker + filter */}
       <header className="relative px-6 md:px-8 pt-6 pb-4 md:pb-5">
-        <div className="inline-block bg-tertiary text-black font-mono font-black text-[11px] uppercase border-2 border-black px-4 py-1.5 shadow-neo-sm transform -rotate-1 mb-4">
+        <div className="inline-block bg-tertiary text-black font-mono font-black text-[11px] uppercase border-2 border-black px-4 py-1.5 shadow-neo-sm mb-4">
           {title}
         </div>
         <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -142,7 +142,7 @@ export default function RecentActivityList({
                 className={cn(
                   'px-4 py-1.5 font-mono text-[11px] uppercase font-black transition-all',
                   filter === f
-                    ? 'bg-primary text-white rounded-full shadow-neo-sm'
+                    ? 'bg-primary text-black rounded-full shadow-neo-sm'
                     : 'text-black hover:bg-black/5',
                 )}
               >

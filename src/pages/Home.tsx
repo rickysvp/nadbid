@@ -67,18 +67,20 @@ export default function Home() {
           {featured ? (
             <FeaturedAuction auction={featured} />
           ) : (
-            <div className="w-full flex flex-col items-center justify-center gap-4 bg-surface-container-lowest rounded-[2.5rem] border-3 border-black shadow-neo-lg p-12 text-center">
-              <Gavel className="w-12 h-12 text-primary" />
-              <h2 className="font-display text-3xl font-black text-black">
+            <div className="w-full flex flex-col items-center justify-center gap-4 bg-surface-container-lowest rounded-2xl border-3 border-black shadow-neo-lg p-12 text-center grid-bg relative overflow-hidden">
+              <div className="absolute -top-16 -right-10 w-52 h-52 rounded-full bg-primary opacity-20 pointer-events-none" aria-hidden />
+              <div className="absolute -bottom-16 -left-8 w-44 h-44 rounded-full bg-secondary opacity-20 pointer-events-none" aria-hidden />
+              <Gavel className="w-12 h-12 text-primary relative z-10" />
+              <h2 className="font-display text-3xl font-black text-black relative z-10">
                 No featured auction right now
               </h2>
-              <p className="font-body text-lg font-bold text-on-surface-variant max-w-md leading-relaxed">
+              <p className="font-body text-lg font-bold text-on-surface-variant max-w-md leading-relaxed relative z-10">
                 The floor is quiet — browse the directory and back your favorite KOL before their
                 next drop goes live.
               </p>
               <Link
                 to="/kols"
-                className="bg-primary text-white px-8 py-3.5 rounded-full font-display font-black text-lg uppercase btn-hover border-3 border-black shadow-neo-md"
+                className="bg-primary text-black px-8 py-3.5 rounded-full font-display font-black text-lg uppercase btn-hover border-3 border-black shadow-neo-md relative z-10"
               >
                 Browse KOLs
               </Link>

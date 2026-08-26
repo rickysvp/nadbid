@@ -59,7 +59,7 @@ export default function NavBar() {
               <button
                 type="button"
                 onClick={disconnect}
-                className="bg-zinc-100 text-black px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-md font-bold"
+                className="bg-bg-deep text-black px-4 py-2 rounded-md font-mono text-xs uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-md font-bold"
                 title={address ? shortenAddress(address) : undefined}
               >
                 {address ? shortenAddress(address) : 'Disconnect'}
@@ -71,7 +71,7 @@ export default function NavBar() {
               onClick={() => void connect()}
               disabled={isLoading}
               className={cn(
-                'bg-primary text-on-primary px-6 py-2 rounded-full font-mono text-sm uppercase tracking-wider active:scale-95 transition-all border-2 border-black shadow-neo-lg font-bold flex items-center gap-2',
+                'bg-primary text-on-primary px-6 py-3 rounded-lg font-mono text-sm uppercase tracking-wider active:scale-95 transition-all border-2 border-black shadow-neo-lg font-bold flex items-center gap-2',
                 isLoading ? 'opacity-70 cursor-wait' : 'btn-hover',
               )}
             >
@@ -120,7 +120,7 @@ export default function NavBar() {
               <button
                 type="button"
                 onClick={disconnect}
-                className="shrink-0 bg-zinc-100 text-black px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-md font-bold"
+                className="shrink-0 bg-bg-deep text-black px-4 py-2 rounded-md font-mono text-xs uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-md font-bold"
               >
                 Disconnect
               </button>
@@ -131,7 +131,7 @@ export default function NavBar() {
               onClick={() => void connect()}
               disabled={isLoading}
               className={cn(
-                'bg-primary text-on-primary px-6 py-2 rounded-full font-mono text-sm uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-lg font-bold mt-2',
+                'bg-primary text-on-primary px-6 py-3 rounded-lg font-mono text-sm uppercase tracking-wider btn-hover active:scale-95 transition-all border-2 border-black shadow-neo-lg font-bold mt-2',
                 isLoading && 'opacity-70 cursor-wait',
               )}
             >

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Clock, Gavel, Sparkles } from 'lucide-react';
+import { CalendarDays, ChevronRight, Gavel, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { KolAuctionsBundle } from '@/types';
 import { cn } from '@/utils/cn';
@@ -20,14 +20,15 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
   const hasLive = ongoing.length > 0;
 
   return (
-    <section className="rounded-3xl border-3 border-black shadow-neo-xl overflow-hidden bg-white">
-      {/* 顶部彩色条 */}
-      <div
-        className={cn(
-          'h-2 w-full bg-[linear-gradient(90deg,#00F2EA,#FF0050,#FFDF3D,#7C3AED,#00F2EA)]',
-        )}
-        aria-hidden
-      />
+    <section className="rounded-2xl border-3 border-black shadow-neo-xl overflow-hidden bg-white">
+      {/* 顶部彩色条 — flat color blocks (§1.2: NO soft gradient) */}
+      <div className="h-2 w-full grid grid-cols-5 border-b-2 border-black" aria-hidden>
+        <div className="bg-primary" />
+        <div className="bg-secondary" />
+        <div className="bg-tertiary" />
+        <div className="bg-error/80" />
+        <div className="bg-primary" />
+      </div>
 
       <div className="px-5 md:px-7 py-5 md:py-6 flex flex-col gap-4">
         {/* Header：LIVE / SOON 状态 + handle */}
@@ -37,7 +38,7 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
               'inline-flex items-center gap-1.5 rounded-full font-mono text-[11px] uppercase font-black border-2 border-black px-4 py-1.5 shadow-neo-md',
               hasLive
                 ? 'bg-secondary text-black animate-pulse'
-                : 'bg-primary text-white',
+                : 'bg-primary text-black',
             )}
           >
             {hasLive ? (
@@ -64,15 +65,15 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
             <Link
               key={a.id}
               to={`/auctions/${a.id}`}
-              className="group flex flex-wrap items-center gap-4 rounded-2xl border-2 border-black bg-secondary/15 p-4 shadow-neo-md hover:-translate-y-[1px] hover:shadow-neo-lg transition-all"
+              className="group flex flex-wrap items-center gap-4 rounded-xl border-2 border-black bg-secondary/15 p-4 shadow-neo-md hover:-translate-y-[1px] hover:shadow-neo-lg transition-all"
             >
-              <div className="w-12 h-12 shrink-0 rounded-2xl bg-secondary/40 border-2 border-black flex items-center justify-center text-black shadow-neo-sm">
+              <div className="w-12 h-12 shrink-0 rounded-xl bg-secondary/40 border-2 border-black flex items-center justify-center text-black shadow-neo-sm">
                 <Gavel className="w-6 h-6" strokeWidth={2.3} />
               </div>
               <div className="min-w-0 flex-grow">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-black text-white px-2.5 py-1 font-mono text-[10px] uppercase font-black border-2 border-black shadow-neo-sm">
-                    <Clock className="w-3 h-3" /> Live Now · {a.timeLabel}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary text-black px-2.5 py-1 font-mono text-[10px] uppercase font-black border-2 border-black shadow-neo-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black pulse-live shrink-0" /> Ongoing
                   </span>
                 </div>
                 <h3 className="font-display font-black text-lg md:text-xl text-black leading-tight line-clamp-1">
@@ -91,7 +92,7 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
                     {a.bidPrice}
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2.5 rounded-full font-mono font-black text-xs uppercase border-2 border-black shadow-neo-md btn-hover">
+                <span className="inline-flex items-center gap-1.5 bg-primary text-black px-4 py-2.5 rounded-lg font-mono font-black text-xs uppercase border-2 border-black shadow-neo-md btn-hover">
                   Enter <ChevronRight className="w-4 h-4" />
                 </span>
               </div>
@@ -102,15 +103,15 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
             <Link
               key={a.id}
               to={`/auctions/${a.id}`}
-              className="group flex flex-wrap items-center gap-4 rounded-2xl border-2 border-black bg-primary/10 p-4 shadow-neo-md hover:-translate-y-[1px] hover:shadow-neo-lg transition-all"
+              className="group flex flex-wrap items-center gap-4 rounded-xl border-2 border-black bg-primary/10 p-4 shadow-neo-md hover:-translate-y-[1px] hover:shadow-neo-lg transition-all"
             >
-              <div className="w-12 h-12 shrink-0 rounded-2xl bg-primary/20 border-2 border-black flex items-center justify-center text-primary shadow-neo-sm">
+              <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/20 border-2 border-black flex items-center justify-center text-primary shadow-neo-sm">
                 <CalendarDays className="w-6 h-6" strokeWidth={2.3} />
               </div>
               <div className="min-w-0 flex-grow">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary text-white px-2.5 py-1 font-mono text-[10px] uppercase font-black border-2 border-black shadow-neo-sm">
-                    <Clock className="w-3 h-3" /> Starts {a.timeLabel}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary text-black px-2.5 py-1 font-mono text-[10px] uppercase font-black border-2 border-black shadow-neo-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse shrink-0 border border-black/40" /> Upcoming · {a.timeLabel}
                   </span>
                 </div>
                 <h3 className="font-display font-black text-lg md:text-xl text-black leading-tight line-clamp-1">
@@ -129,7 +130,7 @@ export default function ActiveAuctionEntry({ bundle }: ActiveAuctionEntryProps) 
                     {a.bidPrice}
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 bg-black text-white px-4 py-2.5 rounded-full font-mono font-black text-xs uppercase border-2 border-black shadow-neo-md btn-hover">
+                <span className="inline-flex items-center gap-1.5 bg-black text-white px-4 py-2.5 rounded-lg font-mono font-black text-xs uppercase border-2 border-black shadow-neo-md btn-hover">
                   Preview <ChevronRight className="w-4 h-4" />
                 </span>
               </div>

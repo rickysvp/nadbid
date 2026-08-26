@@ -33,12 +33,16 @@ knownKolHandles.forEach((handle, index) => {
     ongoingAuctions.push({
       id: ongoing.id,
       kol,
+      title: ongoing.title,
+      description: ongoing.description,
       tvl: (ongoing.tvl ?? '—').replace(/^\$/, ''),
       participants: ongoing.participants ?? 0,
       totalBids: ongoing.totalBids ?? 0,
       bidPrice: ongoing.bidPrice,
       timeLeft: ongoing.timeLabel,
       endsAtUtcMs: ongoing.endsAtUtcMs,
+      startsAtUtcMs: ongoing.startsAtUtcMs,
+      status: ongoing.status,
       avatarAccentClass: ACCENT_ROTATION[index % ACCENT_ROTATION.length],
     });
   }
@@ -83,9 +87,13 @@ function pickFeaturedAuction(): FeaturedAuction | null {
         avatarUrl: profile.avatarUrl,
       },
       title: live.title,
+      description: live.description,
       countdown: live.timeLabel,
       countdownTargetUtcMs: live.endsAtUtcMs ?? live.startsAtUtcMs,
       bidPrice: live.bidPrice,
+      tvl: (live.tvl ?? '—').replace(/^\$/, ''),
+      participants: live.participants ?? 0,
+      totalBids: live.totalBids ?? 0,
       routeId: live.id,
       status: live.status,
     };

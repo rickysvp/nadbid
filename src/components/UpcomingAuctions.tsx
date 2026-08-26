@@ -55,8 +55,7 @@ export default function UpcomingAuctions({ auctions, showCount = false }: Upcomi
                 }
               }}
               className={cn(
-                'bg-surface-container-lowest rounded-2xl p-6 shadow-neo-md relative overflow-hidden group cursor-pointer border-3 border-black hover:rotate-0 transition-transform flex flex-col outline-none focus:ring-4 focus:ring-primary/40',
-                auction.cardRotateClass,
+                'bg-surface-container-lowest rounded-xl p-6 shadow-neo-md relative overflow-hidden group cursor-pointer border-3 border-black transition-transform flex flex-col outline-none focus:ring-4 focus:ring-primary/40',
                 auction.visibilityClass ?? '',
               )}
             >
@@ -103,18 +102,12 @@ export default function UpcomingAuctions({ auctions, showCount = false }: Upcomi
               </div>
 
               <div className="mb-5 flex-grow">
-                <h5 className="font-body font-black text-lg text-black mb-1">{auction.title}</h5>
-                <p className="font-body text-sm text-on-surface-variant font-medium line-clamp-2">
+                <p className="font-body text-sm text-on-surface-variant font-medium line-clamp-3">
                   {auction.description}
                 </p>
               </div>
 
-              <div
-                className={cn(
-                  'bg-zinc-100 p-4 rounded-xl mb-5 border-2 border-black shadow-neo-md transform',
-                  auction.panelRotateClass,
-                )}
-              >
+              <div className="bg-surface-container-low p-4 rounded-lg mb-5 border-2 border-black shadow-neo-md">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-mono font-black text-on-surface-variant text-[10px] uppercase">
                     Bid Price
@@ -139,7 +132,7 @@ export default function UpcomingAuctions({ auctions, showCount = false }: Upcomi
                 <span className="font-mono font-black text-[12px] text-on-surface-variant">
                   View Auction Details
                 </span>
-                <div className="bg-primary text-white px-4 py-2 rounded-full font-mono font-black text-xs uppercase flex items-center gap-2 group-hover:scale-105 transition-transform border-2 border-black shadow-neo-sm">
+                <div className="bg-primary text-black px-4 py-2 rounded-md font-mono font-black text-xs uppercase flex items-center gap-2 group-hover:scale-105 transition-transform border-2 border-black shadow-neo-sm">
                   Enter
                   <ArrowRight className="w-4 h-4 stroke-3" />
                 </div>

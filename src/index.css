@@ -1,84 +1,186 @@
 @import 'tailwindcss';
 
+/* =========================================================================
+ * busy.land Design System v1.0 — Forced alignment tokens
+ * Source of truth: spec/design.md (MUST / MUST NOT)
+ * =======================================================================*/
+
 @theme {
-  --color-background: #fafafa;
-  --color-on-background: #000000;
+  /* ---------- Colors ---------- */
 
-  --color-primary: #7c3aed;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #8b5cf6;
-  --color-primary-fixed: #ede9fe;
+  /* Backgrounds: cream off-white (#F7F6F2) as default canvas, NEVER pure white */
+  --color-background: #f7f6f2;               /* --bg: page canvas */
+  --color-bg-deep: #ece9e2;                  /* --bg-deep: section divider */
+  --color-on-background: #111111;            /* --app-text: near-black, NOT #000 */
 
-  --color-secondary: #10b981;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #a7f3d0;
+  /* Panels / surfaces: near-white warm (#FFFEFD) */
+  --color-surface: #fffefd;                  /* --app-panel: cards */
+  --color-surface-dim: #ece9e2;              /* subtle surface variant */
+  --color-surface-container: #fffefd;
+  --color-surface-container-low: #f7f6f2;
+  --color-surface-container-lowest: #fffefd;
+  --color-on-surface: #111111;
+  --color-on-surface-variant: #696761;       /* --app-text-muted: warm muted */
 
-  --color-tertiary: #ffd23f;
-  --color-tertiary-container: #ffd23f;
-  --color-on-tertiary-container: #000000;
+  /* Borders (strong always #111111) */
+  --color-border: rgba(17, 17, 17, 0.24);    /* --border */
+  --color-border-strong: #111111;            /* --border-strong */
+  --color-border-subtle: rgba(17, 17, 17, 0.11); /* --border-subtle */
+  --color-border-divider: #8b8983;           /* --border-divider */
 
-  --color-error: #ef4444;
+  /* Brand - Lime (primary CTA) — mandatory for main actions */
+  --color-primary: #ddea54;                  /* --brand-300: PRIMARY = LIME YELLOW */
+  --color-on-primary: #111111;               /* black text on yellow CTA */
+  --color-primary-container: #f2f6a5;        /* --brand-100: label / tag backdrop */
+  --color-primary-fixed: #ddea54;
+  --color-primary-hover: #c9db3d;            /* --brand-500 pressed hover darken */
+  --color-primary-pressed: #cadb35;          /* --brand-500 active pressed */
+  --color-primary-deep: #9dac1f;             /* --brand-700 text on yellow */
 
-  --color-surface: #ffffff;
-  --color-surface-dim: #ded8e0;
-  --color-surface-container: #f3f4f6;
-  --color-surface-container-low: #f8f2fa;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #000000;
-  --color-on-surface-variant: #374151;
+  /* Secondary / accent */
+  --color-secondary: #f1715b;                /* --accent: coral red */
+  --color-on-secondary: #111111;
+  --color-secondary-container: rgba(241, 113, 91, 0.12); /* --app-accent-soft */
+
+  /* Tertiary on busy.land = yellow-ish highlight (compat alias) */
+  --color-tertiary: #ddea54;                 /* == brand-300, used by banners */
+  --color-tertiary-container: #f2f6a5;
+  --color-on-tertiary-container: #111111;
+
+  /* Functional ROI tokens — strict green / red palette */
+  --color-success: #2d8a4e;                  /* positive ROI */
+  --color-warning: #d18a28;
+  --color-error: #c94545;                    /* negative ROI / danger */
+  --color-danger-foreground: #fffaf0;
 
   /* Third-party brand colors */
   --color-twitter: #1da1f2;
 
-  --font-display: 'Quicksand', sans-serif;
-  --font-body: 'Quicksand', sans-serif;
-  --font-mono: 'Space Mono', monospace;
-  --font-sans: 'Quicksand', sans-serif;
+  /* Continent palette — these are globally locked by spec */
+  --color-continent-americas: #4caf50;
+  --color-continent-europe: #5b9bd5;
+  --color-continent-africa: #f4b942;
+  --color-continent-asia: #e8734a;
+  --color-continent-oceania: #9c6bd5;
 
-  --spacing-base-unit: 8px;
+  /* ---------- Typography (busy.land spec) ----------
+   * Display:  Archivo Black   — hero / BIG section titles, ALL CAPS
+   * Poster:   Barlow Condensed— squeezed labels / tags / data headers
+   * Body:     DM Sans         — paragraphs, buttons, general UI
+   * Mono:     IBM Plex Mono   — prices, numbers, countdowns, tech tags
+   */
+  --font-display: 'Archivo Black', 'Noto Sans JP', 'Arial Black', sans-serif;
+  --font-poster: 'Barlow Condensed', 'Noto Sans JP', 'Arial Narrow', sans-serif;
+  --font-body: 'DM Sans', 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Noto Sans JP', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-sans: 'DM Sans', 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --spacing-base-unit: 4px;
   --spacing-container-padding: 24px;
   --spacing-card-gap: 20px;
+
+  /* Radius spec: 7–20px, no 0, no > 20 */
+  --radius-btn: 7px;
+  --radius-card: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
 }
 
-/*
- * Neo-brutalist hard shadows. Defined as Tailwind utilities so they work
- * with variants (hover:shadow-neo-lg, active:shadow-none, ...).
- */
+/* =========================================================================
+ * Shadows — hard offset / NO blur / color must be #111111
+ *  spec:
+ *   --shadow-sm  3x3   / --shadow-md  4x4   / --shadow-lg  5x5   / --shadow-xl  6x6
+ * =======================================================================*/
 @utility shadow-neo-sm {
-  box-shadow: 2px 2px 0px 0px var(--color-on-background);
+  box-shadow: 3px 3px 0px 0px var(--color-border-strong);
 }
 @utility shadow-neo-md {
-  box-shadow: 4px 4px 0px 0px var(--color-on-background);
+  box-shadow: 4px 4px 0px 0px var(--color-border-strong);
 }
 @utility shadow-neo-lg {
-  box-shadow: 6px 6px 0px 0px var(--color-on-background);
+  box-shadow: 5px 5px 0px 0px var(--color-border-strong);
 }
 @utility shadow-neo-xl {
-  box-shadow: 8px 8px 0px 0px var(--color-on-background);
+  box-shadow: 6px 6px 0px 0px var(--color-border-strong);
+}
+/* Busy dark button bottom-yellow strip (§6.1 Dark Button) */
+@utility shadow-dark-btn {
+  box-shadow: 0px 4px 0px 0px var(--color-primary);
+}
+/* Badge red offset shadow (§6.7 highlight badge) */
+@utility shadow-accent-offset {
+  box-shadow: 3px 3px 0px 0px var(--color-secondary);
 }
 
+/* =========================================================================
+ * Base body
+ * =======================================================================*/
+html,
 body {
   background-color: var(--color-background);
   color: var(--color-on-background);
+}
+body {
   overflow-x: hidden;
   font-family: var(--font-body);
+  font-size: 16px; /* --fs-16: base body size per spec */
+  line-height: 1.55;
+  font-weight: 400;
+}
+/* No italics in running text (spec MUST NOT §1.2) */
+p,
+span,
+li {
+  font-style: normal;
 }
 
+/* =========================================================================
+ * Hover / pressed behaviour (spec §8.3)
+ *
+ *  Button:
+ *   :hover  → shadow -1px + translate up 1px (150ms ease-out)
+ *   :active → shadow 1x1 + translate down 2px
+ *   :focus-visible → coral accent ring
+ *  Card:
+ *   :hover  → shadow +1px + slight lift 1px
+ * =======================================================================*/
 .btn-hover {
   transition:
-    transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    box-shadow 300ms ease;
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
 }
-
 .btn-hover:hover {
-  transform: scale(1.02) translateY(-2px);
-  box-shadow: 8px 8px 0px #000000;
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px 0px var(--color-border-strong);
+}
+.btn-hover:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px var(--color-border-strong);
+}
+.btn-hover:focus-visible {
+  outline: 3px solid rgba(241, 113, 91, 0.28);
+  outline-offset: 2px;
 }
 
+.card-hover {
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px 0px var(--color-border-strong);
+}
+
+/* Live pulsing indicator (auction status dots) */
 .pulse-live {
   animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
-
 @keyframes pulse-ring {
   0% {
     transform: scale(0.8);
@@ -94,18 +196,46 @@ body {
   }
 }
 
+/* Subtle grid texture (spec §7.1) — meant for hero / map containers */
 .grid-bg {
-  background-size: 20px 20px;
+  background-size: 32px 32px;
   background-image:
-    linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-    linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+    linear-gradient(rgba(17, 17, 17, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.03) 1px, transparent 1px);
 }
 
-/* 3px hard border — the neo-brutalist "thick" stroke. */
+/* Hard 3px border (neo-brutalist card / button stroke) */
 @utility border-3 {
   border-width: 3px;
 }
 
+/* Thinner scrollbar (vertical lists / bid board) */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(17, 17, 17, 0.22);
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background-color: rgba(17, 17, 17, 0.04);
+  border-radius: 999px;
+}
+
+/* Reduced motion (§11.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Entry animations — slow/soft staggered reveals */
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -116,7 +246,6 @@ body {
     transform: translateY(0);
   }
 }
-
 @keyframes slideInRight {
   from {
     opacity: 0;
@@ -127,7 +256,6 @@ body {
     transform: translateX(0);
   }
 }
-
 @keyframes fadeIn {
   from {
     opacity: 0;

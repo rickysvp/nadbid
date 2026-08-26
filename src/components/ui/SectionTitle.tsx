@@ -20,7 +20,7 @@ export default function SectionTitle({
       <Icon className={iconClassName} />
       {title}
       {count !== undefined && (
-        <span className="ml-2 font-mono text-xl bg-zinc-100 border-2 border-black px-3 py-1 rounded-full shadow-neo-sm">
+        <span className="ml-2 font-mono text-xl bg-primary-container border-2 border-black px-3 py-1 rounded-full shadow-neo-sm">
           {count}
         </span>
       )}
