@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-background: #fafafa;
+  --color-on-background: #000000;
+
+  --color-primary: #7c3aed;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #8b5cf6;
+  --color-primary-fixed: #ede9fe;
+
+  --color-secondary: #10b981;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #a7f3d0;
+
+  --color-tertiary: #ffd23f;
+  --color-tertiary-container: #ffd23f;
+  --color-on-tertiary-container: #000000;
+
+  --color-error: #ef4444;
+
+  --color-surface: #ffffff;
+  --color-surface-dim: #ded8e0;
+  --color-surface-container: #f3f4f6;
+  --color-surface-container-low: #f8f2fa;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #000000;
+  --color-on-surface-variant: #374151;
+
+  /* Third-party brand colors */
+  --color-twitter: #1da1f2;
+
+  --font-display: 'Quicksand', sans-serif;
+  --font-body: 'Quicksand', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-sans: 'Quicksand', sans-serif;
+
+  --spacing-base-unit: 8px;
+  --spacing-container-padding: 24px;
+  --spacing-card-gap: 20px;
+}
+
+/*
+ * Neo-brutalist hard shadows. Defined as Tailwind utilities so they work
+ * with variants (hover:shadow-neo-lg, active:shadow-none, ...).
+ */
+@utility shadow-neo-sm {
+  box-shadow: 2px 2px 0px 0px var(--color-on-background);
+}
+@utility shadow-neo-md {
+  box-shadow: 4px 4px 0px 0px var(--color-on-background);
+}
+@utility shadow-neo-lg {
+  box-shadow: 6px 6px 0px 0px var(--color-on-background);
+}
+@utility shadow-neo-xl {
+  box-shadow: 8px 8px 0px 0px var(--color-on-background);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  overflow-x: hidden;
+  font-family: var(--font-body);
+}
+
+.btn-hover {
+  transition:
+    transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 300ms ease;
+}
+
+.btn-hover:hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 8px 8px 0px #000000;
+}
+
+.pulse-live {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+}
+
+.grid-bg {
+  background-size: 20px 20px;
+  background-image:
+    linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+    linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+}
+
+/* 3px hard border — the neo-brutalist "thick" stroke. */
+@utility border-3 {
+  border-width: 3px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
