@@ -1,0 +1,20 @@
+node_modules/
+build/
+dist/
+coverage/
+.vite/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# 临时文件
+*.txt
+!README.txt
+temp_*.tsx
+test_*.tsx
+fix_*.cjs
+rewrite_*.cjs
+
+# demo 目录（参考用，不提交）
+demo/
