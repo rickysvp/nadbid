@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '../../utils/cn';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonVariant = 'default' | 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,31 +12,33 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
+  default:
+    'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)] active:scale-[0.98]',
   primary:
-    'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_10px_rgba(62,196,112,0.1)] hover:shadow-[0_0_15px_rgba(62,196,112,0.2)] active:scale-[0.98]',
+    'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)] active:scale-[0.98]',
   secondary:
-    'bg-white/[0.05] border border-white/[0.08] text-white/80 hover:bg-white/[0.04] hover:text-white',
+    'bg-white/5 border border-white/10 text-white hover:bg-white/10',
   ghost:
-    'bg-transparent text-white/50 hover:text-white hover:bg-white/5',
+    'bg-transparent text-white hover:bg-white/5',
   danger:
     'bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-5 py-2 text-[11px]',
-  md: 'px-5 py-2.5 text-[12px]',
-  lg: 'px-6 py-3.5 text-xs',
+  sm: 'py-2 px-4 text-[11px]',
+  md: 'py-2.5 px-5 text-[12px]',
+  lg: 'py-3.5 px-6 text-[14px]',
 };
 
 /**
  * 统一按钮组件 — 4 级变体
- * Primary: 绿色 CTA
- * Secondary: 白底黑边次要操作
- * Ghost: 文字按钮
- * Danger: 红色危险操作
+ * default/primary: 绿色 CTA（primary 为兼容别名）
+ * secondary: 白底黑边次要操作
+ * ghost: 文字按钮
+ * danger: 红色危险操作
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading, fullWidth, className, disabled, children, ...props }, ref) => {
+  ({ variant = 'default', size = 'md', loading, fullWidth, className, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}

@@ -13,7 +13,8 @@ export type BadgeVariant =
   | 'stake_pending'
   | 'unlocking'
   | 'neutral'
-  | 'amber';
+  | 'amber'
+  | 'default';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -26,21 +27,22 @@ const variantStyles: Record<BadgeVariant, string> = {
   upcoming: 'bg-white/5 text-white/40 border border-white/10',
   ended: 'bg-white/5 text-white/30 border border-white/10',
   settled: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  arbitrating: 'bg-orange-400/10 text-orange-400 border border-orange-400/30',
-  failed: 'bg-red-400/10 text-red-400 border border-red-400/30',
+  arbitrating: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30',
+  failed: 'bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30',
   claimable: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
   stake_active: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  stake_pending: 'bg-amber-400/10 text-amber-400 border border-amber-400/30',
-  unlocking: 'bg-purple-500/10 text-purple-400 border border-purple-500/30',
+  stake_pending: 'bg-white/5 text-white/40 border border-white/10',
+  unlocking: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30',
   neutral: 'bg-white/5 text-white/60 border border-white/10',
   amber: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/20',
+  default: 'bg-white/5 text-white/60 border border-white/10',
 };
 
 /**
  * 统一状态标签组件 — 从所有页面提取
- * 12 种固定状态色，不得每页改
+ * 13 种固定状态色，不得每页改
  */
-export function Badge({ variant = 'neutral', pulse, className, children, ...props }: BadgeProps) {
+export function Badge({ variant = 'default', pulse, className, children, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
