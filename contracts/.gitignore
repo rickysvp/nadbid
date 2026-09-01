@@ -7,3 +7,6 @@ lib/
 
 # Re-include remappings.txt (repo root .gitignore ignores *.txt)
 !remappings.txt
+
+# Deploy artifacts (dry-run / broadcast JSON with signed txs)
+broadcast/
