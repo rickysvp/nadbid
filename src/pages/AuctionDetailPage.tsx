@@ -7,8 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { CircularProgress } from '../components/ui/CircularProgress';
 import { BidBoard } from '../components/auction/BidBoard';
-import { TradeConfirmationModal, ConnectModal } from '../components/trade';
-import type { TradeDetailItem } from '../components/trade';
+import { ConnectModal } from '../components/trade';
 import { useToast } from '../hooks/useToast';
 import { useAuctionBid } from '../hooks/useAuctionBid';
 import { useSimulatedBids } from '../hooks/useSimulatedBids';
@@ -28,15 +27,6 @@ const BID_EXTEND_SECONDS = AUCTION.BID_EXTEND_SECONDS;
 const BID_EXTEND_MS = BID_EXTEND_SECONDS * 1000;
 /** 拍卖倒计时进度基准时长（ms）— 用于 CircularProgress 百分比计算 */
 const COUNTDOWN_BASE_MS = AUCTION.COUNTDOWN_BASE_MS;
-
-/** 秒 → HH:MM:SS */
-function formatClock(totalSeconds: number): string {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-}
 
 /** 浮点金额保留 2 位小数，规避二进制浮点误差 */
 function round2(value: number): number {
@@ -177,7 +167,6 @@ export default function AuctionDetailPage() {
   const wallet = useWalletStore();
   const bid = useAuctionBid();
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [pulse, setPulse] = useState(false);
 
@@ -261,27 +250,25 @@ export default function AuctionDetailPage() {
     success('Auction link copied to clipboard!');
   };
 
-  /** 点击出价：未连接钱包 → ConnectModal；已连接 → 打开确认弹窗 */
-  const handleBidClick = () => {
-    if (!isLive || countdownEnded) return;
+  /** 点击出价：未连接 → ConnectModal；已连接 → 直接执行出价（免确认弹窗，一键出价） */
+  const handleBidClick = async () => {
+    if (!isLive || countdownEnded || bid.isSubmitting) return;
     if (!wallet.isConnected) {
       setConnectOpen(true);
       return;
     }
-    bid.reset();
-    setConfirmOpen(true);
+    await executeBid();
   };
 
-  /** 连接成功后的续接：回到出价流程 */
-  const handleConnected = () => {
-    bid.reset();
-    setConfirmOpen(true);
+  /** 连接成功后的续接：直接出价 */
+  const handleConnected = async () => {
+    await executeBid();
   };
 
-  /** 确认出价：执行 mock/real 交易 → 成功后更新页面数据 */
-  const handleConfirmBid = async () => {
+  /** 执行出价（mock/real 交易）→ 成功后更新页面数据 */
+  const executeBid = async () => {
     const result = await bid.placeBid(auction, fixedBid);
-    if (!result) return; // 错误已由 TradeConfirmationModal 展示；用户拒绝 → 静默
+    if (!result) return; // 用户拒绝/失败静默，错误由 toast 提示
 
     // 出价成功：更新最后出价者 / 其出价次数与累计金额 / 重置倒计时 / 出价次数
     setLastBidder(wallet.address);
@@ -306,24 +293,12 @@ export default function AuctionDetailPage() {
     // 刷新钱包余额
     await wallet.refreshBalance(fixedBid);
 
-    // 视觉反馈 + 自动关闭弹窗
+    // 视觉反馈：金额脉冲 + 成功 toast
+    success(`Bid placed! Countdown reset to ${BID_EXTEND_SECONDS}s.`);
     setPulse(true);
     setTimeout(() => setPulse(false), 500);
-    setTimeout(() => {
-      setConfirmOpen(false);
-      bid.reset();
-    }, 1400);
+    bid.reset();
   };
-
-  const newTimeString = formatClock(BID_EXTEND_SECONDS);
-
-  const bidDetails: TradeDetailItem[] = [
-    { label: 'Auction', value: auction.passName },
-    { label: 'KOL', value: `${auction.kol.name} (${auction.kol.handle})` },
-    { label: 'Bid Amount', value: `${fixedBid.toFixed(2)} MON`, highlight: true },
-    { label: 'Current Bidder', value: lastBidder ? shortenAddress(lastBidder) : '-' },
-    { label: 'Est. New Countdown', value: `Reset to ${newTimeString}`, highlight: true },
-  ];
 
   return (
     <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
@@ -516,10 +491,10 @@ export default function AuctionDetailPage() {
 
                 <button
                   onClick={handleBidClick}
-                  disabled={!isLive || countdownEnded}
+                  disabled={!isLive || countdownEnded || bid.isSubmitting}
                   className={cn(
                     'w-full font-black text-[15px] py-3.5 rounded transition-all active:scale-[0.98]',
-                    isLive && !countdownEnded
+                    isLive && !countdownEnded && !bid.isSubmitting
                       ? 'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)]'
                       : 'bg-white/10 text-white cursor-not-allowed hover:bg-white/15'
                   )}
@@ -528,9 +503,11 @@ export default function AuctionDetailPage() {
                     ? 'WAITING TO START...'
                     : countdownEnded
                       ? 'AUCTION ENDED'
-                      : wallet.isConnected
-                        ? 'PLACE BID'
-                        : 'ENTER AUCTION'}
+                      : bid.isSubmitting
+                        ? 'BIDDING...'
+                        : wallet.isConnected
+                          ? 'PLACE BID'
+                          : 'ENTER AUCTION'}
                 </button>
 
                 <div className="text-white/40 text-[9px] font-bold tracking-[0.15em] uppercase mt-5">
@@ -605,24 +582,6 @@ export default function AuctionDetailPage() {
           </div>
         )}
       </div>
-
-      {/* 出价确认弹窗 */}
-      <TradeConfirmationModal
-        open={confirmOpen}
-        onClose={() => {
-          setConfirmOpen(false);
-          bid.reset();
-        }}
-        title="Confirm Bid"
-        description={`Place a fixed bid on ${auction.passName}. Each bid costs ${fixedBid.toFixed(2)} MON and resets the countdown to ${BID_EXTEND_SECONDS}s.`}
-        details={bidDetails}
-        confirmText="Confirm Bid"
-        cancelText="Cancel"
-        onConfirm={handleConfirmBid}
-        status={bid.status}
-        txHash={bid.txHash ?? undefined}
-        error={bid.error ?? undefined}
-      />
 
       {/* 钱包连接引导弹窗 */}
       <ConnectModal
