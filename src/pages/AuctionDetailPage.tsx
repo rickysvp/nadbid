@@ -147,23 +147,24 @@ function useCountdownDetail(targetDate: number) {
   return { timeString, progress, isOver: timeLeft <= 0, totalSeconds };
 }
 
+// 便士拍卖固定出价 99 MON/次：leaderboard 初始 tvl = bids × 99（与 lastBidder 长条口径一致）
 const mockBidders: LeaderboardRow[] = [
-  { rank: 1, bidder: '@AlphaHunter', isYou: true, bids: 12, tvl: '45.50' },
-  { rank: 2, bidder: '@DegenKing', isLatest: true, bids: 8, tvl: '38.20' },
-  { rank: 3, bidder: '@WhaleWatcher', bids: 5, tvl: '32.15' },
-  { rank: 4, bidder: '0x7d...f0a4', bids: 4, tvl: '28.40' },
-  { rank: 5, bidder: '@CryptoWizard', bids: 4, tvl: '25.00' },
-  { rank: 6, bidder: '@MoonShot', bids: 3, tvl: '22.10' },
-  { rank: 7, bidder: '0x1e...bb6d', bids: 2, tvl: '18.75' },
-  { rank: 8, bidder: '@BullishBear', bids: 2, tvl: '15.30' },
-  { rank: 9, bidder: '@SatoshiDisciple', bids: 1, tvl: '14.00' },
-  { rank: 10, bidder: '0x4c...99a2', bids: 1, tvl: '13.00' },
+  { rank: 1, bidder: '@AlphaHunter', isYou: true, bids: 12, tvl: '1188.00' },
+  { rank: 2, bidder: '@DegenKing', isLatest: true, bids: 8, tvl: '792.00' },
+  { rank: 3, bidder: '@WhaleWatcher', bids: 5, tvl: '495.00' },
+  { rank: 4, bidder: '0x7d...f0a4', bids: 4, tvl: '396.00' },
+  { rank: 5, bidder: '@CryptoWizard', bids: 4, tvl: '396.00' },
+  { rank: 6, bidder: '@MoonShot', bids: 3, tvl: '297.00' },
+  { rank: 7, bidder: '0x1e...bb6d', bids: 2, tvl: '198.00' },
+  { rank: 8, bidder: '@BullishBear', bids: 2, tvl: '198.00' },
+  { rank: 9, bidder: '@SatoshiDisciple', bids: 1, tvl: '99.00' },
+  { rank: 10, bidder: '0x4c...99a2', bids: 1, tvl: '99.00' },
 ];
 
 export default function AuctionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const auction = id ? getAuctionById(id) : undefined;
-  const { success, info } = useToast();
+  const { success, error, info } = useToast();
   const wallet = useWalletStore();
   const bid = useAuctionBid();
 
@@ -176,6 +177,8 @@ export default function AuctionDetailPage() {
   // 最后出价人的高价值信息：累计出价次数 / 累计出价金额（MON）
   const [lastBidderBids, setLastBidderBids] = useState<number>(0);
   const [lastBidderAmount, setLastBidderAmount] = useState<number>(0);
+  // 用户自己本场累计出价次数（用于用户成为 last bidder 时展示其个人累计，避免与上一模拟者数据混算）
+  const [ownBidCount, setOwnBidCount] = useState<number>(0);
   const [totalBids, setTotalBids] = useState<number>(auction?.totalBids ?? 0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>(() => mockBidders.map((r) => ({ ...r })));
   const [bidHistory, setBidHistory] = useState<Bid[]>(() => (id ? getBidsByAuction(id) : []));
@@ -187,6 +190,7 @@ export default function AuctionDetailPage() {
     setLastBidder(auction.lastBidder ?? null);
     setLastBidderBids(0);
     setLastBidderAmount(0);
+    setOwnBidCount(0);
     setTotalBids(auction.totalBids);
     setLeaderboard(mockBidders.map((r) => ({ ...r })));
     setBidHistory(getBidsByAuction(auction.id));
@@ -203,9 +207,9 @@ export default function AuctionDetailPage() {
   // 模拟他人出价回调：拍卖进行中由 useSimulatedBids 定时触发
   const handleSimulatedBid = (bidder: SimulatedBidder, amount: number) => {
     setLastBidder(bidder.address);
-    // 模拟出价者带预置累计出价次数：展示其本场累计出价次数与累计金额
+    // 模拟出价者带预置累计出价次数：其本场累计金额 = 累计次数 × 单次金额（固定值，非随选中次数累加）
     setLastBidderBids(bidder.bids);
-    setLastBidderAmount((prev) => prev + bidder.bids * amount);
+    setLastBidderAmount(bidder.bids * amount);
     setEndTime(Date.now() + BID_EXTEND_MS);
     setTotalBids((n) => n + 1);
     setLeaderboard((rows) => upsertLeaderboardRow(rows, bidder.address, amount));
@@ -268,12 +272,18 @@ export default function AuctionDetailPage() {
   /** 执行出价（mock/real 交易）→ 成功后更新页面数据 */
   const executeBid = async () => {
     const result = await bid.placeBid(auction, fixedBid);
-    if (!result) return; // 用户拒绝/失败静默，错误由 toast 提示
+    if (!result || !result.ok) {
+      // 失败/用户拒绝：用户拒绝（error 为空）静默；其余错误 toast 提示（免确认弹窗后必须显式反馈）
+      if (result && result.error) error(result.error);
+      return;
+    }
 
     // 出价成功：更新最后出价者 / 其出价次数与累计金额 / 重置倒计时 / 出价次数
     setLastBidder(wallet.address);
-    setLastBidderBids((n) => n + 1);
-    setLastBidderAmount((prev) => round2(prev + fixedBid));
+    // 用户成为 last bidder：展示其本场个人累计（ownBidCount+1 次出价 × 单次金额），不继承上一位模拟者的数据
+    setOwnBidCount((n) => n + 1);
+    setLastBidderBids(ownBidCount + 1);
+    setLastBidderAmount(round2((ownBidCount + 1) * fixedBid));
     setEndTime(Date.now() + BID_EXTEND_MS);
     setTotalBids((n) => n + 1);
     // leaderboard 新增/更新一条出价记录

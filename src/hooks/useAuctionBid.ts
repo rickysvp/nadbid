@@ -23,10 +23,9 @@ export interface AuctionBidOptions {
   abi?: unknown[];
 }
 
-export interface PlaceBidResult {
-  txHash: string;
-  amount: number;
-}
+export type PlaceBidResult =
+  | { ok: true; txHash: string; amount: number }
+  | { ok: false; error: string };
 
 export interface UseAuctionBidReturn {
   status: BidStatus;
@@ -86,20 +85,21 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
       // ===== 出价前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
-        setError('Please connect your wallet first');
-        return null;
+        const msg = 'Please connect your wallet first';
+        setError(msg);
+        return { ok: false, error: msg };
       }
       if (auction.status !== 'LIVE') {
+        const msg = auction.status === 'UPCOMING' ? 'Auction has not started yet' : 'Auction has ended';
         setStatus('error');
-        setError(auction.status === 'UPCOMING' ? 'Auction has not started yet' : 'Auction has ended');
-        return null;
+        setError(msg);
+        return { ok: false, error: msg };
       }
       if (wallet.balanceMon < bidAmount) {
         setStatus('error');
-        setError(
-          `Insufficient balance. You need ${bidAmount.toFixed(2)} MON to place this bid.`,
-        );
-        return null;
+        const msg = `Insufficient balance. You need ${bidAmount.toFixed(2)} MON to place this bid.`;
+        setError(msg);
+        return { ok: false, error: msg };
       }
 
       // ===== real 模式：委托给通用合约写入 hook =====
@@ -108,8 +108,9 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
           contractAddress || (import.meta.env?.VITE_AUCTION_CONTRACT_ADDRESS as string | undefined);
         if (!target) {
           setStatus('error');
-          setError('Auction contract is not configured for real mode');
-          return null;
+          const msg = 'Auction contract is not configured for real mode';
+          setError(msg);
+          return { ok: false, error: msg };
         }
         // 转换为 wei（18 位小数）；Phase 2 接入 provider 后从链上数据读取实际金额
         const valueWei = BigInt(Math.round(bidAmount * 1e18));
@@ -122,9 +123,9 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
         });
         if (hash) {
           setLastBidAmount(bidAmount);
-          return { txHash: hash, amount: bidAmount };
+          return { ok: true, txHash: hash, amount: bidAmount };
         }
-        return null;
+        return { ok: false, error: tx.error ?? 'Bid transaction failed' };
       }
 
       // ===== mock 模式：驱动 6 态状态机 + mockTransaction =====
@@ -156,24 +157,26 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
 
         if (!result.success) {
           setStatus('error');
-          setError(result.error || 'Bid transaction failed');
-          return null;
+          const msg = result.error || 'Bid transaction failed';
+          setError(msg);
+          return { ok: false, error: msg };
         }
 
         setStatus('success');
         setLastBidAmount(bidAmount);
-        return { txHash: result.txHash, amount: bidAmount };
+        return { ok: true, txHash: result.txHash, amount: bidAmount };
       } catch (e) {
         // 统一错误处理：用户拒绝 → 静默回 idle；其余 → error 展示可读文案
         const info = handleWeb3Error(e, 'Bid transaction failed');
         if (info.silent) {
           setStatus('idle');
           setError(null);
+          return { ok: false, error: '' };
         } else {
           setStatus('error');
           setError(info.message);
+          return { ok: false, error: info.message };
         }
-        return null;
       }
     },
     [mode, contractAddress, abi, failureRate, failureReason, tx, wallet.balanceMon, wallet.isConnected, isSubmitting],
