@@ -378,6 +378,36 @@ export default function AuctionDetailPage() {
               </div>
             </div>
 
+            {/* 最后出价人（当前赢家）— 紧凑长条 */}
+            <div className="overflow-hidden rounded-xl bg-[#161616] border border-[#3ec470]/30 relative">
+              <div className="absolute -top-6 -right-6 w-24 h-24 bg-[#3ec470]/[0.08] rounded-full blur-[30px] pointer-events-none"></div>
+              <div className="flex items-center gap-3 py-4 px-5 relative z-10">
+                <Crown className="w-4 h-4 text-[#3ec470] shrink-0" />
+                <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={lastBidder ?? 'empty'}
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -12 }}
+                    transition={{ duration: 0.25 }}
+                    className="font-mono text-[15px] font-bold text-[#3ec470] truncate"
+                  >
+                    {lastBidder ? shortenAddress(lastBidder) : '-'}
+                  </motion.span>
+                </AnimatePresence>
+                {lastBidder === wallet.address && (
+                  <motion.span
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    className="bg-[#1a2f22] text-[#3ec470] text-[8px] px-2 py-0.5 rounded-sm font-sans font-bold tracking-wider"
+                  >
+                    YOU
+                  </motion.span>
+                )}
+              </div>
+            </div>
+
             {/* Live Leaderboard */}
             <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8">
               <div className="flex items-center justify-between mb-6">
@@ -458,36 +488,6 @@ export default function AuctionDetailPage() {
                 >
                   {fixedBid.toFixed(2)} <span className="text-sm font-medium text-[#3ec470]">MON</span>
                 </motion.div>
-
-                {/* 当前领先者（最后出价人）— 动态长条 */}
-                <div className="w-full mb-6 overflow-hidden rounded-lg bg-[#0f0f0f] border border-[#3ec470]/30 relative">
-                  <div className="absolute -top-6 -right-6 w-20 h-20 bg-[#3ec470]/[0.1] rounded-full blur-[30px] pointer-events-none"></div>
-                  <div className="flex items-center justify-center gap-2 py-3 px-4 relative z-10">
-                    <Crown className="w-3.5 h-3.5 text-[#3ec470]" />
-                    <span className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={lastBidder ?? 'empty'}
-                        initial={{ opacity: 0, x: 16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -12 }}
-                        transition={{ duration: 0.25 }}
-                        className="font-mono text-[13px] font-bold text-[#3ec470] truncate"
-                      >
-                        {lastBidder ? shortenAddress(lastBidder) : '-'}
-                      </motion.span>
-                    </AnimatePresence>
-                    {lastBidder === wallet.address && (
-                      <motion.span
-                        initial={{ scale: 0.5 }}
-                        animate={{ scale: 1 }}
-                        className="bg-[#1a2f22] text-[#3ec470] text-[8px] px-2 py-0.5 rounded-sm font-sans font-bold tracking-wider"
-                      >
-                        YOU
-                      </motion.span>
-                    )}
-                  </div>
-                </div>
 
                 <button
                   onClick={handleBidClick}
