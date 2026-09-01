@@ -38,6 +38,11 @@ function formatClock(totalSeconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+/** 浮点金额保留 2 位小数，规避二进制浮点误差 */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 interface LeaderboardRow {
   rank: number;
   bidder: string;
@@ -179,6 +184,9 @@ export default function AuctionDetailPage() {
   // 拍卖运行态（可被出价更新）
   const [endTime, setEndTime] = useState<number>(auction?.endTime ?? Date.now());
   const [lastBidder, setLastBidder] = useState<string | null>(auction?.lastBidder ?? null);
+  // 最后出价人的高价值信息：累计出价次数 / 累计出价金额（MON）
+  const [lastBidderBids, setLastBidderBids] = useState<number>(0);
+  const [lastBidderAmount, setLastBidderAmount] = useState<number>(0);
   const [totalBids, setTotalBids] = useState<number>(auction?.totalBids ?? 0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>(() => mockBidders.map((r) => ({ ...r })));
   const [bidHistory, setBidHistory] = useState<Bid[]>(() => (id ? getBidsByAuction(id) : []));
@@ -188,6 +196,8 @@ export default function AuctionDetailPage() {
     if (!auction) return;
     setEndTime(auction.endTime);
     setLastBidder(auction.lastBidder ?? null);
+    setLastBidderBids(0);
+    setLastBidderAmount(0);
     setTotalBids(auction.totalBids);
     setLeaderboard(mockBidders.map((r) => ({ ...r })));
     setBidHistory(getBidsByAuction(auction.id));
@@ -204,6 +214,9 @@ export default function AuctionDetailPage() {
   // 模拟他人出价回调：拍卖进行中由 useSimulatedBids 定时触发
   const handleSimulatedBid = (bidder: SimulatedBidder, amount: number) => {
     setLastBidder(bidder.address);
+    // 模拟出价者带预置累计出价次数：展示其本场累计出价次数与累计金额
+    setLastBidderBids(bidder.bids);
+    setLastBidderAmount((prev) => prev + bidder.bids * amount);
     setEndTime(Date.now() + BID_EXTEND_MS);
     setTotalBids((n) => n + 1);
     setLeaderboard((rows) => upsertLeaderboardRow(rows, bidder.address, amount));
@@ -270,8 +283,10 @@ export default function AuctionDetailPage() {
     const result = await bid.placeBid(auction, fixedBid);
     if (!result) return; // 错误已由 TradeConfirmationModal 展示；用户拒绝 → 静默
 
-    // 出价成功：更新最后出价者 / 重置倒计时 / 出价次数
+    // 出价成功：更新最后出价者 / 其出价次数与累计金额 / 重置倒计时 / 出价次数
     setLastBidder(wallet.address);
+    setLastBidderBids((n) => n + 1);
+    setLastBidderAmount((prev) => round2(prev + fixedBid));
     setEndTime(Date.now() + BID_EXTEND_MS);
     setTotalBids((n) => n + 1);
     // leaderboard 新增/更新一条出价记录
@@ -381,7 +396,7 @@ export default function AuctionDetailPage() {
             {/* 最后出价人（当前赢家）— 紧凑长条 */}
             <div className="overflow-hidden rounded-xl bg-[#161616] border border-[#3ec470]/30 relative">
               <div className="absolute -top-6 -right-6 w-24 h-24 bg-[#3ec470]/[0.08] rounded-full blur-[30px] pointer-events-none"></div>
-              <div className="flex items-center gap-3 py-4 px-5 relative z-10">
+              <div className="flex items-center gap-3 py-3.5 px-5 relative z-10">
                 <Crown className="w-4 h-4 text-[#3ec470] shrink-0" />
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
                 <AnimatePresence mode="wait">
@@ -405,6 +420,16 @@ export default function AuctionDetailPage() {
                     YOU
                   </motion.span>
                 )}
+                <span className="ml-auto flex items-center gap-4 shrink-0">
+                  <span className="text-right">
+                    <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Bids</span>
+                    <span className="font-mono text-[13px] font-bold text-white">{lastBidder ? lastBidderBids.toLocaleString() : '-'}</span>
+                  </span>
+                  <span className="text-right">
+                    <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Total Spent</span>
+                    <span className="font-mono text-[13px] font-bold text-white">{lastBidder ? `${round2(lastBidderAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON` : '-'}</span>
+                  </span>
+                </span>
               </div>
             </div>
 
