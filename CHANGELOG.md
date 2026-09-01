@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-09-01
+
+### Added
+- Web3 钱包连接完整集成（wagmi v2 + viem v2 + @tanstack/react-query v5）
+- 支持 MetaMask（注入式）和 WalletConnect（移动端扫码）
+- Monad 测试网（chainId 10143）+ Sepolia 测试网支持
+- 钱包连接弹窗（ConnectModal）：动态渲染钱包选项、loading 状态、错误处理、ESC/遮罩/X 关闭
+- 钱包按钮组件（ConnectButton）：未连接/已连接状态、下拉菜单、复制地址、区块浏览器、断开连接、dark/light 主题变体
+- 网络切换组件（NetworkSwitcher）：compact/full 双模式、一键切换到 Monad 测试网、切换中状态、错误处理
+- 账户信息卡片（AccountCard）：钱包头像、地址、余额、网络状态、操作按钮
+- 网络错误横幅（WrongNetworkBanner）：检测错误网络、一键切换、可关闭
+- 钱包路由守卫（WalletGuard）：未连接时显示连接引导、已连接时渲染内容
+- 钱包状态同步器（WalletStateSyncer）：wagmi 状态自动同步到 Zustand store
+- 交易 hooks：useWriteContractTx（6 态状态机 + 自动 toast + onSuccess 回调）、useSignMessage、useReadContract
+- Web3 错误处理工具（web3Errors）：5 类错误分类、用户拒绝静默、统一 toast 处理
+- 合约配置（contracts.ts）：环境变量配置合约地址、最小 ABI 片段、getContractConfig 便捷函数
+- 自动重连（auto-reconnect）：页面刷新后自动恢复钱包连接
+- 钱包集成交档（docs/wallet-integration.md）：完整架构说明、组件参考、hooks 使用、FAQ
+- 环境变量：VITE_WALLETCONNECT_PROJECT_ID、VITE_CONTRACT_PASS/AUCTION/STAKING/DIVIDEND
+
+### Changed
+- walletStore 重构：统一为 wagmi 驱动 + mock fallback 的单一 Zustand store，新增 status/isConnecting/connectorId/connectorName/balanceRaw 字段
+- Navbar 精简：从 224 行减至 76 行，移除全部 mock 连接逻辑，替换为 ConnectButton 组件
+- WalletPage 重构：使用 AccountCard + WalletGuard，移除手写钱包头部和手动连接判断
+- 移除 MintBurnPanel 中的乐观余额扣减（改为交易确认后主动刷新，待 Phase 3 实现）
+- README.md 更新：添加钱包集成说明、环境变量表、技术栈、项目结构
+
+### Removed
+- `src/providers/AppProviders.tsx`（死代码，未被引用，包含重复的 QueryClientProvider）
+- `src/components/ui/ToastContainer.tsx`（死代码，仅被 AppProviders 引用）
+- `src/stores/userWalletStore.ts`（已统一进 walletStore）
+- `src/providers/` 空目录
+
+### Fixed
+- wagmi v2 reconnect 导入路径修正（从 @wagmi/core 导入，而非 wagmi）
+- ConnectModal 双重 toast 问题（移除 useEffect toast，仅保留 catch 块）
+- ConnectModal 错误状态残留（添加 reset() 清除）
+- 生产构建成功（5.20s，dist 4.0MB）
+
+### Technical
+- 新增依赖：wagmi@^2.19.5、viem@^2.56.1、@tanstack/react-query@^5.102.8、@wagmi/core
+- TypeScript 编译：新增/修改文件 0 错误，项目总错误从 118 降至 112（删除死代码减少 6 个）
+- 所有 10 个页面正常渲染，无控制台错误
+- 14 项全流程测试全部通过
+
 ## [0.1.0] - 2026-08-31
 
 ### Added
