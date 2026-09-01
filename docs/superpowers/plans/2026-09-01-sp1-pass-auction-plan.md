@@ -536,6 +536,8 @@ contract KolPass is ERC721 {
     uint256 public feePlatform = 3;  // 3%
     uint256 public constant FEE_DENOM = 100;
 
+    struct CurveConfig { uint256 basePrice; uint256 baseSupply; uint256 exponent; }
+
     mapping(uint256 => uint256) public curveSupplyCache; // 预留（如需要）
 
     constructor(address _kol, uint256 _basePrice, address _platformTreasury)
@@ -616,8 +618,8 @@ contract KolPass is ERC721 {
     function safeTransferFrom(address, address, uint256) public override { revert("SOULBOUND"); }
     function safeTransferFrom(address, address, uint256, bytes memory) public override { revert("SOULBOUND"); }
 
-    function getCurveConfig() external view returns (uint256, uint256, uint256) {
-        return (basePrice, baseSupply, exponent);
+    function getCurveConfig() external view returns (CurveConfig memory) {
+        return CurveConfig({ basePrice: basePrice, baseSupply: baseSupply, exponent: exponent });
     }
 
     function _toString(address a) internal pure returns (string memory) {
@@ -842,6 +844,7 @@ contract KolAuction {
     }
 
     function getAuction() external view returns (Auction memory) { return auction; }
+    function settled() external view returns (bool) { return auction.settled; }  // 供 Registry 赎回检查
     function getCumulativeBid(address bidder) external view returns (uint256) { return cumulativeBid[bidder]; }
     function getBidCount(address bidder) external view returns (uint256) { return bidCount[bidder]; }
 }
@@ -1022,7 +1025,7 @@ VITE_CONTRACT_FACTORY=0x...
 
 - [ ] **Step 5: 验证部署（cast 读链上）**
 
-Run: `cast call <REGISTRY_ADDR> "isKolRegistered(address)(bool)" 0x... --rpc-url $MONAD_TESTNET_RPC`
+Run: `cast call <REGISTRY_ADDR> "isKolRegistered(address)(bool)" 0x... --rpc-url https://testnet-rpc.monad.xyz`
 Expected: 返回 false（未注册，说明合约可读）
 
 - [ ] **Step 6: 可选 — 链上验证合约源码**
@@ -1197,7 +1200,7 @@ git commit -m "feat(server): add X API twitter follower verification"
 **Files:**
 - Create: `src/pages/KolOnboardingPage.tsx`
 - Create: `src/components/kol/KolOnboardingCard.tsx`
-- Modify: `src/routes/` 或 App 路由
+- Modify: `src/config/routes.ts`、`src/App.tsx`（接入路由）
 
 **流程：** 连接钱包 → 输入推特 handle → 调后端验证粉丝 → 注册 Kol → 质押 10 MON → 创建 PASS（填铸造价）→ 创建拍卖（填固定出价+内容）
 
