@@ -134,6 +134,8 @@ export function useArbitrationVote(options: UseArbitrationVoteOptions = {}): Use
 
   const vote = useCallback(
     async (targetId: string, targetVoteType: ArbitrationVoteType): Promise<VoteResult | null> => {
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== 定位争议 =====
       const dispute = disputes.find((d) => d.id === targetId);
 
@@ -206,7 +208,7 @@ export function useArbitrationVote(options: UseArbitrationVoteOptions = {}): Use
       setStatus('success');
       return { txHash: result.txHash, disputeId: targetId, voteType: targetVoteType };
     },
-    [wallet, mode, runMockTransaction, disputes],
+    [wallet, mode, runMockTransaction, disputes, isSubmitting],
   );
 
   return useMemo(

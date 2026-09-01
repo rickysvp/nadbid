@@ -151,6 +151,8 @@ export function usePassMintBurn(options: UsePassMintBurnOptions = {}): UsePassMi
     async (params: PassMintParams): Promise<MintBurnResult | null> => {
       const { kolHandle, mintAmount, costPerPass, currentSupply } = params;
 
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Mint 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -199,6 +201,8 @@ export function usePassMintBurn(options: UsePassMintBurnOptions = {}): UsePassMi
     async (params: PassBurnParams): Promise<MintBurnResult | null> => {
       const { kolHandle, burnAmount, pricePerPass, currentSupply } = params;
 
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Burn 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -241,7 +245,7 @@ export function usePassMintBurn(options: UsePassMintBurnOptions = {}): UsePassMi
       setStatus('success');
       return { txHash: result.txHash, amount: burnAmount, newSupply, newPrice };
     },
-    [mode, runMockTransaction, wallet, kolHoldings],
+    [mode, runMockTransaction, wallet, kolHoldings, isSubmitting],
   );
 
   return useMemo(

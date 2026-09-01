@@ -155,6 +155,8 @@ export function useStaking(options: UseStakingOptions = {}): UseStakingReturn {
     async (params: StakeParams): Promise<StakingResult | null> => {
       const { kolHandle, kolName, amount: qty, maxAmount } = params;
 
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Stake 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -200,6 +202,8 @@ export function useStaking(options: UseStakingOptions = {}): UseStakingReturn {
     async (params: UnstakeParams): Promise<StakingResult | null> => {
       const { positionId, kolHandle, kolName, amount: qty, stakedAmount, unlockPassed } = params;
 
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Unstake 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -251,7 +255,7 @@ export function useStaking(options: UseStakingOptions = {}): UseStakingReturn {
         positionId,
       };
     },
-    [mode, runMockTransaction, wallet, kolHoldings],
+    [mode, runMockTransaction, wallet, kolHoldings, isSubmitting],
   );
 
   return useMemo(

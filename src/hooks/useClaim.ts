@@ -182,6 +182,8 @@ export function useClaim(options: UseClaimOptions = {}): UseClaimReturn {
 
   const claim = useCallback(
     async (rewardId: string): Promise<ClaimResult | null> => {
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Claim 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -220,11 +222,13 @@ export function useClaim(options: UseClaimOptions = {}): UseClaimReturn {
       setStatus('success');
       return { txHash: result.txHash, action: 'claim', rewards: [reward], totalAmount: reward.amount };
     },
-    [wallet, mode, runMockTransaction, settleRewards, pendingRewards],
+    [wallet, mode, runMockTransaction, settleRewards, pendingRewards, isSubmitting],
   );
 
   const claimAll = useCallback(
     async (rewardIds?: string[]): Promise<ClaimResult | null> => {
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== Claim All 前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -267,7 +271,7 @@ export function useClaim(options: UseClaimOptions = {}): UseClaimReturn {
       setStatus('success');
       return { txHash: result.txHash, action: 'claimAll', rewards: targets, totalAmount };
     },
-    [wallet, mode, runMockTransaction, settleRewards, pendingRewards],
+    [wallet, mode, runMockTransaction, settleRewards, pendingRewards, isSubmitting],
   );
 
   return useMemo(

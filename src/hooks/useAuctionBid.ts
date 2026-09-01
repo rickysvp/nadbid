@@ -81,6 +81,8 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
 
   const placeBid = useCallback(
     async (auction: Auction, bidAmount: number): Promise<PlaceBidResult | null> => {
+      // ===== 重入保护：交易进行中拒绝重复发起 =====
+      if (isSubmitting) return null;
       // ===== 出价前校验 =====
       if (!wallet.isConnected) {
         setStatus('error');
@@ -174,7 +176,7 @@ export function useAuctionBid(options: AuctionBidOptions = {}): UseAuctionBidRet
         return null;
       }
     },
-    [mode, contractAddress, abi, failureRate, failureReason, tx, wallet.balanceMon, wallet.isConnected],
+    [mode, contractAddress, abi, failureRate, failureReason, tx, wallet.balanceMon, wallet.isConnected, isSubmitting],
   );
 
   return useMemo(

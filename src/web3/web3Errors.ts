@@ -234,7 +234,9 @@ export function handleWeb3Error(
   error: unknown,
   arg?: ToastLike | string,
 ): Web3ErrorInfo {
-  const info = classifyWeb3Error(error);
+  // 形态 2 的字符串参数作为 fallbackMessage 传给分类器；形态 1（toast 对象）用默认文案
+  const fallbackMessage = typeof arg === 'string' ? arg : undefined;
+  const info = classifyWeb3Error(error, fallbackMessage);
   // 形态 1：第二参数为 toast-like 对象（含 error 方法）→ 自动弹 toast
   if (arg && typeof arg === 'object' && typeof (arg as ToastLike).error === 'function') {
     const toast = arg as ToastLike;
