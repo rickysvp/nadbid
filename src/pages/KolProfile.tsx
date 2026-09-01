@@ -9,14 +9,14 @@ import ActiveAuctionEntry from '@/components/kol-profile/ActiveAuctionEntry';
 import KolRecords from '@/components/kol-profile/KolRecords';
 import { KolNotFoundError, useKolAuctions, useKolProfile } from '@/api';
 import type { NftTrade, NftTradeKind } from '@/types';
-import { useUserWalletStore } from '@/stores';
+import { useWalletStore } from '@/stores';
 
 export default function KolProfile() {
   const { handle = '' } = useParams<{ handle: string }>();
   const { data: profile, isLoading, error } = useKolProfile(handle);
   const { data: auctionsBundle } = useKolAuctions(handle);
   const [prepended, setPrepended] = useState<NftTrade[]>([]);
-  const walletAddress = useUserWalletStore((s) => s.address);
+  const walletAddress = useWalletStore((s) => s.address);
   const recordsRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToRecords = useCallback(() => {

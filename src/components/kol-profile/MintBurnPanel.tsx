@@ -20,7 +20,7 @@ import {
   Lock,
   X,
 } from 'lucide-react';
-import { useKolHolding, useUserWalletStore, useUiStore, useKolHoldingsStore, selectActiveStakedQty, selectFreeQty } from '@/stores';
+import { useKolHolding, useWalletStore, useUiStore, useKolHoldingsStore, selectActiveStakedQty, selectFreeQty } from '@/stores';
 import { BONDING_CURVE, NFT_FEE_RATES } from '@/constants/app';
 import type { KolProfile } from '@/types';
 import {
@@ -128,7 +128,7 @@ function RulesModal({
 export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) {
   const { handle, curveParams } = profile;
   const pushToast = useUiStore((s) => s.pushToast);
-  const wallet = useUserWalletStore();
+  const wallet = useWalletStore();
   const seedHoldings = useKolHoldingsStore((s) => s.seed);
   const mintThen = useKolHoldingsStore((s) => s.mint);
   const burnThen = useKolHoldingsStore((s) => s.burn);
@@ -246,11 +246,8 @@ export default function MintBurnPanel({ profile, onTrade }: MintBurnPanelProps) 
       return;
     }
 
-    const deltaMon = kind === 'mint' ? -mint.totalPayMon : burn.netReceiveMon;
-    useUserWalletStore.setState((s) => ({
-      balanceMon: Math.max(0, Number((s.balanceMon + deltaMon).toFixed(4))),
-      status: kind === 'mint' && s.status === 'disconnected' ? 'connected' : s.status,
-    }));
+    // TASK 3: 移除乐观余额扣减。余额由 WalletStateSyncer 从链上同步，
+    // 交易确认后自动更新（TASK 6 将实现交易后主动刷新余额）。
 
     // 同步更新该 KOL 的动态持仓与曲线偏移（铸造 + / 销毁 −），供应量、价格、图表随之联动。
     if (kind === 'mint') mintThen(handle, qty, mint.treasuryShareMon);

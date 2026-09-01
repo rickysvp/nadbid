@@ -1,7 +1,7 @@
 import { Menu, Wallet, ExternalLink } from 'lucide-react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { PILL_NAV_ORDER, routes } from '@/routes/config';
-import { useUiStore, useUserWalletStore } from '@/stores';
+import { useUiStore, useWalletStore } from '@/stores';
 import { formatTokenAmount, shortenAddress } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import { useMemo } from 'react';
@@ -36,7 +36,7 @@ function buildPillNavItems(): PillNavItem[] {
 }
 
 export default function NavBar() {
-  const { status, address, balanceMon, connect, disconnect } = useUserWalletStore();
+  const { status, address, balanceMon, connect, disconnect } = useWalletStore();
   const { isNavDrawerOpen, toggleNavDrawer, closeNavDrawer } = useUiStore();
   const location = useLocation();
   const pillNav = useMemo(buildPillNavItems, []);

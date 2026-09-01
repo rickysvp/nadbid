@@ -1,3 +1,3 @@
 export * from './uiStore';
-export * from './userWalletStore';
+export * from './walletStore';
 export * from './kolHoldingsStore';

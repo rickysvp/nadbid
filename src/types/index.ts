@@ -157,11 +157,27 @@ export interface Dispute {
 }
 
 // ============ 钱包 ============
+export type WalletStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
 export interface WalletState {
+  /** 是否已连接（真实钱包或 mock） */
   isConnected: boolean;
+  /** 钱包地址，未连接时为 null */
   address: string | null;
+  /** 原生代币余额（MON，已 formatUnits 为 number） */
   balanceMon: number;
+  /** 当前链 ID，未连接时为 null */
   chainId: number | null;
+  /** wagmi 连接状态机 */
+  status: WalletStatus;
+  /** 是否正在连接（status === 'connecting' || 'reconnecting'） */
+  isConnecting: boolean;
+  /** 当前 connector ID（如 'injected'、'walletConnect'），mock 连接时为 'mock' */
+  connectorId: string | null;
+  /** 当前 connector 显示名称 */
+  connectorName: string | null;
+  /** 原始余额（wei），未连接或未查询时为 null */
+  balanceRaw: bigint | null;
 }
 
 // ============ API ============

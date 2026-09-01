@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { WagmiProvider } from './web3/WagmiProvider';
+import { WalletStateSyncer } from './web3/WalletStateSyncer';
 import AppLayout from './app/AppLayout';
 import HomePage from './pages/HomePage';
 import AuctionsPage from './pages/AuctionsPage';
@@ -19,22 +21,25 @@ import { ROUTES } from './config/routes';
  */
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path={ROUTES.HOME} element={<HomePage />} />
-          <Route path={ROUTES.AUCTIONS} element={<AuctionsPage />} />
-          <Route path={ROUTES.AUCTION_DETAIL} element={<AuctionDetailPage />} />
-          <Route path={ROUTES.KOL_PROFILE} element={<KolProfilePage />} />
-          <Route path={ROUTES.STAKING} element={<StakingPage />} />
-          <Route path={ROUTES.CLAIM} element={<ClaimPage />} />
-          <Route path={ROUTES.POINTS} element={<PointsPage />} />
-          <Route path={ROUTES.ARBITRATION} element={<ArbitrationPage />} />
-          <Route path={ROUTES.WALLET} element={<WalletPage />} />
-          <Route path={ROUTES.DOCS} element={<DocsPage />} />
-          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <WagmiProvider>
+      <WalletStateSyncer />
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path={ROUTES.HOME} element={<HomePage />} />
+            <Route path={ROUTES.AUCTIONS} element={<AuctionsPage />} />
+            <Route path={ROUTES.AUCTION_DETAIL} element={<AuctionDetailPage />} />
+            <Route path={ROUTES.KOL_PROFILE} element={<KolProfilePage />} />
+            <Route path={ROUTES.STAKING} element={<StakingPage />} />
+            <Route path={ROUTES.CLAIM} element={<ClaimPage />} />
+            <Route path={ROUTES.POINTS} element={<PointsPage />} />
+            <Route path={ROUTES.ARBITRATION} element={<ArbitrationPage />} />
+            <Route path={ROUTES.WALLET} element={<WalletPage />} />
+            <Route path={ROUTES.DOCS} element={<DocsPage />} />
+            <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </WagmiProvider>
   );
 }
