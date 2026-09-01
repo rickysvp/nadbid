@@ -1,0 +1,9 @@
+# Compiler files
+cache/
+out/
+
+# Dependencies (installed via forge install --no-git, not committed)
+lib/
+
+# Re-include remappings.txt (repo root .gitignore ignores *.txt)
+!remappings.txt
