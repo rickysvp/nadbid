@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown } from 'lucide-react';
@@ -19,6 +19,9 @@ import { shortenAddress } from '../utils/format';
 import { AUCTION } from '../utils/constants';
 import { cn } from '../utils/cn';
 import type { Bid } from '../types';
+import { useAuction } from '../web3/hooks/useAuction';
+import { useKolPass } from '../web3/hooks/useKolPass';
+import { mockAuctions } from '../data/mockAuctions';
 
 /** 便士拍卖：单次出价固定金额（MON），兜底取 auction.bidIncrement */
 const DEFAULT_BID_AMOUNT = AUCTION.FIXED_BID_AMOUNT;
@@ -161,8 +164,7 @@ const mockBidders: LeaderboardRow[] = [
   { rank: 10, bidder: '0x4c...99a2', bids: 1, tvl: '99.00' },
 ];
 
-export default function AuctionDetailPage() {
-  const { id } = useParams<{ id: string }>();
+function MockAuctionDetail({ id }: { id: string }) {
   const auction = id ? getAuctionById(id) : undefined;
   const { success, error, info } = useToast();
   const wallet = useWalletStore();
@@ -601,4 +603,388 @@ export default function AuctionDetailPage() {
       />
     </div>
   );
+}
+
+/**
+ * 从 mock 数据回退推断链上 KOL 展示信息（链上仅 kol 地址，无 handle / name / followers）。
+ * 遍历 mockAuctions 找 kol 地址匹配的 auction；当前 mock KOL 无地址字段，命中为空 → 调用方回退 shortenAddress(kol)。
+ */
+function inferKolMeta(
+  kolAddress: string | undefined,
+): { name: string; handle: string; followers?: number } | undefined {
+  if (!kolAddress) return undefined;
+  const addr = kolAddress.toLowerCase();
+  const matched = mockAuctions.find(
+    (a) => (a.kol as unknown as { address?: string }).address?.toLowerCase() === addr,
+  );
+  if (matched) return { name: matched.kol.name, handle: matched.kol.handle, followers: matched.kol.followers };
+  return undefined;
+}
+
+/** 链上拍卖详情页 — id 为 KolAuction 合约地址（0x 开头），数据来自 useAuction（内置 BidPlaced 事件订阅自动刷新） */
+function ChainAuctionDetail({ address }: { address: string }) {
+  const { success, error, info } = useToast();
+  const wallet = useWalletStore();
+  const auctionAddress = address as `0x${string}`;
+  const account = wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
+
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
+  // 链上拍卖状态：placeBid 默认取链上 fixedBidAmount；BidPlaced 事件自动 refetch
+  const {
+    auctionData,
+    cumulativeBid,
+    bidCount,
+    placeBid,
+    settle,
+    isLoading: txLoading,
+    refetchAuction,
+  } = useAuction(auctionAddress, account);
+
+  // PASS 持仓检查（出价前置条件：balanceOf > 0 才可出价）
+  const { balanceOf, totalSupply } = useKolPass(auctionData?.passContract, account);
+  const holdPass = balanceOf !== undefined && balanceOf > 0n;
+
+  // KOL 展示信息：链上仅 kol 地址 → 从 mock 回退推断；找不到用 shortenAddress
+  const kolMeta = useMemo(() => inferKolMeta(auctionData?.kol), [auctionData?.kol]);
+
+  // 倒计时：从链上 endTime（秒级 Unix 时间戳）推算，沿用现有 CircularProgress 逻辑
+  const endTimeMs = auctionData ? Number(auctionData.endTime) * 1000 : Date.now();
+  const countdown = useCountdownDetail(endTimeMs);
+  const { timeString, progress, totalSeconds, isOver } = countdown;
+
+  const fixedBid = auctionData ? Number(auctionData.fixedBidAmount) / 1e18 : DEFAULT_BID_AMOUNT;
+  const totalBids = auctionData ? Number(auctionData.totalBids) : 0;
+  const totalVolume = auctionData ? Number(auctionData.totalVolume) / 1e18 : 0;
+  const lastBidder =
+    auctionData && auctionData.lastBidder !== '0x0000000000000000000000000000000000000000'
+      ? auctionData.lastBidder
+      : null;
+  const isEnded = isOver;
+  const isSettled = auctionData?.settled ?? false;
+  const isLive = !!auctionData && !isEnded && !isSettled;
+  const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
+
+  const kolName = kolMeta?.name ?? (auctionData?.kol ? shortenAddress(auctionData.kol) : 'On-Chain KOL');
+  const kolHandle = kolMeta?.handle ?? (auctionData?.kol ? shortenAddress(auctionData.kol) : '@kol');
+  const kolFollowers = kolMeta?.followers;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    success('Auction link copied to clipboard!');
+  };
+
+  /** 出价流程三分支：未连接 → ConnectModal 引导；已连接未持 PASS → toast；已连接且持有 → placeBid */
+  const attemptBid = async () => {
+    if (!auctionData || isEnded || isSettled || txLoading) return;
+    if (!wallet.isConnected) {
+      setConnectOpen(true);
+      return;
+    }
+    if (!holdPass) {
+      error('需持有该 KOL 的 PASS');
+      return;
+    }
+    await placeBid({
+      value: auctionData.fixedBidAmount,
+      onSuccess: () => {
+        success(`Bid placed! Countdown reset to ${BID_EXTEND_SECONDS}s.`);
+        setPulse(true);
+        setTimeout(() => setPulse(false), 500);
+        refetchAuction();
+      },
+    });
+  };
+
+  const handleConnected = attemptBid;
+
+  /** 结束且未结算 → 结算（加分项） */
+  const handleSettle = async () => {
+    if (!auctionData || !isEnded || isSettled || txLoading) return;
+    if (!wallet.isConnected) {
+      setConnectOpen(true);
+      return;
+    }
+    await settle({
+      onSuccess: () => {
+        success('Auction settled!');
+        refetchAuction();
+      },
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
+      <div className="max-w-[1200px] mx-auto px-6 relative z-10">
+        {/* Back + Actions */}
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/auctions" className="flex items-center gap-2 text-white/50 hover:text-white transition-colors font-bold text-sm tracking-wide">
+            <ArrowLeft className="w-4 h-4" /> BACK TO AUCTIONS
+          </Link>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={handleCopyLink}>
+              <Copy className="w-3.5 h-3.5" /> Copy Link
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => info('Opening share dialog...')}>
+              <Share2 className="w-3.5 h-3.5" /> Share
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column (7 cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* 拍卖内容 — 主体信息 */}
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#3ec470]/[0.02] rounded-full blur-[80px] pointer-events-none"></div>
+
+              <div className="flex items-start justify-between gap-4 mb-4 relative z-10">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                  {auctionData?.content || 'KOL Auction'}
+                </h1>
+                {!auctionData ? (
+                  <Badge variant="neutral">Loading</Badge>
+                ) : isLive ? (
+                  <Badge variant="live" pulse>Live</Badge>
+                ) : isSettled ? (
+                  <Badge variant="settled">Settled</Badge>
+                ) : (
+                  <Badge variant="ended">Ended</Badge>
+                )}
+              </div>
+
+              {/* KOL 紧凑信息条（弱化展示） */}
+              <div className="flex items-center gap-3 bg-[#0f0f0f] border border-white/5 rounded-lg px-4 py-3 mb-5 relative z-10">
+                <KolAvatar handle={kolHandle} size="md" name={kolName} className="!w-9 !h-9 !rounded-full border border-white/10" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white/90">{kolName}</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#3ec470]/70" />
+                    <span className="font-mono text-white/40 text-[11px]">{kolHandle}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[9px] font-bold tracking-wider">
+                    <span className="flex items-center gap-1 text-white/40">
+                      <Users className="w-3 h-3 text-white/30" /> {kolFollowers !== undefined ? kolFollowers.toLocaleString() : '-'} FOLLOWERS
+                    </span>
+                    <span className="flex items-center gap-1 text-white/40">
+                      <Wallet className="w-3 h-3 text-white/30" /> Auction {auctionData ? shortenAddress(auctionAddress) : '-'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => info(`Follow ${kolHandle} on X`)}
+                  className="shrink-0 bg-[#0a0a0a] border border-white/[0.06] text-white/60 hover:text-[#3ec470] text-[10px] font-bold uppercase tracking-[0.15em] py-1.5 px-3 rounded-lg hover:bg-white/[0.02] hover:border-[#3ec470]/30 transition-all text-center"
+                >
+                  Follow on X
+                </button>
+              </div>
+
+              {/* 拍卖描述 */}
+              <div className="text-white/50 text-[13px] leading-relaxed relative z-10">
+                Penny auction on-chain. Each bid costs {fixedBid.toFixed(2)} MON and extends the countdown by {BID_EXTEND_SECONDS}s.
+                Hold a PASS of this KOL to participate.
+              </div>
+            </div>
+
+            {/* 最后出价人（当前赢家）— 紧凑长条 */}
+            <div className="overflow-hidden rounded-xl bg-[#161616] border border-[#3ec470]/30 relative">
+              <div className="absolute -top-6 -right-6 w-24 h-24 bg-[#3ec470]/[0.08] rounded-full blur-[30px] pointer-events-none"></div>
+              <div className="flex items-center gap-3 py-3.5 px-5 relative z-10">
+                <Crown className="w-4 h-4 text-[#3ec470] shrink-0" />
+                <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={lastBidder ?? 'empty'}
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -12 }}
+                    transition={{ duration: 0.25 }}
+                    className="font-mono text-[15px] font-bold text-[#3ec470] truncate"
+                  >
+                    {lastBidder ? shortenAddress(lastBidder) : '-'}
+                  </motion.span>
+                </AnimatePresence>
+                {isLastBidderYou && (
+                  <motion.span
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    className="bg-[#1a2f22] text-[#3ec470] text-[8px] px-2 py-0.5 rounded-sm font-sans font-bold tracking-wider"
+                  >
+                    YOU
+                  </motion.span>
+                )}
+                <span className="ml-auto flex items-center gap-4 shrink-0">
+                  <span className="text-right">
+                    <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Bids</span>
+                    <span className="font-mono text-[13px] font-bold text-white">
+                      {isLastBidderYou ? Number(bidCount ?? 0n).toLocaleString() : '-'}
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Total Spent</span>
+                    <span className="font-mono text-[13px] font-bold text-white">
+                      {isLastBidderYou
+                        ? `${round2(Number(cumulativeBid ?? 0n) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
+                        : '-'}
+                    </span>
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* On-Chain Activity（链上无逐出价者排行，展示聚合数据） */}
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-white">On-Chain Activity</h3>
+                <div className="flex items-center gap-1.5 text-[#3ec470] text-[10px] font-bold tracking-[0.15em] uppercase bg-[#3ec470]/10 px-3 py-1 rounded">
+                  <AlertTriangle className="w-3 h-3" /> Live
+                </div>
+              </div>
+              <div className="space-y-2.5 font-mono text-[12px]">
+                <div className="flex justify-between text-white/40">
+                  <span>Last Bidder</span>
+                  <span className="text-white font-bold">{lastBidder ? shortenAddress(lastBidder) : '-'}</span>
+                </div>
+                <div className="flex justify-between text-white/40">
+                  <span>Total Bids</span>
+                  <span className="text-white font-bold">{totalBids.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-white/40">
+                  <span>Total Volume (MON)</span>
+                  <span className="text-white font-bold">{totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                {account && (
+                  <>
+                    <div className="flex justify-between text-white/40">
+                      <span>Your Bids</span>
+                      <span className="text-[#3ec470] font-bold">{Number(bidCount ?? 0n).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-white/40">
+                      <span>Your Cumulative (MON)</span>
+                      <span className="text-[#3ec470] font-bold">{round2(Number(cumulativeBid ?? 0n) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Bidding Control */}
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8 flex flex-col items-center">
+              <CircularProgress
+                progress={progress}
+                size={160}
+                strokeWidth={4}
+                label={isLive ? `${totalSeconds}s` : timeString}
+                sublabel={isSettled ? 'Settled' : isEnded ? 'Ended' : isLive ? 'In Progress' : 'Loading'}
+              />
+
+              <div className="w-full grid grid-cols-3 gap-2 border-y border-white/[0.04] py-5 my-6 text-center">
+                <div>
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Bidders</div>
+                  <div className="font-black text-sm">{isLive ? '-' : '-'}</div>
+                </div>
+                <div>
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Total Bids</div>
+                  <div className="font-black text-sm">{isLive ? totalBids.toLocaleString() : '-'}</div>
+                </div>
+                <div>
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">TVL (MON)</div>
+                  <div className="font-black text-sm">{isLive ? totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '-'}</div>
+                </div>
+              </div>
+
+              <div className="text-center w-full">
+                <div className="text-[#3ec470] text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Fixed Bid Amount</div>
+                <motion.div
+                  animate={pulse ? { scale: [1, 1.05, 1], color: ['#fff', '#3ec470', '#fff'] } : {}}
+                  transition={{ duration: 0.3 }}
+                  className="text-[32px] font-black mb-3 flex items-baseline justify-center gap-1.5"
+                >
+                  {fixedBid.toFixed(2)} <span className="text-sm font-medium text-[#3ec470]">MON</span>
+                </motion.div>
+
+                <button
+                  onClick={attemptBid}
+                  disabled={!auctionData || !isLive || txLoading}
+                  className={cn(
+                    'w-full font-black text-[15px] py-3.5 rounded transition-all active:scale-[0.98]',
+                    auctionData && isLive && !txLoading
+                      ? 'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)]'
+                      : 'bg-white/10 text-white cursor-not-allowed hover:bg-white/15'
+                  )}
+                >
+                  {!auctionData
+                    ? 'LOADING...'
+                    : isSettled
+                      ? 'AUCTION SETTLED'
+                      : isEnded
+                        ? 'AUCTION ENDED'
+                        : txLoading
+                          ? 'BIDDING...'
+                          : wallet.isConnected
+                            ? 'PLACE BID'
+                            : 'ENTER AUCTION'}
+                </button>
+
+                {/* 结束且未结算 → 结算按钮（加分项） */}
+                {isEnded && !isSettled && (
+                  <button
+                    onClick={handleSettle}
+                    className="w-full mt-3 bg-[#1e1e1e] border border-[#3ec470]/30 text-[#3ec470] font-bold text-[12px] tracking-[0.1em] py-3 rounded hover:bg-[#252525] transition-colors uppercase"
+                  >
+                    Settle Auction
+                  </button>
+                )}
+
+                <div className="text-white/40 text-[9px] font-bold tracking-[0.15em] uppercase mt-5">
+                  Your Pass Holdings: <span className="text-white">{account ? (balanceOf ?? 0n).toString() : '0'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pass Info（链上简化：真实 balance / supply，Mint/Burn 走 KOL Profile 页面 Task 12） */}
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
+              <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-5">{kolName} PASS</h3>
+
+              <div className="grid grid-cols-2 gap-2 mb-5">
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-2.5">
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Pass Contract</div>
+                  <div className="font-mono text-[11px] font-bold">{auctionData ? shortenAddress(auctionData.passContract) : '-'}</div>
+                </div>
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-2.5">
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Supply</div>
+                  <div className="font-mono text-[11px] font-bold">{totalSupply !== undefined ? totalSupply.toString() : '-'}</div>
+                </div>
+              </div>
+
+              <div className="text-center mt-5">
+                <div className="text-white/30 text-[8px] font-bold tracking-[0.15em] uppercase mb-1.5">
+                  Your Pass Holdings: <span className="text-white/60">{account ? (balanceOf ?? 0n).toString() : '0'}</span>
+                </div>
+                <div className="text-white/30 text-[9px] italic">PASS mint / burn available on the KOL profile page.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 钱包连接引导弹窗 */}
+      <ConnectModal
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        onConnected={handleConnected}
+      />
+    </div>
+  );
+}
+
+/** 拍卖详情页双路径：id 以 0x 开头 → 链上真实数据（KolAuction 合约地址）；否则 → mock（回退兼容，链接改造见 Task 12） */
+export default function AuctionDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  if (id && id.startsWith('0x')) return <ChainAuctionDetail address={id} />;
+  return <MockAuctionDetail id={id ?? ''} />;
 }
