@@ -42,7 +42,7 @@ export const AUCTION = {
   EXTENSION_WINDOW: 300,
   EXTENSION_DURATION: 300,
   /** 便士拍卖（Penny Auction）单次固定出价金额（MON），兜底取 auction.bidIncrement */
-  FIXED_BID_AMOUNT: 0.05,
+  FIXED_BID_AMOUNT: 99,
   /** 出价成功后倒计时延长秒数（mock 演示用，便于观察延长效果） */
   BID_EXTEND_SECONDS: 30,
   /** 拍卖倒计时进度基准时长（ms）— 用于 CircularProgress 百分比计算 */

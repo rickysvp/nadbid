@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -11,6 +11,8 @@ import { TradeConfirmationModal, ConnectModal } from '../components/trade';
 import type { TradeDetailItem } from '../components/trade';
 import { useToast } from '../hooks/useToast';
 import { useAuctionBid } from '../hooks/useAuctionBid';
+import { useSimulatedBids } from '../hooks/useSimulatedBids';
+import type { SimulatedBidder } from '../hooks/useSimulatedBids';
 import { useWalletStore } from '../stores/walletStore';
 import { getAuctionById, getBidsByAuction } from '../data/mockAuctions';
 import { kolProfilePath } from '../config/routes';
@@ -186,8 +188,10 @@ export default function AuctionDetailPage() {
 
   // 拍卖运行态（可被出价更新）
   const [endTime, setEndTime] = useState<number>(auction?.endTime ?? Date.now());
-  const [currentBid, setCurrentBid] = useState<number>(auction?.currentBid ?? 0);
   const [lastBidder, setLastBidder] = useState<string | null>(auction?.lastBidder ?? null);
+  // 最后出价人的高价值信息：累计出价次数 / 累计出价金额（MON）
+  const [lastBidderBids, setLastBidderBids] = useState<number>(0);
+  const [lastBidderAmount, setLastBidderAmount] = useState<number>(0);
   const [totalBids, setTotalBids] = useState<number>(auction?.totalBids ?? 0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>(() => mockBidders.map((r) => ({ ...r })));
   const [bidHistory, setBidHistory] = useState<Bid[]>(() => (id ? getBidsByAuction(id) : []));
@@ -196,8 +200,9 @@ export default function AuctionDetailPage() {
   useEffect(() => {
     if (!auction) return;
     setEndTime(auction.endTime);
-    setCurrentBid(auction.currentBid);
     setLastBidder(auction.lastBidder ?? null);
+    setLastBidderBids(0);
+    setLastBidderAmount(0);
     setTotalBids(auction.totalBids);
     setLeaderboard(mockBidders.map((r) => ({ ...r })));
     setBidHistory(getBidsByAuction(auction.id));
@@ -206,6 +211,39 @@ export default function AuctionDetailPage() {
   const isLive = auction?.status === 'LIVE';
   const countdown = useCountdownDetail(isLive ? endTime : (auction?.startTime ?? Date.now()));
   const { timeString, progress, totalSeconds, isOver } = countdown;
+
+  // 单次出价固定金额（提前计算，供模拟出价 Hook 无条件调用使用）
+  const fixedBid = auction && auction.bidIncrement > 0 ? auction.bidIncrement : DEFAULT_BID_AMOUNT;
+  const countdownEnded = isLive && isOver;
+
+  // 模拟他人出价回调：拍卖进行中由 useSimulatedBids 定时触发
+  const handleSimulatedBid = (bidder: SimulatedBidder, amount: number) => {
+    setLastBidder(bidder.address);
+    setLastBidderBids(bidder.bids);
+    setLastBidderAmount((prev) => round2(prev + amount));
+    setEndTime((t) => t + BID_EXTEND_MS);
+    setTotalBids((n) => n + 1);
+    setLeaderboard((rows) => upsertLeaderboardRow(rows, bidder.address, amount));
+    setBidHistory((prev) => [
+      {
+        id: `bid-sim-${Date.now()}`,
+        auctionId: auction?.id ?? '',
+        bidder: bidder.address,
+        amount,
+        timestamp: Date.now(),
+        txHash: '',
+      },
+      ...prev,
+    ]);
+  };
+
+  // 模拟出价定时器：LIVE 且未结束时激活；用户自己出价后不暂停
+  // 必须无条件调用（Hooks 规则）：enabled 为 false 时内部不启动定时器
+  useSimulatedBids({
+    enabled: isLive && !countdownEnded,
+    onSimulatedBid: handleSimulatedBid,
+    bidAmount: fixedBid,
+  });
 
   if (!auction) {
     return (
@@ -221,11 +259,6 @@ export default function AuctionDetailPage() {
       </div>
     );
   }
-
-  // 单次出价固定金额
-  const fixedBid = auction.bidIncrement > 0 ? auction.bidIncrement : DEFAULT_BID_AMOUNT;
-  const latestBid = isLive ? currentBid : auction.minBid;
-  const countdownEnded = isLive && isOver;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -254,9 +287,10 @@ export default function AuctionDetailPage() {
     const result = await bid.placeBid(auction, fixedBid);
     if (!result) return; // 错误已由 TradeConfirmationModal 展示；用户拒绝 → 静默
 
-    // 出价成功：更新当前最高价 / 最后出价者 / 倒计时 / 出价次数
-    setCurrentBid((v) => round2(v + fixedBid));
+    // 出价成功：更新最后出价者 / 倒计时 / 出价次数
     setLastBidder(wallet.address);
+    setLastBidderBids((n) => n + 1);
+    setLastBidderAmount((prev) => round2(prev + fixedBid));
     setEndTime((t) => t + BID_EXTEND_MS);
     setTotalBids((n) => n + 1);
     // leaderboard 新增/更新一条出价记录
@@ -291,7 +325,7 @@ export default function AuctionDetailPage() {
     { label: 'Auction', value: auction.passName },
     { label: 'KOL', value: `${auction.kol.name} (${auction.kol.handle})` },
     { label: 'Bid Amount', value: `${fixedBid.toFixed(2)} MON`, highlight: true },
-    { label: 'Current Highest', value: `${formatBid(currentBid)} MON` },
+    { label: 'Current Bidder', value: lastBidder ? shortenAddress(lastBidder) : '-' },
     { label: 'Est. New Countdown', value: `+${BID_EXTEND_SECONDS}s → ${newTimeString}`, highlight: true },
   ];
 
@@ -364,25 +398,72 @@ export default function AuctionDetailPage() {
               </div>
             </div>
 
-            {/* Current Highest & Last Bidder */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
-                <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-2">Current Highest</div>
-                <div className="text-[#3ec470] font-mono text-3xl font-bold">
-                  {formatBid(latestBid)} <span className="text-sm font-medium text-[#3ec470]/60">MON</span>
+            {/* Last Bidder — 当前赢家突出卡片 */}
+            <motion.div
+              key={lastBidder ? `${lastBidder}-${totalBids}` : 'none'}
+              initial={{ borderColor: 'rgba(62,196,112,0.9)' }}
+              animate={{ borderColor: ['rgba(62,196,112,0.9)', 'rgba(62,196,112,0.25)', 'rgba(62,196,112,0.9)'] }}
+              transition={{ duration: 1.4, repeat: Infinity }}
+              className="relative overflow-hidden bg-[#161616] border border-[#3ec470]/40 rounded-xl p-6"
+            >
+              {/* 绿色光晕 */}
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#3ec470]/[0.08] rounded-full blur-[60px] pointer-events-none"></div>
+
+              <div className="flex items-center gap-2 mb-4 relative z-10">
+                <Crown className="w-4 h-4 text-[#3ec470]" />
+                <span className="text-[#3ec470] text-[10px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#3ec470] animate-pulse"></span>
+              </div>
+
+              {/* 最后出价人地址（带滑入动画） */}
+              <div className="flex items-center gap-3 relative z-10 min-h-[44px]">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={lastBidder ?? 'empty'}
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -16 }}
+                    transition={{ duration: 0.28 }}
+                    className="flex items-center gap-3 flex-wrap"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#3ec470]/15 border border-[#3ec470]/30 flex items-center justify-center">
+                      <Crown className="w-4 h-4 text-[#3ec470]" />
+                    </div>
+                    <span className="font-mono text-2xl font-black text-white">
+                      {lastBidder ? shortenAddress(lastBidder) : '-'}
+                    </span>
+                    {lastBidder === wallet.address && (
+                      <span className="bg-[#1a2f22] text-[#3ec470] text-[9px] px-2 py-0.5 rounded-sm font-sans font-bold tracking-wider border border-[#3ec470]/30">YOU</span>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* 高价值信息：出价次数 / 累计金额 / 持仓 */}
+              <div className="grid grid-cols-3 gap-2 mt-5 relative z-10">
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                  <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Bids</div>
+                  <div className="font-mono text-[14px] font-bold text-[#3ec470]">{lastBidder ? lastBidderBids.toLocaleString() : '-'}</div>
+                </div>
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                  <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Total Spent</div>
+                  <div className="font-mono text-[14px] font-bold text-white">{lastBidder ? `${formatBid(lastBidderAmount)} MON` : '-'}</div>
+                </div>
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                  <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">PASS</div>
+                  <div className="font-mono text-[14px] font-bold text-white">12</div>
                 </div>
               </div>
 
-              <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
-                <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-2">Last Bidder</div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
-                    {lastBidder && <div className="w-3 h-3 rounded-full bg-[#3ec470]/50"></div>}
-                  </div>
-                  <span className="text-white/90 font-mono text-xl">{lastBidder ? shortenAddress(lastBidder) : '-'}</span>
-                </div>
+              {/* 语义提示：最后出价人 = 倒计时结束时的赢家 */}
+              <div className="text-white/30 text-[9px] font-bold tracking-[0.15em] uppercase mt-4 relative z-10">
+                {isLive ? (
+                  <>→ Countdown ends, this address wins {auction.kol.name}'s service</>
+                ) : (
+                  <>{auction.kol.name}'s service auction</>
+                )}
               </div>
-            </div>
+            </motion.div>
 
             {/* Live Leaderboard */}
             <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8">
@@ -465,16 +546,15 @@ export default function AuctionDetailPage() {
                   {fixedBid.toFixed(2)} <span className="text-sm font-medium text-[#3ec470]">MON</span>
                 </motion.div>
 
-                {/* 当前最高价 + 最后出价者 */}
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                  <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
-                    <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Current Highest</div>
-                    <div className="font-mono text-[12px] font-bold text-white">{formatBid(latestBid)} MON</div>
-                  </div>
-                  <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
-                    <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Last Bidder</div>
-                    <div className="font-mono text-[12px] font-bold text-white truncate">{lastBidder ? shortenAddress(lastBidder) : '-'}</div>
-                  </div>
+                {/* 当前领先者（最后出价人）— 紧凑提示条 */}
+                <div className="flex items-center justify-center gap-2 mb-6 bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                  <span className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Last Bidder</span>
+                  <span className="font-mono text-[12px] font-bold text-[#3ec470] truncate">
+                    {lastBidder ? shortenAddress(lastBidder) : '-'}
+                  </span>
+                  {lastBidder === wallet.address && (
+                    <span className="text-[8px] font-bold text-[#3ec470]">(YOU)</span>
+                  )}
                 </div>
 
                 <button

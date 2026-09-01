@@ -180,7 +180,7 @@ export default function DocsPage() {
           </div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-3">Documentation & Rules</h1>
           <p className="text-white/50 text-[15px] max-w-2xl mx-auto">
-            Everything you need to know about KOLFi auctions, PASS tokens, staking, and the decentralized arbitration system.
+            Everything you need to know about nadbid.fun auctions, PASS tokens, staking, and the decentralized arbitration system.
           </p>
         </div>
 

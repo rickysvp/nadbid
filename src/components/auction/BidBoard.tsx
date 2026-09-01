@@ -53,9 +53,6 @@ export function BidBoard({ bids, leadingBidder, className }: BidBoardProps) {
                   <div className="flex items-center gap-2">
                     <KolAvatar handle={bid.bidder} size="sm" />
                     <span className="font-mono text-[12px] text-white/80">{shortenAddress(bid.bidder)}</span>
-                    {leadingBidder === bid.bidder && (
-                      <span className="text-[9px] font-bold text-[#3ec470] uppercase">LEADING</span>
-                    )}
                   </div>
                 </TableCell>
                 <TableCell className="py-3 text-right">
