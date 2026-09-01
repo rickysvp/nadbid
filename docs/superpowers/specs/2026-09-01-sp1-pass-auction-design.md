@@ -20,6 +20,12 @@ nadbid.fun 是去中心化 KOL PASS 便士拍卖应用。前端已完成 mock �
 - 结算履约 48h 锁定、争议仲裁 → SP-3
 - 积分（Points）系统 → 后续
 
+**对 SPEC v2.4 的主动裁剪（用户明确决策，实施与测试以此为准）**：
+- 出价倒计时重置：**40s**（SPEC §6.4 原为 60s）
+- 现金担保金额：**10 MON**（SPEC §3.1 原为 10,000 MON），语义为"可赎回的创建资格质押"
+- 固定出价：**99 MON/次**（SPEC §6.3 原下限 `>=100`，SP-1 不设 100 下限）
+- 拍卖频率限制（SPEC §7.1 滚动 7 天 ≤1 场 / §7.2 闭环）：**SP-1 不施加**
+
 ---
 
 ## 2. 已确认的关键决策（用户批准）
@@ -34,9 +40,10 @@ nadbid.fun 是去中心化 KOL PASS 便士拍卖应用。前端已完成 mock �
 | 担保金额 | 10 MON（可赎回，48h 履约确认窗口）；RealNads NFT 通道测试网预留（主网地址 `0xe20c4f8cacdb1854151f3e12144bdc919e608b9b`） |
 | PASS 创建 | KOL 只填**铸造价格**（曲线基础价） |
 | 拍卖创建 | KOL 填**固定出价** + **拍卖内容**（无"起拍价"概念） |
-| 出价机制 | 便士拍卖固定价（如 99 MON/次），无价格上涨机制 |
-| 拍卖时长 | KOL 创建时填初始时长；出价后重置 40s（沿用前端 `BID_EXTEND_SECONDS=40`） |
+| 出价机制 | 便士拍卖固定价 **99 MON/次**（用户确认，SPEC 原下限 100 裁剪），无价格上涨机制 |
+| 拍卖时长 | KOL 创建时填初始时长；出价后重置 **40s**（用户确认，SPEC 原 60s 裁剪，沿用前端 `BID_EXTEND_SECONDS=40`） |
 | 结算资金 | 结算即解锁（20% 平台 / 80% KOL），**不引入 48h 履约锁定**（留 SP-3） |
+| 拍卖频率限制 | **SP-1 不加**（SPEC §7.1/§7.2 裁剪，留正式版） |
 | RealNads NFT | 测试网 MVP 只开放"质押 10 MON"通道；NFT 质押代码预留地址留空 |
 | 前端范围 | 切 KOL 入驻 + PASS + 拍卖；Staking/Claim/仲裁 保留 mock |
 
@@ -100,7 +107,7 @@ struct Kol {
 ```
 
 常量：
-- `BOND_AMOUNT = 10 ether`（10 MON）
+- `BOND_AMOUNT = 10 ether`（10 MON，**对 SPEC §3.1 的裁剪**：原 10,000 MON 降为 10 MON，语义为可赎回的创建资格质押）
 - `BOND_REDEEM_COOLDOWN = 48 hours`
 - `MIN_FOLLOWERS = 10_000`
 
@@ -154,12 +161,13 @@ function createKolPass(uint256 mintPrice) external returns (address passContract
 // ===== 创建拍卖 =====
 function createKolAuction(
     address passContract,      // 关联的 PASS 合约
-    uint256 fixedBidAmount,    // 固定出价金额
+    uint256 fixedBidAmount,    // 固定出价金额（用户确认默认 99 MON；SP-1 不设 100 下限）
     uint256 duration,          // 拍卖初始时长（秒）
     string calldata content    // 拍卖内容
 ) external returns (address auctionContract);
 // require: passContract 属于调用者 / 已质押担保 / 未在赎回等待期
 // 部署 KolAuction，关联到 passContract
+// SP-1 不施加 SPEC §7.1（滚动7天≤1场）/ §7.2（闭环）频率限制
 
 // ===== 事件 =====
 event KolPassCreated(address indexed kol, address passContract, uint256 mintPrice);
@@ -170,7 +178,7 @@ event KolAuctionCreated(address indexed kol, address auctionContract, address pa
 
 1. 创建前提：已入驻（registered）+ 已质押 10 MON（bonded）+ 非赎回等待期
 2. PASS 创建：只填 `mintPrice`（曲线基础价），曲线指数（2）、基础供应量（1000）由合约固化
-3. 拍卖创建：填固定出价 + 内容（`content` string 直接存链上）
+3. 拍卖创建：填固定出价（默认 99 MON）+ 内容（`content` string 直接存链上）；SP-1 无频率/闭环限制（SPEC §7.1/§7.2 裁剪）
 4. Factory 内部记录 KOL → 各合约地址，同时写入 Registry 的索引列表
 5. 拍卖初始时长由 KOL 填；出价后重置为 `BID_EXTEND_SECONDS`（40s）
 
@@ -238,8 +246,9 @@ struct Auction {
     uint256 id;                 // 拍卖 ID
     address kol;                // KOL 钱包
     address passContract;       // 关联 PASS 合约
-    uint256 fixedBidAmount;     // 固定出价
+    uint256 fixedBidAmount;     // 固定出价（用户确认 99 MON，SPEC 原 100 下限裁剪）
     string content;             // 拍卖内容
+    uint8 itemCategory;         // 标的类别（预留枚举位，SP-3 履约/证据用；SP-1 固定 SOCIAL）
     uint256 startTime;          // 开拍时间
     uint256 endTime;            // 当前倒计时截止
     address lastBidder;         // 最后出价者（中标者）
@@ -253,7 +262,7 @@ mapping(address => uint256) public cumulativeBid;  // 每地址累计出价金�
 ```
 
 常量：
-- `BID_EXTEND_SECONDS = 40`（出价后倒计时重置）
+- `BID_EXTEND_SECONDS = 40`（出价后倒计时重置，对 SPEC §6.4 原 60s 的裁剪，用户确认）
 - `PLATFORM_SETTLE_PCT = 20%`、`KOL_SETTLE_PCT = 80%`
 
 ### 7.2 核心函数
@@ -270,8 +279,9 @@ function placeBid() external payable returns (bool);
 // 处理链（SPEC §6.4）：
 //   recordBidder → cumulativeBid[msg.sender] += fixedBidAmount
 //   → lastBidder = msg.sender → totalBids++ → totalVolume += fixedBidAmount
-//   → resetCountdown：endTime = block.timestamp + BID_EXTEND_SECONDS
-//   → emit BidPlaced(auctionId, bidder, fixedBidAmount, block.timestamp)
+//   → resetCountdown：endTime = block.timestamp + BID_EXTEND_SECONDS(40s)
+//   → emit BidPlaced(auctionId, bidSeq, bidder, fixedBidAmount, block.timestamp)
+//     （bidSeq = 该地址累计出价序号，SPEC §16.3 事件清单 + 积分 §13.5 依赖）
 
 // ===== 结算 =====
 function settle() external;
@@ -281,7 +291,8 @@ function settle() external;
 //   2. totalVolume 已累计
 //   3. 20% → 平台 treasury（可提取）
 //   4. 80% → KOL（MVP：结算即解锁）
-//   5. emit AuctionSettled(auctionId, lastBidder, totalVolume)
+//   5. emit AuctionSettled(auctionId, lastBidder, totalVolume, platformFee, guaranteePool, block.number)
+//     （platformFee=20% / guaranteePool=80%，SPEC §16.3 事件清单）
 
 // ===== 查询 =====
 function getAuction() external view returns (Auction memory);
@@ -291,8 +302,8 @@ function getCumulativeBid(address bidder) external view returns (uint256);
 ### 7.3 规则要点
 
 1. 出价资格：必须持有该 KOL 的 PASS（`balanceOf > 0`）——与 SPEC §6.2 一致
-2. 固定出价：`msg.value == fixedBidAmount` 严格校验
-3. 倒计时重置：每次出价 `endTime = now + 40s`
+2. 固定出价：`msg.value == fixedBidAmount` 严格校验（默认 99 MON；SP-1 不设 SPEC §6.3 的 100 下限）
+3. 倒计时重置：每次出价 `endTime = now + 40s`（对 SPEC §6.4 原 60s 的裁剪）
 4. 中标者：结算时 `lastBidder` 即中标者，`cumulativeBid[lastBidder]` 是其累计金额
 5. 资金拆分：20% 平台 / 80% KOL（MVP 结算即解锁，不引入 48h 履约锁定）
 
