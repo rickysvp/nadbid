@@ -239,16 +239,31 @@ export function MintBurnPanel({
         </div>
       </div>
 
-      {/* CTA */}
+      {/* CTA — 未连接钱包也可点击（点击引导连接）；仅数量非法/交易中禁用 */}
       <Button
         fullWidth
         size="lg"
         variant={isMint ? 'default' : 'danger'}
         onClick={handleTradeClick}
-        disabled={!canSubmit}
+        disabled={!isQtyValid || trade.isSubmitting}
+        className={cn(
+          'cursor-pointer',
+          !wallet.isConnected && isQtyValid && !trade.isSubmitting && 'animate-pulse',
+        )}
       >
-        {isMint ? 'Mint PASS' : 'Burn PASS'}
+        {trade.isSubmitting
+          ? (isMint ? 'Minting...' : 'Burning...')
+          : !wallet.isConnected
+            ? 'Connect Wallet to Mint'
+            : isMint
+              ? 'Mint PASS'
+              : 'Burn PASS'}
       </Button>
+      {!wallet.isConnected && isQtyValid && (
+        <div className="text-[#3ec470]/70 text-[9px] text-center mt-2 font-bold tracking-wider">
+          Connect your wallet to mint {kolName}'s PASS
+        </div>
+      )}
       <div className="text-white/30 text-[9px] italic text-center mt-4">
         Prices follow a bonding curve. Slippage may apply.
       </div>
