@@ -81,17 +81,29 @@ monad_testnet = "https://testnet-rpc.monad.xyz"
 monad_testnet = { key = "${ETHERSCAN_KEY}", url = "https://testnet.monadexplorer.com/api" }
 ```
 
-- [ ] **Step 3: 验证编译**
+- [ ] **Step 3: 安装 forge-std + OpenZeppelin 依赖（提前安装，Task 4 KolPass 依赖 OZ）**
+
+```bash
+cd /Users/ricky/AICode/nadbid/contracts
+# forge-std 通常随 forge init 自带；如缺失则安装
+forge install foundry-rs/forge-std --no-commit 2>/dev/null || true
+# OpenZeppelin ERC721（Task 4 KolPass 使用，必须先装，否则 forge test 编译失败）
+forge install OpenZeppelin/openzeppelin-contracts@v5.3.0 --no-commit
+forge remappings > remappings.txt
+cat remappings.txt   # 确认含 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+```
+
+- [ ] **Step 4: 验证编译**
 
 Run: `cd /Users/ricky/AICode/nadbid/contracts && forge build`
 Expected: 编译通过，无合约文件（空工程）
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 cd /Users/ricky/AICode/nadbid
 git add contracts/
-git commit -m "feat(contracts): init Foundry project"
+git commit -m "feat(contracts): init Foundry project with forge-std + OpenZeppelin deps"
 ```
 
 ---
@@ -232,6 +244,10 @@ contract NadbidRegistry {
     function requestBondRedeem() external onlyRegistered {
         require(kols[msg.sender].bonded, "NOT_BONDED");
         require(!kols[msg.sender].bondRedeemPending, "ALREADY_PENDING");
+        // 名下无未结算拍卖（设计 §4.2：遍历 auctionContracts 查各 KolAuction.settled）
+        for (uint256 i = 0; i < kols[msg.sender].auctionContracts.length; i++) {
+            require(IAuction(kols[msg.sender].auctionContracts[i]).settled(), "UNSETTLED_AUCTION");
+        }
         kols[msg.sender].bondRedeemPending = true;
         kols[msg.sender].bondRedeemRequestedAt = block.timestamp;
         emit BondRedeemRequested(msg.sender);
@@ -265,11 +281,19 @@ contract NadbidRegistry {
     }
 
     address public factory;
-    function setFactory(address _factory) external { require(factory == address(0), "SET"); factory = _factory; }
+    address public owner;
+    modifier onlyOwner() { require(msg.sender == owner, "!OWNER"); _; }
+    constructor() { owner = msg.sender; }
+    function setFactory(address _factory) external onlyOwner { require(factory == address(0), "SET"); factory = _factory; }
     function canCreate(address kol) external view returns (bool) {
         Kol storage k = kols[kol];
         return k.registered && k.bonded && !k.bondRedeemPending && !banned[kol];
     }
+}
+
+// 供 Registry 查询 KolAuction 结算状态（避免双向 import）
+interface IAuction {
+    function settled() external view returns (bool);
 }
 ```
 
@@ -310,7 +334,7 @@ contract NadbidFactoryTest is Test {
 
     function setUp() public {
         registry = new NadbidRegistry();
-        factory = new NadbidFactory(address(registry));
+        factory = new NadbidFactory(address(registry), address(0xCAFE));  // registry + platformTreasury 两参
         registry.setFactory(address(factory));
     }
 
@@ -395,7 +419,7 @@ contract NadbidFactory {
         require(KolPass(passContract).kol() == msg.sender, "NOT_OWN_PASS");
         require(fixedBidAmount > 0, "ZERO_BID");
         require(duration > 0, "ZERO_DURATION");
-        KolAuction auction = new KolAuction(msg.sender, passContract, fixedBidAmount, duration, content, platformTreasury);
+        KolAuction auction = new KolAuction(msg.sender, passContract, fixedBidAmount, duration, content, platformTreasury, address(registry));
         registry.addAuctionContract(msg.sender, address(auction));
         emit KolAuctionCreated(msg.sender, address(auction), passContract, fixedBidAmount);
         return address(auction);
@@ -454,8 +478,8 @@ contract KolPassTest is Test {
     function test_Mint_CostsWithFee() public {
         vm.deal(buyer, 100 ether);
         uint256 supply = pass.totalSupply();
-        uint256 unit = pass.curvePrice();
-        uint256 cost = unit * 108 / 100;
+        uint256 unit = pass.curvePriceAt(1);  // 第一枚的实际曲线价（supply 0→1）
+        uint256 cost = unit * 108 / 100;      // +8% 手续费
         vm.prank(buyer);
         pass.mint{value: cost}(1);
         assertEq(pass.balanceOf(buyer), 1);
@@ -464,20 +488,20 @@ contract KolPassTest is Test {
 
     function test_Mint_SplitsFee() public {
         vm.deal(buyer, 100 ether);
-        uint256 unit = pass.curvePrice();
+        uint256 unit = pass.curvePriceAt(1);  // 第一枚实际曲线价（注意：非 curvePrice()）
         uint256 cost = unit * 108 / 100;
         uint256 beforeKol = kol.balance;
         uint256 beforePlatform = platform.balance;
         vm.prank(buyer);
         pass.mint{value: cost}(1);
-        // 5% KOL + 3% 平台 = 8%
+        // 5% KOL + 3% 平台 = 8%（基数 = 实际曲线成交额 unit，非 basePrice）
         assertEq(kol.balance - beforeKol, unit * 5 / 100);
         assertEq(platform.balance - beforePlatform, unit * 3 / 100);
     }
 
     function test_Transfer_IsSoulbound() public {
         vm.deal(buyer, 100 ether);
-        uint256 cost = pass.curvePrice() * 108 / 100;
+        uint256 cost = pass.curvePriceAt(1) * 108 / 100;
         vm.prank(buyer);
         uint256[] memory ids = pass.mint{value: cost}(1);
         vm.prank(buyer);
@@ -652,7 +676,9 @@ contract KolAuctionTest is Test {
 
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform);
-        auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform);
+        // KolAuction 需传 registry（供 banned 检查）；测试用独立 registry 实例
+        NadbidRegistry reg = new NadbidRegistry();
+        auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg));
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);
         vm.prank(bidder);
@@ -682,10 +708,13 @@ contract KolAuctionTest is Test {
     }
 
     function test_PlaceBid_ResetsCountdown() public {
-        uint256 before = auction.endTime();
+        // 出价后 endTime 重置为 block.timestamp + 40（不是简单延长）
+        vm.warp(block.timestamp + 100);  // 先让剩余时间从 120s 降到 20s（< 40s 触发重置生效）
+        uint256 before = auction.endTime();  // 此时 = T+20
         vm.prank(bidder);
         auction.placeBid{value: fixedBid}();
-        assertGt(auction.endTime(), before);  // 倒计时被重置延长
+        assertEq(auction.endTime(), block.timestamp + 40);  // 重置为 now+40
+        assertGt(auction.endTime(), before);                 // now+40 > T+20
     }
 
     function test_Settle_AfterEnd() public {
@@ -744,6 +773,7 @@ contract KolAuction {
     mapping(address => uint256) public bidCount;
 
     address public platformTreasury;
+    address public registry;  // 供 banned 检查
     uint256 public constant BID_EXTEND_SECONDS = 40;  // 对 SPEC §6.4 原 60s 的裁剪
     uint256 public constant PLATFORM_SETTLE_PCT = 20;
     uint256 public constant KOL_SETTLE_PCT = 80;
@@ -753,7 +783,7 @@ contract KolAuction {
     event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp);
     event AuctionSettled(uint256 auctionId, address lastBidder, uint256 totalVolume, uint256 platformFee, uint256 guaranteePool, uint256 blockNumber);
 
-    constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury) {
+    constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury, address _registry) {
         auction = Auction({
             id: 1,
             kol: _kol,
@@ -770,6 +800,7 @@ contract KolAuction {
             settled: false
         });
         platformTreasury = _platformTreasury;
+        registry = _registry;
     }
 
     function placeBid() external payable returns (bool) {
@@ -778,6 +809,7 @@ contract KolAuction {
         require(msg.value == a.fixedBidAmount, "!FIXED");     // 固定价
         require(block.timestamp < a.endTime, "ENDED");
         require(KolPass(a.passContract).balanceOf(msg.sender) > 0, "!HOLDER");
+        require(!IRegistry(registry).isKolBanned(msg.sender), "BANNED");
         // 累计
         seq++;
         cumulativeBid[msg.sender] += msg.value;
@@ -809,8 +841,14 @@ contract KolAuction {
         emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, platformFee, guaranteePool, block.number);
     }
 
+    function getAuction() external view returns (Auction memory) { return auction; }
     function getCumulativeBid(address bidder) external view returns (uint256) { return cumulativeBid[bidder]; }
     function getBidCount(address bidder) external view returns (uint256) { return bidCount[bidder]; }
+}
+
+// 供 KolAuction 查询 banned（避免双向 import）
+interface IRegistry {
+    function isKolBanned(address wallet) external view returns (bool);
 }
 ```
 
@@ -834,16 +872,17 @@ git commit -m "feat(contracts): add KolAuction penny auction with fixed bid + co
 - Create: `contracts/test/Integration.t.sol`
 - Modify: `contracts/foundry.toml`（remappings）
 
-**依赖：** KolPass 用 OpenZeppelin ERC721，需安装。
+**依赖：** KolPass 用 OpenZeppelin ERC721，**已在 Task 1 安装**。本任务仅确认并跑集成测试。
 
-- [ ] **Step 1: 安装 OpenZeppelin**
+- [ ] **Step 1: 确认依赖已装**
 
 ```bash
 cd /Users/ricky/AICode/nadbid/contracts
-forge install OpenZeppelin/openzeppelin-contracts@v5.3.0 --no-commit
+forge remappings > remappings.txt
+cat remappings.txt   # 应含 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/ 和 forge-std/
 ```
 
-- [ ] **Step 2: 配置 remappings**
+- [ ] **Step 2: 配置 remappings（如缺失）**
 
 ```bash
 forge remappings > remappings.txt
@@ -946,26 +985,26 @@ contract Deploy is Script {
 }
 ```
 
-- [ ] **Step 2: 准备部署环境**
+- [ ] **Step 2: 准备部署环境（建议写入 contracts/.env，forge script 会自动加载，避免跨 shell 丢失）**
 
 ```bash
 cd /Users/ricky/AICode/nadbid/contracts
-# 设置部署私钥（测试网专用，勿用主网私钥）
-export PRIVATE_KEY=0x...
-export MONAD_TESTNET_RPC=https://testnet-rpc.monad.xyz
-export PLATFORM_TREASURY=0x...
+cat >> .env <<'EOF'
+# 部署私钥（测试网专用，勿用主网私钥；.env 需加入 .gitignore）
+PRIVATE_KEY=0x...
+MONAD_TESTNET_RPC=https://testnet-rpc.monad.xyz
+PLATFORM_TREASURY=0x...
+EOF
 ```
 
 - [ ] **Step 3: 部署到测试网**
 
 ```bash
-forge script script/Deploy.s.sol \
-  --rpc-url $MONAD_TESTNET_RPC \
-  --private-key $PRIVATE_KEY \
-  --broadcast
+cd /Users/ricky/AICode/nadbid/contracts
+forge script script/Deploy.s.sol --env .env --broadcast
 ```
 
-Expected: 输出 Registry/Factory 合约地址，交易入块
+Expected: 输出 Registry/Factory 合约地址，交易入块。Registry→Factory→setFactory 三笔在**同一次 broadcast** 内按序发送，setFactory 由部署者（registry.owner）调用，无前置风险。
 
 - [ ] **Step 4: 更新 .env.example + .env**
 
@@ -976,17 +1015,25 @@ VITE_CONTRACT_FACTORY=0x...(部署地址)
 ```
 
 ```bash
-# .env（本地开发用，已被 gitignore）
+# 项目根 .env（本地开发用，已被 gitignore）
 VITE_CONTRACT_REGISTRY=0x...
 VITE_CONTRACT_FACTORY=0x...
 ```
 
 - [ ] **Step 5: 验证部署（cast 读链上）**
 
-Run: `cast call <REGISTRY_ADDR> "isKolRegistered(address)(bool)" 0x...`
+Run: `cast call <REGISTRY_ADDR> "isKolRegistered(address)(bool)" 0x... --rpc-url $MONAD_TESTNET_RPC`
 Expected: 返回 false（未注册，说明合约可读）
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 可选 — 链上验证合约源码**
+
+```bash
+forge script script/Deploy.s.sol --env .env --broadcast --verify --etherscan-api-key $ETHERSCAN_KEY
+# 或部署后单独验证
+forge verify-contract <ADDR> NadbidRegistry --chain monad_testnet --etherscan-api-key $ETHERSCAN_KEY
+```
+
+- [ ] **Step 7: Commit**
 
 ```bash
 cd /Users/ricky/AICode/nadbid
@@ -1065,16 +1112,25 @@ export function useAuction(auctionAddress: `0x${string}` | undefined) { ... }
 export function useRegistry() { ... }
 ```
 
-- [ ] **Step 6: 验证 tsc**
+- [ ] **Step 6: 写 useFactory hook**
+
+```ts
+// src/web3/hooks/useFactory.ts
+// useWriteContractTx: createKolPass(mintPrice) / createKolAuction(pass, fixedBid, duration, content)
+// 创建成功后 refetch 对应 KOL 的 Registry 索引
+export function useFactory() { ... }
+```
+
+- [ ] **Step 7: 验证 tsc**
 
 Run: `cd /Users/ricky/AICode/nadbid && npx tsc --noEmit`
 Expected: 新增/修改文件 0 错误
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/web3/
-git commit -m "feat(web3): add real contract config, ABIs, and KolPass/Auction/Registry hooks"
+git commit -m "feat(web3): add real contract config, ABIs, and KolPass/Auction/Registry/Factory hooks"
 ```
 
 ---
@@ -1153,11 +1209,15 @@ git commit -m "feat(server): add X API twitter follower verification"
 // 每步用 useRegistry / useFactory hooks
 ```
 
-- [ ] **Step 2: 接入路由**
+- [ ] **Step 2: 接入路由（路由定义在 src/config/routes.ts + src/App.tsx）**
 
 ```tsx
-// App.tsx 或 routes
-<Route path="/kol/onboarding" element={<KolOnboardingPage />} />
+// src/config/routes.ts 追加路由配置
+{ path: '/kol/onboarding', element: <KolOnboardingPage /> },
+```
+
+```tsx
+// src/App.tsx 确认路由已挂载（import KolOnboardingPage）
 ```
 
 - [ ] **Step 3: 验证页面渲染**
@@ -1168,7 +1228,7 @@ Expected: 步骤条渲染，连接钱包后可操作
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/pages/KolOnboardingPage.tsx src/components/kol/ src/routes/
+git add src/pages/KolOnboardingPage.tsx src/components/kol/ src/config/routes.ts src/App.tsx
 git commit -m "feat(ui): add KOL onboarding page"
 ```
 
@@ -1198,9 +1258,11 @@ const { auction, cumulativeBid, refetch } = useAuction(auctionAddress);
 - [ ] **Step 2: 替换出价交易**
 
 ```tsx
+// 未连接时引导现有 ConnectModal（项目用 ConnectModal 组件 + useWalletStore，无 useConnectModal）
 const placeBidTx = useWriteContractTx();
+const [connectOpen, setConnectOpen] = useState(false);
 const handlePlaceBid = async () => {
-  if (!isConnected) { openConnectModal(); return; }
+  if (!isConnected) { setConnectOpen(true); return; }  // 打开 ConnectModal 引导
   if (!holdPass) { toast.error('需持有该 KOL 的 PASS'); return; }
   await placeBidTx.write({
     address: auctionAddress,
@@ -1209,6 +1271,7 @@ const handlePlaceBid = async () => {
     value: fixedBidAmount,
   });
 };
+// 渲染 <ConnectModal open={connectOpen} onClose={...} onConnected={...} />
 ```
 
 - [ ] **Step 3: 移除模拟出价**
