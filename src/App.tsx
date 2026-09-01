@@ -11,6 +11,7 @@ import ClaimPage from './pages/ClaimPage';
 import PointsPage from './pages/PointsPage';
 import ArbitrationPage from './pages/ArbitrationPage';
 import WalletPage from './pages/WalletPage';
+import KolOnboardingPage from './pages/KolOnboardingPage';
 import DocsPage from './pages/DocsPage';
 import { ROUTES } from './config/routes';
 
@@ -35,6 +36,7 @@ export default function App() {
             <Route path={ROUTES.POINTS} element={<PointsPage />} />
             <Route path={ROUTES.ARBITRATION} element={<ArbitrationPage />} />
             <Route path={ROUTES.WALLET} element={<WalletPage />} />
+            <Route path={ROUTES.KOL_ONBOARDING} element={<KolOnboardingPage />} />
             <Route path={ROUTES.DOCS} element={<DocsPage />} />
             <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
           </Route>

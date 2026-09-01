@@ -1,0 +1,741 @@
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { parseEther } from 'viem';
+import {
+  Wallet,
+  Twitter,
+  Coins,
+  Layers,
+  Gavel,
+  Check,
+  AlertTriangle,
+  ExternalLink,
+} from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { KolOnboardingCard, type StepStatus } from '../components/kol/KolOnboardingCard';
+import { useWalletStore } from '../stores/walletStore';
+import { useRegistry } from '../web3/hooks/useRegistry';
+import { useFactory } from '../web3/hooks/useFactory';
+import { useToast } from '../hooks/useToast';
+import { shortenAddress } from '../utils/format';
+
+// ============================================================================
+// 步骤定义
+// ============================================================================
+
+interface StepDef {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const STEPS: StepDef[] = [
+  {
+    title: 'Connect Wallet',
+    description: 'Connect your wallet to begin onboarding',
+    icon: <Wallet className="h-4 w-4" />,
+  },
+  {
+    title: 'Verify Twitter',
+    description: 'Verify followers and register on-chain',
+    icon: <Twitter className="h-4 w-4" />,
+  },
+  {
+    title: 'Bond 10 MON',
+    description: 'Deposit collateral to become a verified KOL',
+    icon: <Coins className="h-4 w-4" />,
+  },
+  {
+    title: 'Create PASS',
+    description: 'Deploy your PASS NFT collection',
+    icon: <Layers className="h-4 w-4" />,
+  },
+  {
+    title: 'Create Auction',
+    description: 'Launch your first fixed-price auction',
+    icon: <Gavel className="h-4 w-4" />,
+  },
+];
+
+/** 后端推特验证响应 */
+interface TwitterVerifyResponse {
+  verified: boolean;
+  followers: number;
+  mock?: boolean;
+}
+
+// ============================================================================
+// 页面组件
+// ============================================================================
+
+export default function KolOnboardingPage() {
+  const { isConnected, address, isConnecting, connect, disconnect } =
+    useWalletStore();
+  const { success, error: toastError, info, warning } = useToast();
+  const queryClient = useQueryClient();
+
+  const registry = useRegistry(
+    (address ?? undefined) as `0x${string}` | undefined,
+  );
+  const factory = useFactory();
+
+  // ---- 本地表单状态 ----
+  const [twitterHandle, setTwitterHandle] = useState('');
+  const [twitterVerified, setTwitterVerified] = useState(false);
+  const [twitterFollowers, setTwitterFollowers] = useState(0);
+  const [isVerifyingTwitter, setIsVerifyingTwitter] = useState(false);
+  const [mintPrice, setMintPrice] = useState('0.001');
+  const [fixedBidAmount, setFixedBidAmount] = useState('99');
+  const [auctionContent, setAuctionContent] = useState('');
+  const [auctionDuration, setAuctionDuration] = useState('120');
+
+  // ---- 从链上数据推导已完成步骤 ----
+  const completedSteps = useMemo(() => {
+    const completed = new Set<number>();
+    if (isConnected) completed.add(0);
+    if (registry.isRegistered) completed.add(1);
+    if (registry.hasBond) completed.add(2);
+    if (registry.kolData?.passContracts && registry.kolData.passContracts.length > 0)
+      completed.add(3);
+    if (
+      registry.kolData?.auctionContracts &&
+      registry.kolData.auctionContracts.length > 0
+    )
+      completed.add(4);
+    return completed;
+  }, [
+    isConnected,
+    registry.isRegistered,
+    registry.hasBond,
+    registry.kolData,
+  ]);
+
+  // 当前激活步骤 = 第一个未完成的步骤
+  const [currentStep, setCurrentStep] = useState(0);
+  useEffect(() => {
+    for (let i = 0; i < STEPS.length; i++) {
+      if (!completedSteps.has(i)) {
+        setCurrentStep(i);
+        return;
+      }
+    }
+    setCurrentStep(STEPS.length); // 全部完成
+  }, [completedSteps]);
+
+  const allDone = currentStep >= STEPS.length;
+  const contractsMissing = registry.isAddressMissing || factory.isAddressMissing;
+
+  /** 交易成功后失效所有读查询，刷新链上状态 */
+  const invalidateAll = () => {
+    queryClient.invalidateQueries();
+  };
+
+  const getStepStatus = (index: number): StepStatus => {
+    if (completedSteps.has(index)) return 'completed';
+    if (index === currentStep) return 'active';
+    return 'locked';
+  };
+
+  // ==========================================================================
+  // Step 1: 验证推特 + 注册 KOL
+  // ==========================================================================
+
+  const handleVerifyTwitter = async () => {
+    const handle = twitterHandle.trim().replace(/^@/, '');
+    if (!handle) {
+      toastError('Please enter your Twitter handle');
+      return;
+    }
+
+    setIsVerifyingTwitter(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/kol/verify-twitter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ twitterHandle: handle }),
+      });
+
+      if (!res.ok) throw new Error(`Server responded ${res.status}`);
+      const data: TwitterVerifyResponse = await res.json();
+
+      if (data.verified) {
+        setTwitterVerified(true);
+        setTwitterFollowers(Number(data.followers) || 0);
+        success(
+          `Verified @${handle} (${(Number(data.followers) || 0).toLocaleString()} followers)`,
+        );
+        if (data.mock) {
+          info('Using mock verification — start the backend server for real data.');
+        }
+      } else {
+        toastError('Twitter verification failed. Please check your handle.');
+      }
+    } catch {
+      warning(
+        'Verification server unreachable (port 3001). Continuing with mock data — start the server for real verification.',
+      );
+      setTwitterVerified(true);
+      setTwitterFollowers(1000);
+    } finally {
+      setIsVerifyingTwitter(false);
+    }
+  };
+
+  const handleRegisterKol = async () => {
+    if (!twitterVerified) {
+      toastError('Please verify your Twitter handle first');
+      return;
+    }
+    if (registry.isAddressMissing) {
+      toastError('Registry contract not deployed. Set VITE_CONTRACT_REGISTRY in .env');
+      return;
+    }
+    const handle = twitterHandle.trim().replace(/^@/, '');
+    await registry.registerKol(handle, BigInt(twitterFollowers), {
+      onSuccess: () => {
+        success('KOL registered on-chain!');
+        invalidateAll();
+      },
+    });
+  };
+
+  // ==========================================================================
+  // Step 2: 质押担保金
+  // ==========================================================================
+
+  const handleDepositBond = async () => {
+    if (registry.isAddressMissing) {
+      toastError('Registry contract not deployed.');
+      return;
+    }
+    await registry.depositBond({
+      onSuccess: () => {
+        success('Bond deposited — you are now a verified KOL!');
+        invalidateAll();
+      },
+    });
+  };
+
+  // ==========================================================================
+  // Step 3: 创建 PASS
+  // ==========================================================================
+
+  const handleCreatePass = async () => {
+    if (factory.isAddressMissing) {
+      toastError('Factory contract not deployed. Set VITE_CONTRACT_FACTORY in .env');
+      return;
+    }
+    const price = parseEther(mintPrice || '0');
+    await factory.createKolPass(price, {
+      onSuccess: () => {
+        success('PASS contract deployed successfully!');
+        invalidateAll();
+      },
+    });
+  };
+
+  // ==========================================================================
+  // Step 4: 创建拍卖
+  // ==========================================================================
+
+  const handleCreateAuction = async () => {
+    if (factory.isAddressMissing) {
+      toastError('Factory contract not deployed.');
+      return;
+    }
+    const passContracts = registry.kolData?.passContracts;
+    if (!passContracts || passContracts.length === 0) {
+      toastError('No PASS contract found. Create a PASS first.');
+      return;
+    }
+    if (!auctionContent.trim()) {
+      toastError('Please enter auction content description');
+      return;
+    }
+    const passContract = passContracts[passContracts.length - 1];
+    await factory.createKolAuction(
+      {
+        passContract,
+        fixedBidAmount: parseEther(fixedBidAmount || '0'),
+        duration: BigInt(auctionDuration || '120'),
+        content: auctionContent.trim(),
+      },
+      {
+        onSuccess: () => {
+          success('Auction created successfully!');
+          invalidateAll();
+        },
+      },
+    );
+  };
+
+  // ==========================================================================
+  // 各步骤内容渲染
+  // ==========================================================================
+
+  const renderStepContent = (index: number) => {
+    const status = getStepStatus(index);
+
+    // ---- 已完成：展示摘要 ----
+    if (status === 'completed') {
+      return <CompletedSummary index={index} />;
+    }
+
+    // ---- 未解锁 ----
+    if (status === 'locked') {
+      return null; // 卡片自身会显示锁定提示
+    }
+
+    // ---- 激活步骤：表单 ----
+    switch (index) {
+      case 0:
+        return (
+          <div className="space-y-4">
+            {isConnected ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-mono font-bold text-sm">
+                    {shortenAddress(address || '')}
+                  </div>
+                  <div className="text-xs text-white/40 mt-0.5">
+                    Wallet connected
+                  </div>
+                </div>
+                <Button variant="danger" size="sm" onClick={disconnect}>
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-2">
+                <p className="text-white/50 text-sm mb-4">
+                  Connect your wallet to begin the KOL onboarding process.
+                </p>
+                <Button onClick={connect} loading={isConnecting}>
+                  <Wallet className="h-4 w-4" /> Connect Wallet
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+
+      case 1:
+        return (
+          <div className="space-y-4">
+            {/* 推特 handle 输入 */}
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Twitter Handle
+              </label>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">
+                    @
+                  </span>
+                  <input
+                    type="text"
+                    value={twitterHandle}
+                    onChange={(e) => {
+                      setTwitterHandle(e.target.value);
+                      setTwitterVerified(false);
+                    }}
+                    placeholder="yourhandle"
+                    disabled={twitterVerified || registry.isLoading}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-8 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleVerifyTwitter}
+                  loading={isVerifyingTwitter}
+                  disabled={twitterVerified}
+                >
+                  {twitterVerified ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" /> Verified
+                    </>
+                  ) : (
+                    'Verify'
+                  )}
+                </Button>
+              </div>
+              {twitterVerified && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-[#3ec470]">
+                  <Check className="h-3 w-3" />
+                  <span>
+                    {twitterFollowers.toLocaleString()} followers verified
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 注册按钮 */}
+            <div className="pt-2 border-t border-white/[0.04]">
+              <p className="text-xs text-white/40 mb-3">
+                Register your KOL profile on-chain with the verified follower count.
+              </p>
+              <Button
+                fullWidth
+                onClick={handleRegisterKol}
+                loading={registry.isLoading}
+                disabled={!twitterVerified || registry.isAddressMissing}
+              >
+                {registry.isAddressMissing
+                  ? 'Contract Not Deployed'
+                  : 'Register KOL On-Chain'}
+              </Button>
+              {registry.error && (
+                <p className="text-xs text-red-400 mt-2">{registry.error}</p>
+              )}
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-black/30 rounded-lg p-4">
+              <div>
+                <div className="text-xs text-white/40 uppercase tracking-wider">
+                  Bond Amount
+                </div>
+                <div className="text-xl font-black text-white font-mono mt-1">
+                  10 <span className="text-sm text-white/40">MON</span>
+                </div>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-[#3ec470]/10 flex items-center justify-center">
+                <Coins className="h-6 w-6 text-[#3ec470]" />
+              </div>
+            </div>
+            <p className="text-xs text-white/40 leading-relaxed">
+              Deposit 10 MON as collateral. This bond ensures KOL accountability and
+              can be redeemed after a cooldown period if you choose to leave the
+              platform.
+            </p>
+            <Button
+              fullWidth
+              onClick={handleDepositBond}
+              loading={registry.isLoading}
+              disabled={registry.isAddressMissing}
+            >
+              {registry.isAddressMissing
+                ? 'Contract Not Deployed'
+                : 'Deposit 10 MON Bond'}
+            </Button>
+            {registry.error && (
+              <p className="text-xs text-red-400">{registry.error}</p>
+            )}
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                PASS Mint Price (MON)
+              </label>
+              <input
+                type="number"
+                step="0.001"
+                min="0"
+                value={mintPrice}
+                onChange={(e) => setMintPrice(e.target.value)}
+                disabled={factory.isLoading}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+              />
+              <p className="text-xs text-white/30 mt-1.5">
+                The base price for minting your PASS NFT. Price follows a bonding
+                curve as supply increases.
+              </p>
+            </div>
+            <Button
+              fullWidth
+              onClick={handleCreatePass}
+              loading={factory.isLoading}
+              disabled={factory.isAddressMissing}
+            >
+              {factory.isAddressMissing
+                ? 'Contract Not Deployed'
+                : 'Deploy PASS Contract'}
+            </Button>
+            {factory.error && (
+              <p className="text-xs text-red-400">{factory.error}</p>
+            )}
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                  Fixed Bid (MON)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={fixedBidAmount}
+                  onChange={(e) => setFixedBidAmount(e.target.value)}
+                  disabled={factory.isLoading}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                  Duration (sec)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={auctionDuration}
+                  onChange={(e) => setAuctionDuration(e.target.value)}
+                  disabled={factory.isLoading}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Auction Content
+              </label>
+              <textarea
+                value={auctionContent}
+                onChange={(e) => setAuctionContent(e.target.value)}
+                disabled={factory.isLoading}
+                rows={3}
+                placeholder="Describe what the winner receives (e.g. 1-hour private call, signed merch, etc.)"
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50 resize-none"
+              />
+            </div>
+            <Button
+              fullWidth
+              onClick={handleCreateAuction}
+              loading={factory.isLoading}
+              disabled={factory.isAddressMissing}
+            >
+              {factory.isAddressMissing
+                ? 'Contract Not Deployed'
+                : 'Create Auction'}
+            </Button>
+            {factory.error && (
+              <p className="text-xs text-red-400">{factory.error}</p>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // ==========================================================================
+  // 完成摘要子组件
+  // ==========================================================================
+
+  function CompletedSummary({ index }: { index: number }) {
+    switch (index) {
+      case 0:
+        return (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Wallet className="h-4 w-4 text-[#3ec470]" />
+            </div>
+            <span className="text-white/70 font-mono">
+              {shortenAddress(address || '')}
+            </span>
+          </div>
+        );
+      case 1:
+        return (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Twitter className="h-4 w-4 text-[#3ec470]" />
+            </div>
+            <span className="text-white/70">
+              @{registry.kolData?.twitterHandle || twitterHandle.replace(/^@/, '')} ·{' '}
+              {(Number(registry.kolData?.followers) || twitterFollowers).toLocaleString()}{' '}
+              followers
+            </span>
+          </div>
+        );
+      case 2:
+        return (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Coins className="h-4 w-4 text-[#3ec470]" />
+            </div>
+            <span className="text-white/70">10 MON bond deposited</span>
+          </div>
+        );
+      case 3:
+        return (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Layers className="h-4 w-4 text-[#3ec470]" />
+            </div>
+            <span className="text-white/70 font-mono text-xs">
+              {registry.kolData?.passContracts.length || 0} PASS contract
+              {(registry.kolData?.passContracts.length || 0) !== 1 ? 's' : ''}{' '}
+              deployed
+            </span>
+          </div>
+        );
+      case 4:
+        return (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Gavel className="h-4 w-4 text-[#3ec470]" />
+            </div>
+            <span className="text-white/70 font-mono text-xs">
+              {registry.kolData?.auctionContracts.length || 0} auction
+              {(registry.kolData?.auctionContracts.length || 0) !== 1 ? 's' : ''}{' '}
+              created
+            </span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
+  // ==========================================================================
+  // 顶部步骤条
+  // ==========================================================================
+
+  const renderStepper = () => (
+    <div className="flex items-center justify-between mb-8">
+      {STEPS.map((s, i) => {
+        const isDone = completedSteps.has(i);
+        const isActive = i === currentStep && !isDone;
+        return (
+          <div key={i} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center gap-1.5">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                  isDone
+                    ? 'bg-[#3ec470] text-black'
+                    : isActive
+                      ? 'bg-[#3ec470]/10 text-[#3ec470] border-2 border-[#3ec470]'
+                      : 'bg-white/5 text-white/30 border border-white/10'
+                }`}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+              </div>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider hidden sm:block ${
+                  isDone || isActive ? 'text-white/70' : 'text-white/25'
+                }`}
+              >
+                {s.title}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`flex-1 h-0.5 mx-2 rounded-full transition-colors ${
+                  completedSteps.has(i) ? 'bg-[#3ec470]/50' : 'bg-white/10'
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ==========================================================================
+  // 主渲染
+  // ==========================================================================
+
+  return (
+    <div className="min-h-screen bg-transparent pt-28 pb-24">
+      <div className="max-w-2xl mx-auto px-6 lg:px-12">
+        {/* 标题 */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-10"
+        >
+          <h1 className="text-3xl font-black text-white tracking-tight mb-2">
+            Become a KOL
+          </h1>
+          <p className="text-white/40 text-sm max-w-md mx-auto">
+            Complete the steps below to register, stake, deploy your PASS, and
+            launch your first auction.
+          </p>
+        </motion.div>
+
+        {/* 合约未部署警告 */}
+        {contractsMissing && (
+          <div className="mb-6 flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">
+                Contracts Not Deployed
+              </div>
+              <p className="text-xs text-white/50 leading-relaxed">
+                Registry or Factory contract address is not configured. Set{' '}
+                <code className="text-amber-300/80">VITE_CONTRACT_REGISTRY</code> and{' '}
+                <code className="text-amber-300/80">VITE_CONTRACT_FACTORY</code> in
+                your <code className="text-amber-300/80">.env</code> file to enable
+                on-chain interactions.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 步骤条 */}
+        {renderStepper()}
+
+        {/* 全部完成 */}
+        {allDone && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gradient-to-br from-[#0d1f14] to-[#161616] border border-[#3ec470]/40 rounded-2xl p-8 text-center mb-6"
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#3ec470] flex items-center justify-center shadow-0_20px_rgba(62,196,112,0.3)]">
+              <Check className="h-8 w-8 text-black" />
+            </div>
+            <h2 className="text-xl font-black text-white mb-2">
+              Onboarding Complete!
+            </h2>
+            <p className="text-white/50 text-sm mb-6">
+              You are now a verified KOL with an active PASS collection and live
+              auction.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open('/auctions', '_blank')}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> View Auctions
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 步骤卡片 */}
+        <div className="space-y-4">
+          {STEPS.map((step, i) => (
+            <KolOnboardingCard
+              key={i}
+              step={i}
+              title={step.title}
+              description={step.description}
+              icon={step.icon}
+              status={getStepStatus(i)}
+            >
+              {renderStepContent(i)}
+            </KolOnboardingCard>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

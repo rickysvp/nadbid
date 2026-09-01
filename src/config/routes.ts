@@ -12,6 +12,7 @@ export const ROUTES = {
   POINTS: '/points',
   ARBITRATION: '/arbitration',
   WALLET: '/wallet',
+  KOL_ONBOARDING: '/kol/onboarding',
   DOCS: '/docs',
 } as const;
 
