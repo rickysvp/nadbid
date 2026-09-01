@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-01
+
+### Added
+- 5 大核心交易功能（Phase 3）：拍卖出价、PASS Mint/Burn、质押/解押、奖励领取、仲裁投票
+- 通用交易组件：TradeConfirmationModal（4 态确认弹窗）、TransactionStatus（7 态状态展示）、mockTransaction（mock 交易模拟）
+- 交易 hooks：useAuctionBid、usePassMintBurn、useStaking、useClaim、useArbitrationVote（7 态状态机 + 完整校验链）
+- 债券曲线工具（bondingCurve）：curvePriceAt/supplyAfterMint/supplyAfterBurn，价格计算唯一来源
+- 持仓 store（kolHoldingsStore）：PASS 持仓按 KOL 维度管理
+- Web3 错误分类升级（web3Errors）：5 类错误 + retryable 标记 + 双签名兼容（toast/fallbackMessage）
+- 交易流程文档（docs/transaction-flow.md）：状态机、mock/real 双模式、5 功能业务规则
+
+### Changed
+- 合并 workspace 与 AICode 双目录：以 AICode（wagmi v2 Phase 2）为基线，合入 Phase 3 全部产物
+- 清理 52 个旧死代码文件至 src/legacy/（tsconfig 排除），TypeScript 错误 112 → 0
+- walletStore 新增 refreshBalance(delta)/round2/setBalanceLoader/isRealWalletMode
+- 修复 Staking/Claim 页未连接时确认弹窗与连接引导同时弹出的 bug
+- web3Errors 统一为双签名兼容版（真实 wagmi hooks + 业务交易 hooks 共用）
+
+### Fixed
+- 双目录分叉导致的代码库不一致（见 audit-findings.html）
+- Staking/Claim 双弹窗叠加问题
+- favicon 缺失导致 403 请求
+
 ## [0.2.0] - 2026-09-01
 
 ### Added

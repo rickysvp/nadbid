@@ -4,8 +4,11 @@ import { motion } from 'motion/react';
 import { ArrowLeft, TrendingUp, Info, Copy, ZoomIn } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
+import { MintBurnPanel } from '../components/kol-profile/MintBurnPanel';
+import type { MintBurnResultPayload } from '../components/kol-profile/MintBurnPanel';
 import { useToast } from '../hooks/useToast';
-import { getKolByHandle } from '../data/mockKols';
+import { getKolByHandle, mockKolStats } from '../data/mockKols';
+import { CURVE_DEFAULTS } from '../utils/constants';
 import { cn } from '../utils/cn';
 
 // Interactive Bonding Curve with zoom and tooltip
@@ -120,7 +123,7 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
           <svg viewBox="0 0 100 100" className="w-full h-full relative z-10" preserveAspectRatio="none">
             <defs>
               <linearGradient id="curveLineGradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#a855f7" />
+                <stop offset="0%" stopColor="#3ec470" />
                 <stop offset={`${actualX}%`} stopColor="#3ec470" />
               </linearGradient>
               <linearGradient id="curveGradientFull" x1="0" y1="0" x2="0" y2="1">
@@ -204,11 +207,15 @@ const historicalAuctions = [
 export default function KolProfilePage() {
   const { handle } = useParams<{ handle: string }>();
   const kol = handle ? getKolByHandle(handle) : undefined;
-  const [mintQuantity, setMintQuantity] = useState(1);
   const [stakeTerm, setStakeTerm] = useState('90');
   const [stakeAmount, setStakeAmount] = useState('');
   const [timeLeft, setTimeLeft] = useState(2 * 24 * 3600 + 14 * 3600 + 35 * 60);
   const { success, info } = useToast();
+
+  // 债券曲线状态（供应量 / 价格）— 由页面统一维护，Mint/Burn 成功后通过
+  // MintBurnPanel.onTradeSuccess 更新，驱动 Overview 卡片与曲线图联动。
+  const [curveSupply, setCurveSupply] = useState<number>(CURVE_DEFAULTS.REFERENCE_SUPPLY);
+  const [curvePrice, setCurvePrice] = useState<number>(CURVE_DEFAULTS.BASE_PRICE);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -216,6 +223,19 @@ export default function KolProfilePage() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // 路由间切换 KOL 时重置曲线基线（交易产生的偏移不跨 KOL 保留）
+  useEffect(() => {
+    const stats = kol ? mockKolStats[kol.id] : undefined;
+    setCurveSupply(stats?.passSupply ?? CURVE_DEFAULTS.REFERENCE_SUPPLY);
+    setCurvePrice(stats?.currentPrice ?? CURVE_DEFAULTS.BASE_PRICE);
+  }, [kol?.id]);
+
+  /** 交易成功：用返回的新供应量 / 新价格刷新页面曲线状态（交易通知由弹窗 toast 处理） */
+  const handleTradeSuccess = (result: MintBurnResultPayload) => {
+    setCurveSupply(result.newSupply);
+    setCurvePrice(result.newPrice);
+  };
 
   if (!kol) {
     return (
@@ -232,12 +252,8 @@ export default function KolProfilePage() {
     );
   }
 
-  const actualSupply = 8492;
-  const actualMintPrice = 12.4;
-  const protocolFee = 0.03;
-  const subtotal = mintQuantity * actualMintPrice;
-  const fees = subtotal * protocolFee;
-  const total = subtotal + fees;
+  const actualSupply = curveSupply;
+  const actualMintPrice = curvePrice;
 
   const d = Math.floor(timeLeft / (3600 * 24));
   const h = Math.floor((timeLeft % (3600 * 24)) / 3600);
@@ -362,58 +378,15 @@ export default function KolProfilePage() {
             </div>
           </div>
 
-          {/* Trade Pass */}
-          <div className="lg:col-span-4 flex flex-col h-full bg-[#161616] border border-white/[0.04] rounded-lg p-6">
-            <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-6">Trade Pass</h3>
-
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1">Pass TVL</div>
-                <div className="font-mono text-[12px] font-bold text-[#3ec470]">105,420 MON</div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1">Mint Price</div>
-                <div className="font-mono text-[12px] font-bold">{actualMintPrice.toFixed(2)} MON</div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1">Protocol Fee</div>
-                <div className="font-mono text-[12px] font-bold">3%</div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Quantity</div>
-              <div className="flex bg-[#0a0a0a] border border-white/[0.06] rounded p-1">
-                <input
-                  type="number"
-                  value={mintQuantity}
-                  onChange={(e) => setMintQuantity(Number(e.target.value))}
-                  className="bg-transparent w-full px-3 font-mono text-[14px] text-white outline-none"
-                  min="1"
-                />
-                <button onClick={() => setMintQuantity(10)} className="bg-white/[0.05] text-white/60 text-[9px] font-bold px-3 py-2 rounded hover:bg-white/[0.1] transition-colors tracking-[0.1em]">MAX</button>
-              </div>
-            </div>
-
-            <div className="space-y-3 font-mono text-[12px] mb-8 mt-auto">
-              <div className="flex justify-between text-white/50">
-                <span>Subtotal</span>
-                <span>{subtotal.toFixed(2)} MON</span>
-              </div>
-              <div className="flex justify-between text-white/50">
-                <span>Fees</span>
-                <span>{fees.toFixed(2)} MON</span>
-              </div>
-              <div className="flex justify-between font-bold text-white pt-3 border-t border-white/[0.04]">
-                <span>Total</span>
-                <span className="text-white">{total.toFixed(2)} MON</span>
-              </div>
-            </div>
-
-            <button onClick={() => success('Pass Minted!')} className="w-full bg-[#3ec470] text-black font-bold text-[12px] tracking-[0.1em] py-3.5 rounded hover:bg-[#4ade80] transition-colors uppercase">
-              Mint Pass
-            </button>
-            <div className="text-white/30 text-[9px] italic text-center mt-4">Prices follow a bonding curve. Slippage may apply.</div>
+          {/* Trade Pass — Mint / Burn 交易面板 */}
+          <div className="lg:col-span-4">
+            <MintBurnPanel
+              kolHandle={kol.handle.replace(/^@/, '').toLowerCase()}
+              kolName={kol.name}
+              supply={curveSupply}
+              price={curvePrice}
+              onTradeSuccess={handleTradeSuccess}
+            />
           </div>
 
           {/* Dividend Pool */}

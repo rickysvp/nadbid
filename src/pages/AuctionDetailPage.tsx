@@ -4,12 +4,72 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { CircularProgress } from '../components/ui/CircularProgress';
 import { BidBoard } from '../components/auction/BidBoard';
+import { TradeConfirmationModal, ConnectModal } from '../components/trade';
+import type { TradeDetailItem } from '../components/trade';
 import { useToast } from '../hooks/useToast';
+import { useAuctionBid } from '../hooks/useAuctionBid';
+import { useWalletStore } from '../stores/walletStore';
 import { getAuctionById, getBidsByAuction } from '../data/mockAuctions';
 import { kolProfilePath } from '../config/routes';
+import { shortenAddress } from '../utils/format';
+import { AUCTION } from '../utils/constants';
 import { cn } from '../utils/cn';
+import type { Bid } from '../types';
+
+/** 便士拍卖：单次出价固定金额（MON），兜底取 auction.bidIncrement */
+const DEFAULT_BID_AMOUNT = AUCTION.FIXED_BID_AMOUNT;
+/** 出价成功后倒计时延长秒数 */
+const BID_EXTEND_SECONDS = AUCTION.BID_EXTEND_SECONDS;
+const BID_EXTEND_MS = BID_EXTEND_SECONDS * 1000;
+/** 拍卖倒计时进度基准时长（ms）— 用于 CircularProgress 百分比计算 */
+const COUNTDOWN_BASE_MS = AUCTION.COUNTDOWN_BASE_MS;
+
+/** 金额展示：千分位 + 2 位小数（支持 0.05 步进） */
+function formatBid(value: number): string {
+  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** 秒 → HH:MM:SS */
+function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+/** 浮点金额 + 步进，规避二进制浮点误差 */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+interface LeaderboardRow {
+  rank: number;
+  bidder: string;
+  isYou?: boolean;
+  isLatest?: boolean;
+  bids: number;
+  tvl: string;
+}
+
+/** 出价成功后更新 leaderboard：已有行累加，否则插入新行（钱包地址），重排 rank */
+function upsertLeaderboardRow(rows: LeaderboardRow[], address: string, amount: number): LeaderboardRow[] {
+  const key = shortenAddress(address);
+  const existingIdx = rows.findIndex((r) => r.bidder === key);
+  const cleared = rows.map((r) => ({ ...r, isYou: false, isLatest: false }));
+  const next =
+    existingIdx >= 0
+      ? cleared.map((r, i) =>
+          i === existingIdx
+            ? { ...r, bids: r.bids + 1, tvl: (parseFloat(r.tvl) + amount).toFixed(2), isYou: true, isLatest: true }
+            : r,
+        )
+      : [{ rank: 1, bidder: key, isYou: true, isLatest: true, bids: 1, tvl: amount.toFixed(2) }, ...cleared];
+  return next.map((r, i) => ({ ...r, rank: i + 1 }));
+}
 
 // Interactive Bonding Curve for auction detail
 function InteractiveBondingCurve({ maxPass, currentPrice }: { maxPass: number; currentPrice: number }) {
@@ -77,12 +137,11 @@ function useCountdownDetail(targetDate: number) {
   const [progress, setProgress] = useState(100);
 
   useEffect(() => {
-    const initialDuration = 5 * 60 * 1000;
     const interval = setInterval(() => {
       const remaining = targetDate - Date.now();
       if (remaining > 0) {
         setTimeLeft(remaining);
-        setProgress(Math.max(0, Math.min(100, (remaining / initialDuration) * 100)));
+        setProgress(Math.max(0, Math.min(100, (remaining / COUNTDOWN_BASE_MS) * 100)));
       } else {
         setTimeLeft(0);
         setProgress(0);
@@ -101,7 +160,7 @@ function useCountdownDetail(targetDate: number) {
   return { timeString, progress, isOver: timeLeft <= 0, totalSeconds };
 }
 
-const mockBidders = [
+const mockBidders: LeaderboardRow[] = [
   { rank: 1, bidder: '@AlphaHunter', isYou: true, bids: 12, tvl: '45.50' },
   { rank: 2, bidder: '@DegenKing', isLatest: true, bids: 8, tvl: '38.20' },
   { rank: 3, bidder: '@WhaleWatcher', bids: 5, tvl: '32.15' },
@@ -117,9 +176,36 @@ const mockBidders = [
 export default function AuctionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const auction = id ? getAuctionById(id) : undefined;
-  const bids = id ? getBidsByAuction(id) : [];
   const { success, info } = useToast();
+  const wallet = useWalletStore();
+  const bid = useAuctionBid();
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const [pulse, setPulse] = useState(false);
+
+  // 拍卖运行态（可被出价更新）
+  const [endTime, setEndTime] = useState<number>(auction?.endTime ?? Date.now());
+  const [currentBid, setCurrentBid] = useState<number>(auction?.currentBid ?? 0);
+  const [lastBidder, setLastBidder] = useState<string | null>(auction?.lastBidder ?? null);
+  const [totalBids, setTotalBids] = useState<number>(auction?.totalBids ?? 0);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>(() => mockBidders.map((r) => ({ ...r })));
+  const [bidHistory, setBidHistory] = useState<Bid[]>(() => (id ? getBidsByAuction(id) : []));
+
+  // 路由间切换（不同拍卖）时重置本地状态
+  useEffect(() => {
+    if (!auction) return;
+    setEndTime(auction.endTime);
+    setCurrentBid(auction.currentBid);
+    setLastBidder(auction.lastBidder ?? null);
+    setTotalBids(auction.totalBids);
+    setLeaderboard(mockBidders.map((r) => ({ ...r })));
+    setBidHistory(getBidsByAuction(auction.id));
+  }, [auction]);
+
+  const isLive = auction?.status === 'LIVE';
+  const countdown = useCountdownDetail(isLive ? endTime : (auction?.startTime ?? Date.now()));
+  const { timeString, progress, totalSeconds, isOver } = countdown;
 
   if (!auction) {
     return (
@@ -136,25 +222,78 @@ export default function AuctionDetailPage() {
     );
   }
 
-  const isLive = auction.status === 'LIVE';
-  const targetTime = isLive ? auction.endTime : auction.startTime;
-  const { timeString, progress, totalSeconds } = useCountdownDetail(targetTime);
-  const latestBid = isLive ? auction.currentBid.toFixed(1) : auction.minBid.toFixed(1);
-
-  const handleBid = () => {
-    if (!isLive) {
-      info('Auction has not started yet');
-      return;
-    }
-    success('Transaction submitted to Monad testnet');
-    setPulse(true);
-    setTimeout(() => setPulse(false), 500);
-  };
+  // 单次出价固定金额
+  const fixedBid = auction.bidIncrement > 0 ? auction.bidIncrement : DEFAULT_BID_AMOUNT;
+  const latestBid = isLive ? currentBid : auction.minBid;
+  const countdownEnded = isLive && isOver;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     success('Auction link copied to clipboard!');
   };
+
+  /** 点击出价：未连接钱包 → ConnectModal；已连接 → 打开确认弹窗 */
+  const handleBidClick = () => {
+    if (!isLive || countdownEnded) return;
+    if (!wallet.isConnected) {
+      setConnectOpen(true);
+      return;
+    }
+    bid.reset();
+    setConfirmOpen(true);
+  };
+
+  /** 连接成功后的续接：回到出价流程 */
+  const handleConnected = () => {
+    bid.reset();
+    setConfirmOpen(true);
+  };
+
+  /** 确认出价：执行 mock/real 交易 → 成功后更新页面数据 */
+  const handleConfirmBid = async () => {
+    const result = await bid.placeBid(auction, fixedBid);
+    if (!result) return; // 错误已由 TradeConfirmationModal 展示；用户拒绝 → 静默
+
+    // 出价成功：更新当前最高价 / 最后出价者 / 倒计时 / 出价次数
+    setCurrentBid((v) => round2(v + fixedBid));
+    setLastBidder(wallet.address);
+    setEndTime((t) => t + BID_EXTEND_MS);
+    setTotalBids((n) => n + 1);
+    // leaderboard 新增/更新一条出价记录
+    setLeaderboard((rows) => upsertLeaderboardRow(rows, wallet.address ?? '', fixedBid));
+    // bid history 新增一条记录
+    setBidHistory((prev) => [
+      {
+        id: `bid-${Date.now()}`,
+        auctionId: auction.id,
+        bidder: wallet.address ?? '',
+        amount: fixedBid,
+        timestamp: Date.now(),
+        txHash: result.txHash,
+      },
+      ...prev,
+    ]);
+    // 刷新钱包余额
+    await wallet.refreshBalance(fixedBid);
+
+    // 视觉反馈 + 自动关闭弹窗
+    setPulse(true);
+    setTimeout(() => setPulse(false), 500);
+    setTimeout(() => {
+      setConfirmOpen(false);
+      bid.reset();
+    }, 1400);
+  };
+
+  const newTimeString = formatClock(totalSeconds + BID_EXTEND_SECONDS);
+
+  const bidDetails: TradeDetailItem[] = [
+    { label: 'Auction', value: auction.passName },
+    { label: 'KOL', value: `${auction.kol.name} (${auction.kol.handle})` },
+    { label: 'Bid Amount', value: `${fixedBid.toFixed(2)} MON`, highlight: true },
+    { label: 'Current Highest', value: `${formatBid(currentBid)} MON` },
+    { label: 'Est. New Countdown', value: `+${BID_EXTEND_SECONDS}s → ${newTimeString}`, highlight: true },
+  ];
 
   return (
     <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
@@ -178,7 +317,7 @@ export default function AuctionDetailPage() {
           {/* Left Column (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
             {/* Creator Profile Summary */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-8 relative overflow-hidden">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#3ec470]/[0.02] rounded-full blur-[80px] pointer-events-none"></div>
 
               <div className="flex flex-col sm:flex-row gap-6 relative z-10">
@@ -202,14 +341,9 @@ export default function AuctionDetailPage() {
                       <CheckCircle2 className="w-5 h-5 text-[#3ec470]" />
                     </div>
                     {isLive ? (
-                      <div className="flex items-center gap-1.5 bg-[#3ec470]/10 border border-[#3ec470]/20 px-2.5 py-1 rounded-full">
-                        <div className="w-1.5 h-1.5 bg-[#3ec470] rounded-full animate-pulse"></div>
-                        <span className="text-[#3ec470] text-[10px] font-bold tracking-wider uppercase">Live</span>
-                      </div>
+                      <Badge variant="live" pulse>Live</Badge>
                     ) : (
-                      <div className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
-                        <span className="text-white/40 text-[10px] font-bold tracking-wider uppercase">Upcoming</span>
-                      </div>
+                      <Badge variant="upcoming">Upcoming</Badge>
                     )}
                   </div>
                   <div className="text-white/50 font-mono text-sm mb-4">{auction.kol.handle}</div>
@@ -230,28 +364,28 @@ export default function AuctionDetailPage() {
               </div>
             </div>
 
-            {/* Fixed Bid & Last Bidder */}
+            {/* Current Highest & Last Bidder */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-6">
-                <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-2">{isLive ? 'Fixed Bid' : 'Starting Price'}</div>
+              <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
+                <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-2">Current Highest</div>
                 <div className="text-[#3ec470] font-mono text-3xl font-bold">
-                  {latestBid} <span className="text-sm font-medium text-[#3ec470]/60">MON</span>
+                  {formatBid(latestBid)} <span className="text-sm font-medium text-[#3ec470]/60">MON</span>
                 </div>
               </div>
 
-              <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-6">
+              <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
                 <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-2">Last Bidder</div>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-white/10 overflow-hidden flex items-center justify-center">
-                    {auction.lastBidder && <div className="w-3 h-3 rounded-full bg-[#3ec470]/50"></div>}
+                    {lastBidder && <div className="w-3 h-3 rounded-full bg-[#3ec470]/50"></div>}
                   </div>
-                  <span className="text-white/90 font-mono text-xl">{auction.lastBidder || '-'}</span>
+                  <span className="text-white/90 font-mono text-xl">{lastBidder ? shortenAddress(lastBidder) : '-'}</span>
                 </div>
               </div>
             </div>
 
             {/* Live Leaderboard */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-8">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-white">Live Leaderboard</h3>
                 <div className="flex items-center gap-1.5 text-[#3ec470] text-[10px] font-bold tracking-[0.15em] uppercase bg-[#3ec470]/10 px-3 py-1 rounded">
@@ -270,7 +404,7 @@ export default function AuctionDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="font-mono text-[12px]">
-                    {isLive ? mockBidders.map((row) => (
+                    {isLive ? leaderboard.map((row) => (
                       <tr key={row.rank} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01] transition-colors">
                         <td className="py-3 px-2 font-bold text-white/40">{row.rank}</td>
                         <td className="py-3 px-2 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
@@ -297,13 +431,13 @@ export default function AuctionDetailPage() {
           {/* Right Column (5 cols) */}
           <div className="lg:col-span-5 space-y-6">
             {/* Bidding Control */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-8 flex flex-col items-center">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8 flex flex-col items-center">
               <CircularProgress
                 progress={progress}
                 size={160}
                 strokeWidth={4}
                 label={isLive ? `${totalSeconds}s` : timeString}
-                sublabel={isLive ? 'In Progress' : 'Starts In'}
+                sublabel={countdownEnded ? 'Ended' : isLive ? 'In Progress' : 'Starts In'}
               />
 
               <div className="w-full grid grid-cols-3 gap-2 border-y border-white/[0.04] py-5 my-6 text-center">
@@ -313,7 +447,7 @@ export default function AuctionDetailPage() {
                 </div>
                 <div>
                   <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Total Bids</div>
-                  <div className="font-black text-sm">{isLive ? '1,284' : '-'}</div>
+                  <div className="font-black text-sm">{isLive ? totalBids.toLocaleString() : '-'}</div>
                 </div>
                 <div>
                   <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">TVL (MON)</div>
@@ -326,22 +460,40 @@ export default function AuctionDetailPage() {
                 <motion.div
                   animate={pulse ? { scale: [1, 1.05, 1], color: ['#fff', '#3ec470', '#fff'] } : {}}
                   transition={{ duration: 0.3 }}
-                  className="text-[32px] font-black mb-6 flex items-baseline justify-center gap-1.5"
+                  className="text-[32px] font-black mb-3 flex items-baseline justify-center gap-1.5"
                 >
-                  {latestBid} <span className="text-sm font-medium text-[#3ec470]">MON</span>
+                  {fixedBid.toFixed(2)} <span className="text-sm font-medium text-[#3ec470]">MON</span>
                 </motion.div>
 
+                {/* 当前最高价 + 最后出价者 */}
+                <div className="grid grid-cols-2 gap-2 mb-6">
+                  <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                    <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Current Highest</div>
+                    <div className="font-mono text-[12px] font-bold text-white">{formatBid(latestBid)} MON</div>
+                  </div>
+                  <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg py-2.5 px-3">
+                    <div className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Last Bidder</div>
+                    <div className="font-mono text-[12px] font-bold text-white truncate">{lastBidder ? shortenAddress(lastBidder) : '-'}</div>
+                  </div>
+                </div>
+
                 <button
-                  onClick={handleBid}
-                  disabled={!isLive}
+                  onClick={handleBidClick}
+                  disabled={!isLive || countdownEnded}
                   className={cn(
                     'w-full font-black text-[15px] py-3.5 rounded transition-all active:scale-[0.98]',
-                    isLive
+                    isLive && !countdownEnded
                       ? 'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)]'
                       : 'bg-white/10 text-white cursor-not-allowed hover:bg-white/15'
                   )}
                 >
-                  {isLive ? 'PLACE BID NOW' : 'WAITING TO START...'}
+                  {!isLive
+                    ? 'WAITING TO START...'
+                    : countdownEnded
+                      ? 'AUCTION ENDED'
+                      : wallet.isConnected
+                        ? 'PLACE BID'
+                        : 'ENTER AUCTION'}
                 </button>
 
                 <div className="text-white/40 text-[9px] font-bold tracking-[0.15em] uppercase mt-5">
@@ -351,7 +503,7 @@ export default function AuctionDetailPage() {
             </div>
 
             {/* Pass Info */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-6">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-5">{auction.kol.name} PASS</h3>
 
               <div className="grid grid-cols-3 gap-2 mb-5">
@@ -410,12 +562,37 @@ export default function AuctionDetailPage() {
         </div>
 
         {/* Bid History */}
-        {bids.length > 0 && (
+        {bidHistory.length > 0 && (
           <div className="mt-12">
-            <BidBoard bids={bids} leadingBidder={auction.lastBidder} />
+            <BidBoard bids={bidHistory} leadingBidder={lastBidder ?? undefined} />
           </div>
         )}
       </div>
+
+      {/* 出价确认弹窗 */}
+      <TradeConfirmationModal
+        open={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false);
+          bid.reset();
+        }}
+        title="Confirm Bid"
+        description={`Place a fixed bid on ${auction.passName}. Each bid costs ${fixedBid.toFixed(2)} MON and extends the countdown by ${BID_EXTEND_SECONDS}s.`}
+        details={bidDetails}
+        confirmText="Confirm Bid"
+        cancelText="Cancel"
+        onConfirm={handleConfirmBid}
+        status={bid.status}
+        txHash={bid.txHash ?? undefined}
+        error={bid.error ?? undefined}
+      />
+
+      {/* 钱包连接引导弹窗 */}
+      <ConnectModal
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        onConnected={handleConnected}
+      />
     </div>
   );
 }

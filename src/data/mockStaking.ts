@@ -1,4 +1,5 @@
-import type { StakePosition, PendingReward, ClaimRecord, PointsBalance, PointsSource, Referral } from '../types';
+import type { StakePosition, PendingReward, ClaimRecord, PointsBalance, PointsSource, Referral, Dispute } from '../types';
+import { mockAuctions } from './mockAuctions';
 
 /**
  * 质押 / 领取 / 积分 Mock 数据 — 从 StakingView/ClaimView/PointsView 提取
@@ -9,15 +10,25 @@ const DAY = 86400 * 1000;
 
 // ============ 质押 ============
 
-export const mockAvailableStakes = [
-  { id: 'a1', kolName: 'CryptoQueen', kolHandle: '@cryptoqueen', passQuantity: 12, revShare: '12%' },
-  { id: 'a2', kolName: 'AlphaSeeker', kolHandle: '@alphaseek', passQuantity: 8, revShare: '15%' },
-  { id: 'a3', kolName: 'MoonShot', kolHandle: '@moonshot', passQuantity: 20, revShare: '14%' },
-  { id: 'a4', kolName: 'DegenWizard', kolHandle: '@degenwiz', passQuantity: 3, revShare: '8%' },
-  { id: 'a5', kolName: 'WhaleWatch', kolHandle: '@whalewatch', passQuantity: 1, revShare: '5%' },
-  { id: 'a6', kolName: 'DeFiGuru', kolHandle: '@defiguru', passQuantity: 4, revShare: '10%' },
-  { id: 'a7', kolName: 'YieldFarm', kolHandle: '@yieldfarm', passQuantity: 15, revShare: '13%' },
-  { id: 'a8', kolName: 'BlockBoss', kolHandle: '@blockboss', passQuantity: 7, revShare: '9%' },
+export interface MockAvailableStake {
+  id: string;
+  /** KOL 全局 ID（与 mockKols / mockStakedPositions 对齐，供页面联动） */
+  kolId: string;
+  kolName: string;
+  kolHandle: string;
+  passQuantity: number;
+  revShare: string;
+}
+
+export const mockAvailableStakes: MockAvailableStake[] = [
+  { id: 'a1', kolId: 'kol-002', kolName: 'CryptoQueen', kolHandle: '@cryptoqueen', passQuantity: 12, revShare: '12%' },
+  { id: 'a2', kolId: 'kol-003', kolName: 'AlphaSeeker', kolHandle: '@alphaseek', passQuantity: 8, revShare: '15%' },
+  { id: 'a3', kolId: 'kol-004', kolName: 'MoonShot', kolHandle: '@moonshot', passQuantity: 20, revShare: '14%' },
+  { id: 'a4', kolId: 'kol-005', kolName: 'DegenWizard', kolHandle: '@degenwiz', passQuantity: 3, revShare: '8%' },
+  { id: 'a5', kolId: 'kol-006', kolName: 'WhaleWatch', kolHandle: '@whalewatch', passQuantity: 1, revShare: '5%' },
+  { id: 'a6', kolId: 'kol-007', kolName: 'DeFiGuru', kolHandle: '@defiguru', passQuantity: 4, revShare: '10%' },
+  { id: 'a7', kolId: 'kol-008', kolName: 'YieldFarm', kolHandle: '@yieldfarm', passQuantity: 15, revShare: '13%' },
+  { id: 'a8', kolId: 'kol-009', kolName: 'BlockBoss', kolHandle: '@blockboss', passQuantity: 7, revShare: '9%' },
 ];
 
 export const mockStakedPositions: StakePosition[] = [
@@ -32,9 +43,9 @@ export const mockStakedPositions: StakePosition[] = [
 // ============ 领取 ============
 
 export const mockPendingRewards: PendingReward[] = [
-  { id: 'p1', title: '@0xChine PASS', type: 'STAKING', amount: 4100.0, source: 'Staking Rewards', availableAt: now },
-  { id: 'p2', title: 'KOLF #842', type: 'REFUND', amount: 3150.5, source: 'Auction Refund', availableAt: now },
-  { id: 'p3', title: '@DegenSpartan PASS', type: 'STAKING', amount: 4100.0, source: 'Staking Rewards', availableAt: now },
+  { id: 'p1', title: '@0xChine PASS', type: 'STAKING', amount: 4100.0, source: 'Staking Rewards', availableAt: now, status: 'CLAIMABLE' },
+  { id: 'p2', title: 'KOLF #842', type: 'REFUND', amount: 3150.5, source: 'Auction Refund', availableAt: now, status: 'CLAIMABLE' },
+  { id: 'p3', title: '@DegenSpartan PASS', type: 'STAKING', amount: 4100.0, source: 'Staking Rewards', availableAt: now, status: 'CLAIMABLE' },
 ];
 
 export const mockClaimHistory: ClaimRecord[] = [
@@ -65,4 +76,82 @@ export const mockReferrals: Referral[] = [
   { id: 'r2', inviteeHandle: '@DegenKing', pointsEarned: 8420, joinedAt: now - 5 * DAY },
   { id: 'r3', inviteeHandle: '@CryptoWhale', pointsEarned: 4100, joinedAt: now - 7 * DAY },
   { id: 'r4', inviteeHandle: '@OxPunk', pointsEarned: 2150, joinedAt: now - 10 * DAY },
+];
+
+// ============ 仲裁 ============
+
+/** 争议 Mock 数据 — 仲裁（Arbitration）页面数据源 */
+export const mockDisputes: Dispute[] = [
+  {
+    id: 'disp-001',
+    auctionId: 'auc-001',
+    auction: mockAuctions.find((a) => a.id === 'auc-001')!,
+    reason: 'Winner never received the private Telegram group invite despite multiple claims. KOL unresponsive for 3 days.',
+    status: 'VOTING',
+    votesFor: 342,
+    votesAgainst: 128,
+    votingEndsAt: now + 2 * DAY + 6 * 3600 * 1000,
+    userVote: null,
+    votingPower: 25,
+  },
+  {
+    id: 'disp-002',
+    auctionId: 'auc-002',
+    auction: mockAuctions.find((a) => a.id === 'auc-002')!,
+    reason: 'Winner claims the strategy session was cut short. KOL provided portfolio review but skipped the yield farming deep-dive.',
+    status: 'VOTING',
+    votesFor: 89,
+    votesAgainst: 215,
+    votingEndsAt: now + 4 * DAY,
+    userVote: 'RELEASE',
+    votingPower: 12,
+  },
+  {
+    id: 'disp-003',
+    auctionId: 'auc-010',
+    auction: mockAuctions.find((a) => a.id === 'auc-010')!,
+    reason: 'KOL failed to deliver promised alpha signals channel access within 48 hours of auction settlement.',
+    status: 'VOTING',
+    votesFor: 156,
+    votesAgainst: 98,
+    votingEndsAt: now + 3 * DAY,
+    userVote: null,
+    votingPower: 8,
+  },
+  {
+    id: 'disp-004',
+    auctionId: 'auc-006',
+    auction: mockAuctions.find((a) => a.id === 'auc-006')!,
+    reason: 'Winner claims the dashboard was never delivered and KOL is unresponsive to all messages.',
+    status: 'VOTING',
+    votesFor: 78,
+    votesAgainst: 156,
+    votingEndsAt: now + 3 * DAY,
+    userVote: null,
+    votingPower: 0,
+  },
+  {
+    id: 'disp-005',
+    auctionId: 'auc-005',
+    auction: mockAuctions.find((a) => a.id === 'auc-005')!,
+    reason: 'Dispute over call duration — KOL claims 30min, auction description says 60min.',
+    status: 'SLASH',
+    votesFor: 512,
+    votesAgainst: 88,
+    votingEndsAt: now - 1 * DAY,
+    userVote: 'SLASH',
+    votingPower: 8,
+  },
+  {
+    id: 'disp-006',
+    auctionId: 'auc-004',
+    auction: mockAuctions.find((a) => a.id === 'auc-004')!,
+    reason: 'Artwork delivered but quality significantly below what was promised in auction description.',
+    status: 'RELEASE',
+    votesFor: 45,
+    votesAgainst: 378,
+    votingEndsAt: now - 2 * DAY,
+    userVote: null,
+    votingPower: 8,
+  },
 ];

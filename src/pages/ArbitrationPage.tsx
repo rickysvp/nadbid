@@ -5,85 +5,16 @@ import { Scale, Vote, Clock, AlertTriangle, CheckCircle, XCircle, ArrowRight } f
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { KolAvatar } from '../components/kol/KolAvatar';
+import { TradeConfirmationModal, ConnectModal } from '../components/trade';
+import type { TradeDetailItem } from '../components/trade';
 import { useWalletStore } from '../stores/walletStore';
+import { useKolHoldingsStore, normalizeHandle } from '../stores/kolHoldingsStore';
+import { useArbitrationVote } from '../hooks/useArbitrationVote';
+import type { ArbitrationVoteType } from '../hooks/useArbitrationVote';
 import { useToast } from '../hooks/useToast';
 import { auctionDetailPath, kolProfilePath } from '../config/routes';
 import { cn } from '../utils/cn';
-import type { ArbitrationStatus } from '../types';
-
-interface Dispute {
-  id: string;
-  auctionId: string;
-  auctionTitle: string;
-  kolName: string;
-  kolHandle: string;
-  reason: string;
-  status: ArbitrationStatus;
-  votesFor: number;
-  votesAgainst: number;
-  votingEndsAt: number;
-  userVote: 'FOR' | 'AGAINST' | null;
-  votingPower: number;
-}
-
-const mockDisputes: Dispute[] = [
-  {
-    id: 'disp-001',
-    auctionId: 'auc-006',
-    auctionTitle: 'Whale Tracking Dashboard',
-    kolName: 'WhaleWatch',
-    kolHandle: '@whalewatch',
-    reason: 'KOL failed to deliver promised dashboard access within 48 hours of auction settlement.',
-    status: 'VOTING',
-    votesFor: 342,
-    votesAgainst: 128,
-    votingEndsAt: Date.now() + 2 * 86400 * 1000 + 6 * 3600 * 1000,
-    userVote: null,
-    votingPower: 15,
-  },
-  {
-    id: 'disp-002',
-    auctionId: 'auc-007',
-    auctionTitle: 'Private Alpha Group Access',
-    kolName: 'CryptoQueen',
-    kolHandle: '@cryptoqueen',
-    reason: 'Winner claims the Telegram group was never created and KOL is unresponsive.',
-    status: 'VOTING',
-    votesFor: 89,
-    votesAgainst: 215,
-    votingEndsAt: Date.now() + 4 * 86400 * 1000,
-    userVote: 'AGAINST',
-    votingPower: 15,
-  },
-  {
-    id: 'disp-003',
-    auctionId: 'auc-008',
-    auctionTitle: '1-on-1 Strategy Call',
-    kolName: 'AlphaSeeker',
-    kolHandle: '@alphaseeker',
-    reason: 'Dispute over call duration — KOL claims 30min, auction description says 60min.',
-    status: 'SLASH',
-    votesFor: 512,
-    votesAgainst: 88,
-    votingEndsAt: Date.now() - 86400 * 1000,
-    userVote: 'FOR',
-    votingPower: 15,
-  },
-  {
-    id: 'disp-004',
-    auctionId: 'auc-009',
-    auctionTitle: 'NFT Art Commission',
-    kolName: 'ArtDegen',
-    kolHandle: '@artdegen',
-    reason: 'Artwork delivered but quality significantly below what was promised in auction description.',
-    status: 'RELEASE',
-    votesFor: 45,
-    votesAgainst: 378,
-    votingEndsAt: Date.now() - 2 * 86400 * 1000,
-    userVote: null,
-    votingPower: 15,
-  },
-];
+import type { ArbitrationStatus, Dispute } from '../types';
 
 const statusVariant: Record<ArbitrationStatus, 'arbitrating' | 'failed' | 'settled' | 'neutral'> = {
   PENDING: 'arbitrating',
@@ -94,28 +25,76 @@ const statusVariant: Record<ArbitrationStatus, 'arbitrating' | 'failed' | 'settl
 };
 
 export default function ArbitrationPage() {
-  const [disputes, setDisputes] = useState<Dispute[]>(mockDisputes);
-  const { isConnected } = useWalletStore();
-  const { success, info } = useToast();
+  const { isConnected, address } = useWalletStore();
+  const holdings = useKolHoldingsStore((s) => s.holdings);
+  const { info } = useToast();
+  const arbitration = useArbitrationVote();
+  const { disputes } = arbitration;
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [pendingVote, setPendingVote] = useState<{ disputeId: string; voteType: ArbitrationVoteType } | null>(null);
 
   const activeDisputes = disputes.filter((d) => d.status === 'VOTING');
   const resolvedDisputes = disputes.filter((d) => d.status !== 'VOTING');
 
-  const handleVote = (disputeId: string, vote: 'FOR' | 'AGAINST') => {
+  /** 投票权判断：持有该争议对应 KOL 的 PASS 才有投票权 */
+  const hasVotingPower = (handle: string): boolean => (holdings[normalizeHandle(handle)] ?? 0) > 0;
+
+  /** 点击投票：未连接钱包 → ConnectModal；有投票权 → 打开确认弹窗 */
+  const handleVoteClick = (dispute: Dispute, voteType: ArbitrationVoteType) => {
+    if (arbitration.isSubmitting) return;
+    if (dispute.status !== 'VOTING' || dispute.userVote) return;
     if (!isConnected) {
-      info('Please connect your wallet to vote');
+      setPendingVote({ disputeId: dispute.id, voteType });
+      setConnectOpen(true);
       return;
     }
-    setDisputes((prev) =>
-      prev.map((d) => {
-        if (d.id !== disputeId) return d;
-        const newVotesFor = d.votesFor + (vote === 'FOR' ? d.votingPower : 0);
-        const newVotesAgainst = d.votesAgainst + (vote === 'AGAINST' ? d.votingPower : 0);
-        return { ...d, votesFor: newVotesFor, votesAgainst: newVotesAgainst, userVote: vote };
-      }),
-    );
-    success(`Vote submitted: ${vote === 'FOR' ? 'Slash' : 'Release'} (${disputes.find((d) => d.id === disputeId)?.votingPower} voting power)`);
+    if (!hasVotingPower(dispute.auction.kol.handle)) {
+      info('You need to hold the related PASS to vote on this dispute');
+      return;
+    }
+    arbitration.reset();
+    setPendingVote({ disputeId: dispute.id, voteType });
+    setConfirmOpen(true);
   };
+
+  /** 连接成功后的续接：回到投票确认流程 */
+  const handleConnected = () => {
+    arbitration.reset();
+    setConfirmOpen(true);
+  };
+
+  /** 确认投票：执行 mock 交易 → 成功后投票条与状态由 hook 自动更新 */
+  const handleConfirmVote = async () => {
+    if (!pendingVote) return;
+    const result = await arbitration.vote(pendingVote.disputeId, pendingVote.voteType);
+    if (!result) return; // 错误已由 TradeConfirmationModal 展示；用户拒绝 → 静默
+
+    // 投票成功：短暂停留后关闭弹窗
+    setTimeout(() => {
+      setConfirmOpen(false);
+      arbitration.reset();
+      setPendingVote(null);
+    }, 1200);
+  };
+
+  const closeConfirm = () => {
+    setConfirmOpen(false);
+    arbitration.reset();
+    setPendingVote(null);
+  };
+
+  const pendingDispute = pendingVote ? disputes.find((d) => d.id === pendingVote.disputeId) : null;
+  const voteDetails: TradeDetailItem[] = pendingVote && pendingDispute
+    ? [
+        { label: 'Dispute', value: `#${pendingVote.disputeId}` },
+        { label: 'KOL', value: `${pendingDispute.auction.kol.name} (${pendingDispute.auction.kol.handle})` },
+        { label: 'Vote', value: pendingVote.voteType, highlight: true },
+        { label: 'Voting Power', value: `${pendingDispute.votingPower} PTS` },
+        { label: 'Wallet', value: address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '—' },
+      ]
+    : [];
 
   const formatTimeLeft = (target: number) => {
     const diff = Math.max(0, target - Date.now());
@@ -128,6 +107,7 @@ export default function ArbitrationPage() {
     const totalVotes = dispute.votesFor + dispute.votesAgainst;
     const forPercent = totalVotes > 0 ? (dispute.votesFor / totalVotes) * 100 : 50;
     const isVoting = dispute.status === 'VOTING';
+    const hasPower = hasVotingPower(dispute.auction.kol.handle);
 
     return (
       <motion.div
@@ -141,13 +121,13 @@ export default function ArbitrationPage() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1 min-w-0">
               {/* KOL Identity Row */}
-              <Link to={kolProfilePath(dispute.kolHandle.replace(/^@/, ''))} className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity">
+              <Link to={kolProfilePath(dispute.auction.kol.handle)} className="flex items-center gap-3 mb-3 hover:opacity-80 transition-opacity">
                 <div className="w-10 h-10 rounded-full border border-white/[0.06] bg-black/50 overflow-hidden flex items-center justify-center shrink-0">
-                  <KolAvatar handle={dispute.kolHandle} name={dispute.kolName} className="!w-full !h-full !rounded-full !border-0" />
+                  <KolAvatar handle={dispute.auction.kol.handle} name={dispute.auction.kol.name} className="!w-full !h-full !rounded-full !border-0" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-white font-black text-[15px] tracking-tight leading-tight truncate">{dispute.kolName}</span>
-                  <span className="text-white/40 text-[11px] font-mono truncate">{dispute.kolHandle}</span>
+                  <span className="text-white font-black text-[15px] tracking-tight leading-tight truncate">{dispute.auction.kol.name}</span>
+                  <span className="text-white/40 text-[11px] font-mono truncate">{dispute.auction.kol.handle}</span>
                 </div>
               </Link>
 
@@ -159,7 +139,7 @@ export default function ArbitrationPage() {
 
               {/* Auction Title */}
               <Link to={auctionDetailPath(dispute.auctionId)} className="hover:opacity-80 transition-opacity">
-                <h3 className="text-lg font-bold text-white">{dispute.auctionTitle}</h3>
+                <h3 className="text-lg font-bold text-white">{dispute.auction.title}</h3>
               </Link>
             </div>
             {isVoting && (
@@ -205,23 +185,28 @@ export default function ArbitrationPage() {
           {isVoting ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="text-[11px] text-white/40">
-                Your voting power: <span className="font-mono font-bold text-white/70">{dispute.votingPower} PTS</span>
+                Your voting power:{' '}
+                <span className="font-mono font-bold text-white/70">{hasPower ? dispute.votingPower : 0} PTS</span>
               </div>
               <div className="flex gap-3">
                 {dispute.userVote ? (
                   <div className="flex items-center gap-2 text-[12px] font-bold text-white/50">
-                    {dispute.userVote === 'FOR' ? (
+                    {dispute.userVote === 'SLASH' ? (
                       <><XCircle className="w-4 h-4 text-red-400" /> Voted: Slash</>
                     ) : (
                       <><CheckCircle className="w-4 h-4 text-[#3ec470]" /> Voted: Release</>
                     )}
                   </div>
+                ) : !hasPower ? (
+                  <div className="flex items-center gap-2 text-[12px] font-bold text-white/30">
+                    <AlertTriangle className="w-4 h-4" /> No voting power
+                  </div>
                 ) : (
                   <>
-                    <Button variant="danger" size="sm" onClick={() => handleVote(dispute.id, 'FOR')}>
+                    <Button variant="danger" size="sm" disabled={arbitration.isSubmitting} onClick={() => handleVoteClick(dispute, 'SLASH')}>
                       Vote Slash
                     </Button>
-                    <Button size="sm" onClick={() => handleVote(dispute.id, 'AGAINST')}>
+                    <Button size="sm" disabled={arbitration.isSubmitting} onClick={() => handleVoteClick(dispute, 'RELEASE')}>
                       Vote Release
                     </Button>
                   </>
@@ -320,6 +305,28 @@ export default function ArbitrationPage() {
           </div>
         </div>
       </div>
+
+      {/* 投票确认弹窗 */}
+      <TradeConfirmationModal
+        open={confirmOpen}
+        onClose={closeConfirm}
+        title={pendingVote ? `Confirm ${pendingVote.voteType} Vote` : 'Confirm Vote'}
+        description="Cast your vote on this dispute. Your vote is weighted by your PASS holdings."
+        details={voteDetails}
+        confirmText={pendingVote ? `Confirm ${pendingVote.voteType}` : 'Confirm Vote'}
+        cancelText="Cancel"
+        onConfirm={handleConfirmVote}
+        status={arbitration.status}
+        txHash={arbitration.txHash ?? undefined}
+        error={arbitration.error ?? undefined}
+      />
+
+      {/* 钱包连接引导弹窗 */}
+      <ConnectModal
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        onConnected={handleConnected}
+      />
     </div>
   );
 }

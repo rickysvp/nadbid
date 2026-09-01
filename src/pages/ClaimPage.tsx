@@ -1,56 +1,132 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, User, Package, TerminalSquare, ExternalLink } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { useToast } from '../hooks/useToast';
+import { useClaim } from '../hooks/useClaim';
+import { useWalletStore } from '../stores/walletStore';
+import { TradeConfirmationModal, ConnectModal } from '../components/trade';
+import type { TradeDetailItem } from '../components/trade';
+import type { ClaimType, PendingReward } from '../types';
+import { formatNumber } from '../utils/format';
 
-const initialPending = [
-  { id: 'p1', title: '@0xChine PASS', type: 'Staking', amount: '4,100.00', rawAmount: 4100.00 },
-  { id: 'p2', title: 'KOLF #842', type: 'Refund', amount: '3,150.50', rawAmount: 3150.50 },
-  { id: 'p3', title: '@DegenSpartan PASS', type: 'Staking', amount: '4,100.00', rawAmount: 4100.00 },
-];
+/** 奖励类型展示文案（保持原页面 Badge 的 Title Case 展示） */
+const TYPE_LABEL: Record<ClaimType, string> = {
+  STAKING: 'Staking',
+  REFUND: 'Refund',
+  ROYALTY: 'Royalty',
+  REFERRAL: 'Referral',
+};
 
-const initialHistory = [
-  { id: 'h1', status: 'SETTLED', event: 'Claimed Staking Rewards', date: 'Oct 24, 2024 • 14:32 UTC', amount: '+ 450.00 MON' },
-  { id: 'h2', status: 'SETTLED', event: 'Auction Refund: KOLF #842', date: 'Oct 22, 2024 • 09:15 UTC', amount: '+ 1,200.00 MON' },
-];
+/** 格式化领取历史时间：'Oct 24, 2024 • 14:32 UTC' */
+function formatClaimDate(timestamp: number): string {
+  const d = new Date(timestamp);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+  return `${date} • ${time}`;
+}
 
+/** 待确认的领取动作（弹窗与连接引导共用） */
+type PendingClaimAction =
+  | { type: 'claim'; rewardId: string }
+  | { type: 'claimAll' };
+
+/**
+ * 领取奖励（Claim / Claim All）页面：
+ * - A. Pending Rewards Breakdown：待领取列表，每行 Claim 按钮 + 顶部 Claim All 批量领取
+ * - B. Claiming Rules：领取规则说明（保持不变）
+ * - C. Recent Claims History：领取历史表格（保持不变，数据来源 useClaim）
+ * 未连接钱包 → ConnectModal 引导；确认后执行 mock 交易；成功后从 pending 移除并写入历史。
+ */
 export default function ClaimPage() {
-  const [pending, setPending] = useState(initialPending);
-  const [history, setHistory] = useState(initialHistory);
+  const wallet = useWalletStore();
+  const claim = useClaim();
   const { success, info } = useToast();
 
-  const handleClaim = (item: typeof initialPending[0]) => {
-    success('Claimed rewards for ' + item.type + ' successfully!');
-    setPending((prev) => prev.filter((p) => p.id !== item.id));
+  const [pendingClaim, setPendingClaim] = useState<PendingClaimAction | null>(null);
+  const [connectOpen, setConnectOpen] = useState(false);
 
-    const newHistoryItem = {
-      id: `h-${Date.now()}`,
-      status: 'SETTLED',
-      event: item.type === 'Staking' ? `Claimed Staking Rewards (${item.title})` : `Auction Refund: ${item.title}`,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' • ' +
-        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
-      amount: `+ ${item.amount} MON`,
-    };
+  /* ---------- 待确认动作对应的奖励（用于弹窗详情与交易入参） ---------- */
 
-    setHistory((prev) => [newHistoryItem, ...prev]);
+  const pendingReward = useMemo(() => {
+    if (!pendingClaim || pendingClaim.type !== 'claim') return null;
+    return claim.pendingRewards.find((r) => r.id === pendingClaim.rewardId) ?? null;
+  }, [pendingClaim, claim.pendingRewards]);
+
+  /* ---------- 领取交互 ---------- */
+
+  const openConfirm = (action: PendingClaimAction) => {
+    claim.reset();
+    setPendingClaim(action);
   };
 
-  const handleClaimAll = () => {
-    success('Claimed all available rewards successfully!');
-    if (pending.length === 0) return;
-
-    const newHistoryItems = pending.map((item, index) => ({
-      id: `h-all-${Date.now()}-${index}`,
-      status: 'SETTLED',
-      event: item.type === 'Staking' ? `Claimed Staking Rewards (${item.title})` : `Auction Refund: ${item.title}`,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' • ' +
-        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
-      amount: `+ ${item.amount} MON`,
-    }));
-
-    setPending([]);
-    setHistory((prev) => [...newHistoryItems, ...prev]);
+  /** 未连接钱包：先记录动作，连接成功后续接打开确认弹窗 */
+  const handleConnected = () => {
+    if (pendingClaim) openConfirm(pendingClaim);
   };
+
+  const handleClaimClick = (reward: PendingReward) => {
+    if (!wallet.isConnected) {
+      setPendingClaim({ type: 'claim', rewardId: reward.id });
+      setConnectOpen(true);
+      return;
+    }
+    openConfirm({ type: 'claim', rewardId: reward.id });
+  };
+
+  const handleClaimAllClick = () => {
+    if (claim.pendingRewards.length === 0) return;
+    if (!wallet.isConnected) {
+      setPendingClaim({ type: 'claimAll' });
+      setConnectOpen(true);
+      return;
+    }
+    openConfirm({ type: 'claimAll' });
+  };
+
+  /* ---------- 交易确认 ---------- */
+
+  const handleConfirm = async () => {
+    if (!pendingClaim) return;
+    const result =
+      pendingClaim.type === 'claim'
+        ? await claim.claim(pendingClaim.rewardId)
+        : await claim.claimAll();
+    if (!result) return; // 错误由 TradeConfirmationModal 展示；用户拒绝 → 静默
+
+    // 展示成功态后自动关闭并重置
+    success(
+      pendingClaim.type === 'claim'
+        ? `Claimed ${result.totalAmount.toFixed(2)} MON successfully!`
+        : `Claimed ${result.rewards.length} rewards (${result.totalAmount.toFixed(2)} MON) successfully!`,
+    );
+    setTimeout(() => {
+      setPendingClaim(null);
+      claim.reset();
+    }, 1400);
+  };
+
+  /* ---------- 弹窗详情 ---------- */
+
+  const isSingle = pendingClaim?.type === 'claim';
+  const claimTotal =
+    pendingClaim?.type === 'claimAll'
+      ? claim.pendingRewards.reduce((sum, r) => sum + r.amount, 0)
+      : pendingReward?.amount ?? 0;
+
+  const confirmDetails: TradeDetailItem[] = isSingle
+    ? [
+        { label: 'Source', value: pendingReward ? pendingReward.title : '' },
+        { label: 'Type', value: pendingReward ? TYPE_LABEL[pendingReward.type] : '' },
+        { label: 'Amount', value: `${formatNumber(claimTotal, 2)} MON` },
+        { label: 'Estimated to Receive', value: `+ ${formatNumber(claimTotal, 2)} MON`, highlight: true },
+      ]
+    : [
+        { label: 'Rewards', value: `${claim.pendingRewards.length} available` },
+        { label: 'Total Amount', value: `${formatNumber(claimTotal, 2)} MON` },
+        { label: 'Estimated to Receive', value: `+ ${formatNumber(claimTotal, 2)} MON`, highlight: true },
+      ];
 
   return (
     <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
@@ -62,17 +138,13 @@ export default function ClaimPage() {
             <p className="text-white/50 text-sm font-medium">Review and collect your outstanding balances.</p>
           </div>
 
-          <button
-            onClick={handleClaimAll}
-            disabled={pending.length === 0}
-            className={`flex items-center gap-2 font-bold text-sm px-6 py-3 rounded uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)] ${
-              pending.length > 0
-                ? 'bg-[#3ec470] text-black hover:bg-[#4ade80] active:scale-[0.98]'
-                : 'bg-white/5 text-white/30 cursor-not-allowed shadow-none hover:shadow-none'
-            }`}
+          <Button
+            onClick={handleClaimAllClick}
+            disabled={claim.pendingRewards.length === 0 || claim.isSubmitting}
+            className="whitespace-nowrap"
           >
             Claim All <Zap className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Two Column Layout for Pending & Rules */}
@@ -86,7 +158,7 @@ export default function ClaimPage() {
 
             <div className="space-y-3">
               <AnimatePresence>
-                {pending.map((item) => (
+                {claim.pendingRewards.map((item) => (
                   <motion.div
                     layout
                     initial={{ opacity: 0, y: 10 }}
@@ -94,11 +166,11 @@ export default function ClaimPage() {
                     exit={{ opacity: 0, x: -20, scale: 0.98 }}
                     transition={{ duration: 0.2 }}
                     key={item.id}
-                    className="bg-[#161616] border border-white/[0.04] rounded-lg p-5 flex items-center justify-between group hover:border-white/[0.08] transition-all"
+                    className="bg-[#161616] border border-white/[0.04] rounded-xl p-5 flex items-center justify-between group hover:border-white/[0.08] transition-all"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-lg bg-white/[0.02] border border-white/[0.05] flex items-center justify-center shrink-0">
-                        {item.type === 'Staking' ? (
+                        {item.type === 'STAKING' ? (
                           <User className="w-5 h-5 text-[#3ec470]/80" />
                         ) : (
                           <Package className="w-5 h-5 text-[#fbbf24]/80" />
@@ -106,32 +178,28 @@ export default function ClaimPage() {
                       </div>
                       <div>
                         <div className="font-bold text-white text-[15px] tracking-tight mb-1">{item.title}</div>
-                        <span className={`inline-block px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider ${
-                          item.type === 'Staking'
-                            ? 'bg-white/5 text-white/60 border border-white/10'
-                            : 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/20'
-                        }`}>
-                          {item.type}
-                        </span>
+                        <Badge variant={item.type === 'STAKING' ? 'neutral' : 'amber'}>{TYPE_LABEL[item.type]}</Badge>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-6">
                       <div className="font-mono text-lg font-bold text-white">
-                        {item.amount} <span className="text-[12px] text-white/50">MON</span>
+                        {formatNumber(item.amount, 2)} <span className="text-[12px] text-white/50">MON</span>
                       </div>
-                      <button
-                        onClick={() => handleClaim(item)}
-                        className="bg-white/[0.05] border border-white/[0.08] text-white/80 font-bold text-[12px] px-5 py-2.5 rounded hover:bg-white/[0.1] hover:text-white transition-all tracking-wide"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={claim.isSubmitting}
+                        onClick={() => handleClaimClick(item)}
                       >
                         Claim
-                      </button>
+                      </Button>
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
-              {pending.length === 0 && (
-                <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-12 text-center text-white/40 text-sm font-medium">
+              {claim.pendingRewards.length === 0 && (
+                <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-12 text-center text-white/40 text-sm font-medium">
                   No pending rewards. You are all caught up!
                 </div>
               )}
@@ -140,7 +208,7 @@ export default function ClaimPage() {
 
           {/* Right Column: Claim Rules */}
           <div className="lg:col-span-4">
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg overflow-hidden h-full">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl overflow-hidden h-full">
               <div className="bg-[#1a1a1a] border-b border-white/[0.04] p-4 flex items-center gap-2">
                 <TerminalSquare className="w-4 h-4 text-white/50" />
                 <span className="text-[10px] font-bold text-white/80 uppercase tracking-[0.15em]">Claim Rules</span>
@@ -170,7 +238,7 @@ export default function ClaimPage() {
         <div>
           <h2 className="text-lg font-bold text-white tracking-wide uppercase mb-6">Recent Claims History</h2>
 
-          <div className="bg-[#161616] border border-white/[0.04] rounded-lg overflow-hidden">
+          <div className="bg-[#161616] border border-white/[0.04] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
@@ -184,7 +252,7 @@ export default function ClaimPage() {
                 </thead>
                 <tbody className="text-[13px]">
                   <AnimatePresence>
-                    {history.map((item) => (
+                    {claim.history.map((item) => (
                       <motion.tr
                         layout
                         initial={{ opacity: 0 }}
@@ -193,13 +261,13 @@ export default function ClaimPage() {
                         className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01] transition-colors"
                       >
                         <td className="py-5 px-6">
-                          <span className="inline-block px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-[0.1em] bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30">
-                            {item.status}
-                          </span>
+                          <Badge variant="settled">{item.status}</Badge>
                         </td>
                         <td className="py-5 px-6 font-bold text-white/90">{item.event}</td>
-                        <td className="py-5 px-6 font-mono text-white/50">{item.date}</td>
-                        <td className="py-5 px-6 text-right font-bold font-mono text-[#3ec470]">{item.amount}</td>
+                        <td className="py-5 px-6 font-mono text-white/50">{formatClaimDate(item.timestamp)}</td>
+                        <td className="py-5 px-6 text-right font-bold font-mono text-[#3ec470]">
+                          + {formatNumber(item.amount, 2)} MON
+                        </td>
                         <td className="py-5 px-6 text-center">
                           <button onClick={() => info('Opening Transaction...')} className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors mx-auto group">
                             <ExternalLink className="w-3.5 h-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
@@ -213,13 +281,47 @@ export default function ClaimPage() {
             </div>
 
             <div className="p-6 flex justify-center border-t border-white/[0.04]">
-              <button onClick={() => info('Loading older history...')} className="bg-white/[0.03] border border-white/[0.06] text-white/70 font-bold text-[12px] px-6 py-2.5 rounded hover:bg-white/[0.08] hover:text-white transition-all tracking-wide">
+              <Button variant="secondary" size="sm" onClick={() => info('Loading older history...')}>
                 Load More History
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 交易确认弹窗 */}
+      <TradeConfirmationModal
+        open={pendingClaim !== null && !connectOpen}
+        onClose={() => {
+          setPendingClaim(null);
+          claim.reset();
+        }}
+        title={isSingle ? 'Confirm Claim' : 'Confirm Claim All'}
+        description={
+          isSingle
+            ? pendingReward
+              ? `Claim ${formatNumber(pendingReward.amount, 2)} MON from ${pendingReward.title}.`
+              : undefined
+            : `Claim all ${claim.pendingRewards.length} pending rewards in a single transaction.`
+        }
+        details={confirmDetails}
+        confirmText={isSingle ? 'Confirm Claim' : 'Confirm Claim All'}
+        cancelText="Cancel"
+        onConfirm={handleConfirm}
+        status={claim.status}
+        txHash={claim.txHash ?? undefined}
+        error={claim.error ?? undefined}
+      />
+
+      {/* 钱包连接引导 */}
+      <ConnectModal
+        open={connectOpen}
+        onClose={() => {
+          setConnectOpen(false);
+          setPendingClaim(null);
+        }}
+        onConnected={handleConnected}
+      />
     </div>
   );
 }

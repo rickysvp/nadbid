@@ -19,6 +19,28 @@ const MOCK_BALANCE = 12450.75;
 /** Mock 链 ID（Monad Testnet） */
 const MOCK_CHAIN_ID = 10143;
 
+/** 当前是否 real 模式（VITE_WALLET_MODE=real），与 WalletStateSyncer 判定一致 */
+function isRealWalletMode(): boolean {
+  return (import.meta.env?.VITE_WALLET_MODE as string | undefined)?.toLowerCase() === 'real';
+}
+
+/** 链上余额查询函数（Phase 2 接入真实 provider 后通过 setBalanceLoader 注册） */
+type BalanceLoader = () => Promise<number>;
+let balanceLoader: BalanceLoader | null = null;
+
+/**
+ * 注册链上余额查询函数（仅 real 模式生效）。
+ * 例：setBalanceLoader(() => provider.getBalance(address).then((b) => Number(b)));
+ */
+export function setBalanceLoader(loader: BalanceLoader | null): void {
+  balanceLoader = loader;
+}
+
+/** 2 位小数取整，规避二进制浮点误差（如 12450.75 - 0.05） */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 interface WalletStore extends WalletState {
   /**
    * 连接钱包。
@@ -32,6 +54,14 @@ interface WalletStore extends WalletState {
   setBalance: (balance: number) => void;
   /** 切换链（兼容旧 API，真实链切换由 wagmi useSwitchChain 处理） */
   setChain: (chainId: number) => void;
+  /**
+   * 刷新余额（交易成功后统一调用）：
+   * - mock 模式：delta > 0 表示本次已花费（扣减余额，如出价 / Mint），
+   *   delta < 0 表示资金流入（增加余额，如领取 / Burn 返还），delta = 0 仅刷新。
+   * - real 模式（Phase 2 预留）：通过 setBalanceLoader 注册的链上查询函数
+   *   获取真实余额；查询失败时退化为本地增量更新，不阻断交易流程。
+   */
+  refreshBalance: (delta?: number) => Promise<void>;
   /**
    * @internal 仅供 WalletStateSyncer 调用：将 wagmi 真实状态写入 store。
    * 组件不应直接调用此方法。
@@ -123,5 +153,23 @@ export const useWalletStore = create<WalletStore>((set) => ({
       connectorName: null,
       balanceRaw: null,
     });
+  },
+
+  refreshBalance: async (delta = 0) => {
+    // real 模式：优先查询链上真实余额（已注册 loader 时）
+    if (isRealWalletMode() && balanceLoader) {
+      try {
+        const balance = await balanceLoader();
+        set({ balanceMon: Math.max(0, round2(balance)) });
+        return;
+      } catch {
+        // 链上查询失败 → 退化为本地增量更新，不阻断交易流程
+      }
+    }
+    // mock 模式：delta > 0 扣减（出价 / Mint 花费），delta < 0 入账（领取 / Burn 返还）
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    set((state) => ({
+      balanceMon: Math.max(0, round2(state.balanceMon - delta)),
+    }));
   },
 }));

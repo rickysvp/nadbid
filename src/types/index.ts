@@ -98,6 +98,9 @@ export interface StakePosition {
 export type ClaimType = 'STAKING' | 'REFUND' | 'ROYALTY' | 'REFERRAL';
 export type ClaimStatus = 'PENDING' | 'CLAIMING' | 'CLAIMED' | 'FAILED';
 
+/** 待领取奖励的可领取状态：CLAIMABLE 可领 / LOCKED 未到解锁 / CLAIMED 已领取 */
+export type PendingRewardStatus = 'CLAIMABLE' | 'LOCKED' | 'CLAIMED';
+
 export interface PendingReward {
   id: string;
   title: string;
@@ -105,6 +108,8 @@ export interface PendingReward {
   amount: number;
   source: string;
   availableAt: number;
+  /** 可领取状态（缺省视为 CLAIMABLE；CLAIMED 表示已领取，应从待领取列表移除） */
+  status?: PendingRewardStatus;
 }
 
 export interface ClaimRecord {
@@ -149,10 +154,15 @@ export interface Dispute {
   auction: Auction;
   reason: string;
   status: ArbitrationStatus;
+  /** SLASH 票数（惩罚） */
   votesFor: number;
+  /** RELEASE 票数（放行） */
   votesAgainst: number;
+  /** 投票截止时间（时间戳 ms） */
   votingEndsAt: number;
-  userVote?: 'FOR' | 'AGAINST' | null;
+  /** 当前用户对争议的投票：SLASH / RELEASE / 未投（null） */
+  userVote?: 'SLASH' | 'RELEASE' | null;
+  /** 持有相关 PASS 的用户投票权重（票数） */
   votingPower: number;
 }
 

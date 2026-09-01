@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Trophy, Clock, Share2, Copy, Users, Zap, TrendingUp, ShieldCheck, Ticket } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { useToast } from '../hooks/useToast';
 
 const referrals = [
@@ -26,7 +28,7 @@ export default function PointsPage() {
         {/* Top Row: Balance & Rank */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Total Points Balance */}
-          <div className="lg:col-span-2 bg-[#161616] border border-white/[0.04] rounded-lg p-8 relative overflow-hidden flex flex-col justify-between h-[220px]">
+          <div className="lg:col-span-2 bg-[#161616] border border-white/[0.04] rounded-xl p-8 relative overflow-hidden flex flex-col justify-between h-[220px]">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none"></div>
             <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-white/[0.03] to-transparent transform skew-x-12 translate-x-20 pointer-events-none"></div>
 
@@ -34,9 +36,7 @@ export default function PointsPage() {
               <div className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em] mb-4">Total Points Balance</div>
               <div className="flex items-baseline gap-4">
                 <h1 className="text-6xl md:text-7xl font-black tracking-tighter">124,500</h1>
-                <div className="flex items-center gap-1 bg-[#1a2f22] text-[#3ec470] text-[10px] font-bold px-2 py-1 rounded border border-[#3ec470]/30 tracking-wider">
-                  <TrendingUp className="w-3 h-3" /> +1,200 PTS
-                </div>
+                <Badge variant="claimable" className="ml-0"><TrendingUp className="w-3 h-3" /> +1,200 PTS</Badge>
               </div>
             </div>
 
@@ -53,22 +53,20 @@ export default function PointsPage() {
           </div>
 
           {/* Global Rank */}
-          <div className="lg:col-span-1 bg-[#0d1611] border border-[#3ec470]/30 rounded-lg p-8 relative overflow-hidden flex flex-col items-center justify-center text-center h-[220px]">
+          <div className="lg:col-span-1 bg-[#0d1611] border border-[#3ec470]/30 rounded-xl p-8 relative overflow-hidden flex flex-col items-center justify-center text-center h-[220px]">
             <Trophy className="absolute -right-6 -bottom-6 w-40 h-40 text-[#3ec470]/5" strokeWidth={1} />
 
-            <div className="w-12 h-12 rounded-lg bg-[#3ec470]/10 border border-[#3ec470]/20 flex items-center justify-center mb-4 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-[#3ec470]/10 border border-[#3ec470]/20 flex items-center justify-center mb-4 relative z-10">
               <Trophy className="w-6 h-6 text-[#3ec470]" />
             </div>
             <div className="text-[#3ec470] text-[10px] font-bold uppercase tracking-[0.15em] mb-1 relative z-10">Global Rank</div>
             <div className="text-5xl font-black text-[#3ec470] tracking-tighter mb-4 relative z-10">#42</div>
-            <div className="flex items-center gap-1.5 bg-[#0f1f15] border border-[#3ec470]/20 text-[#3ec470] text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider relative z-10">
-              <ShieldCheck className="w-3 h-3" /> Top 0.1% of Users
-            </div>
+            <Badge variant="claimable" className="relative z-10"><ShieldCheck className="w-3 h-3" /> Top 0.1% of Users</Badge>
           </div>
         </div>
 
         {/* Invite & Earn */}
-        <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           <div>
             <h2 className="text-2xl font-black uppercase tracking-tight mb-3">Invite & Earn Network Yield</h2>
             <p className="text-white/50 text-sm leading-relaxed mb-4">
@@ -79,21 +77,18 @@ export default function PointsPage() {
             </p>
           </div>
 
-          <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg p-5">
+          <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-xl p-5">
             <div className="text-center font-mono text-sm text-white mb-5">
               https://nadbid.fun/ref?code=you
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => info('Opening X share dialog...')} className="flex items-center justify-center gap-2 bg-[#1a1a1a] border border-white/[0.08] text-white text-[10px] font-bold uppercase tracking-wider py-3.5 rounded hover:bg-[#222] transition-colors">
+              <Button variant="secondary" size="sm" fullWidth onClick={() => info('Opening X share dialog...')}>
                 <Share2 className="w-3.5 h-3.5" /> Share on X
-              </button>
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center gap-2 bg-[#3ec470] text-black text-[10px] font-bold uppercase tracking-wider py-3.5 rounded hover:bg-[#4ade80] transition-colors"
-              >
+              </Button>
+              <Button size="sm" fullWidth onClick={handleCopy}>
                 {copied ? <ShieldCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? 'Copied!' : 'Copy Link'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -103,7 +98,7 @@ export default function PointsPage() {
           <h3 className="text-xl font-bold tracking-tight mb-4">Points Source Breakdown</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {/* 1 - Minting PASS */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-5">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-5">
               <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase tracking-wider mb-3">
                 <Ticket className="w-3.5 h-3.5" /> Minting PASS
               </div>
@@ -112,7 +107,7 @@ export default function PointsPage() {
             </div>
 
             {/* 2 - Bidding Activity */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-5">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-5">
               <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase tracking-wider mb-3">
                 <Zap className="w-3.5 h-3.5" /> Bidding Activity
               </div>
@@ -121,7 +116,7 @@ export default function PointsPage() {
             </div>
 
             {/* 3 - Referral Bonuses (Highlighted) */}
-            <div className="bg-[#0d1611] border border-[#3ec470]/30 rounded-lg p-5 relative overflow-hidden">
+            <div className="bg-[#0d1611] border border-[#3ec470]/30 rounded-xl p-5 relative overflow-hidden">
               <div className="absolute inset-0 bg-[#3ec470]/5 pointer-events-none"></div>
               <div className="relative z-10 flex items-center gap-1.5 text-[#3ec470] text-[10px] font-bold uppercase tracking-wider mb-3">
                 <Users className="w-3.5 h-3.5" /> Referral Bonuses
@@ -131,7 +126,7 @@ export default function PointsPage() {
             </div>
 
             {/* 4 - Staking Multipliers */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-5">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-5">
               <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase tracking-wider mb-3">
                 <ShieldCheck className="w-3.5 h-3.5" /> Staking Multipliers
               </div>
@@ -140,7 +135,7 @@ export default function PointsPage() {
             </div>
 
             {/* 5 - Auction Wins */}
-            <div className="bg-[#161616] border border-white/[0.04] rounded-lg p-5">
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-5">
               <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase tracking-wider mb-3">
                 <Trophy className="w-3.5 h-3.5" /> Auction Wins
               </div>
@@ -151,7 +146,7 @@ export default function PointsPage() {
         </div>
 
         {/* Referral List */}
-        <div className="bg-[#161616] border border-white/[0.04] rounded-lg overflow-hidden mt-6">
+        <div className="bg-[#161616] border border-white/[0.04] rounded-xl overflow-hidden mt-6">
           <div className="p-6 border-b border-white/[0.04]">
             <h3 className="text-sm font-bold tracking-wide">Referral List</h3>
           </div>

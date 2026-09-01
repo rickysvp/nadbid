@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, Clock, AlertCircle } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { useToast } from '../hooks/useToast';
 import { mockAuctions } from '../data/mockAuctions';
 import { kolProfilePath, auctionDetailPath } from '../config/routes';
@@ -52,14 +54,9 @@ function AuctionCard({ auction }: { auction: typeof mockAuctions[0] }) {
         </Link>
 
         {isLive ? (
-          <div className="flex items-center gap-1.5 bg-[#3ec470]/10 border border-[#3ec470]/20 px-2.5 py-1 rounded-full">
-            <div className="w-1.5 h-1.5 bg-[#3ec470] rounded-full animate-pulse"></div>
-            <span className="text-[#3ec470] text-[9px] font-bold tracking-wider uppercase">Live</span>
-          </div>
+          <Badge variant="live" pulse>Live</Badge>
         ) : (
-          <div className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
-            <span className="text-white/40 text-[9px] font-bold tracking-wider uppercase">Upcoming</span>
-          </div>
+          <Badge variant="upcoming">Upcoming</Badge>
         )}
       </div>
 
@@ -110,16 +107,9 @@ function AuctionCard({ auction }: { auction: typeof mockAuctions[0] }) {
 
       {/* CTA Button */}
       <Link to={auctionDetailPath(auction.id)} className="relative z-10">
-        <button
-          className={cn(
-            'w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-[0.15em] transition-all shadow-lg',
-            isLive
-              ? 'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[#3ec470]/20'
-              : 'bg-white/10 text-white hover:bg-white/20'
-          )}
-        >
+        <Button fullWidth variant={isLive ? 'default' : 'secondary'}>
           Enter Auction
-        </button>
+        </Button>
       </Link>
     </div>
   );

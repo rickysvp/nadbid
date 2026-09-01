@@ -1,0 +1,116 @@
+<html style="margin:0;padding:0;" lang="zh">
+<div style="background:#0a0a0a;color:#e5e7eb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:28px 24px;border-radius:16px;font-size:14px;line-height:1.55;max-width:980px;margin:0 auto;">
+  <!-- 标题 -->
+  <div style="border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:16px;margin-bottom:20px;">
+    <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em;">NADBID 代码质量审计总览</div>
+    <div style="color:#9ca3af;font-size:12px;margin-top:4px;">商业化上线标准 · 2026-09-01 · 范围：src 全部 115 文件 / 14,957 行 + 两目录分叉核查</div>
+  </div>
+
+  <!-- 严重度标记 -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+    <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:8px 14px;border-radius:10px;font-weight:700;">Critical × 2</div>
+    <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#fbbf24;padding:8px 14px;border-radius:10px;font-weight:700;">Important × 4</div>
+    <div style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);color:#9ca3af;padding:8px 14px;border-radius:10px;font-weight:700;">Minor × 3</div>
+    <div style="background:rgba(62,196,112,0.12);border:1px solid rgba(62,196,112,0.35);color:#4ade80;padding:8px 14px;border-radius:10px;font-weight:700;">健康项 × 6</div>
+  </div>
+
+  <!-- 最严重问题：两目录分叉 -->
+  <div style="border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.08);border-radius:14px;padding:18px;margin-bottom:20px;">
+    <div style="color:#f87171;font-weight:800;font-size:15px;margin-bottom:12px;">⚠️ 最严重问题：Phase 3 产物未同步到用户项目目录，且建立在缺失 wagmi 的旧副本上</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch;">
+      <div style="background:#161616;border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,0.07);">
+        <div style="color:#60a5fa;font-weight:700;font-size:13px;">/Users/ricky/AICode/nadbid</div>
+        <div style="font-size:11px;color:#9ca3af;margin:4px 0 10px;">用户可见目录 · git HEAD 4c1a052 · v0.2.0 · 端口 3001</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ 完整 Phase 2 wagmi 集成</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ 7 个 wallet 组件 + ConnectButton</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ 真实 useWriteContractTx / WalletStateSyncer</div>
+        <div style="color:#f87171;font-size:12px;margin-top:6px;">❌ 无 Phase 3 任何产物</div>
+        <div style="color:#f87171;font-size:12px;">❌ tsc 112 个错误（旧遗留文件）</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#f87171;font-size:13px;font-weight:700;white-space:nowrap;">未合并 ⟷</div>
+      <div style="background:#161616;border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,0.07);">
+        <div style="color:#60a5fa;font-weight:700;font-size:13px;">workspace/nadbid</div>
+        <div style="font-size:11px;color:#9ca3af;margin:4px 0 10px;">实际开发目录 · git 2530a2b + 86 未提交 · v0.3.0 · 端口 3000</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ 全部 Phase 3（5 交易 hook + trade 组件）</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ tsc 0 错误 · 5 大交易 e2e 全通过</div>
+        <div style="color:#4ade80;font-size:12px;margin-bottom:4px;">✅ legacy 死代码已隔离</div>
+        <div style="color:#f87171;font-size:12px;margin-top:6px;">❌ 无 wagmi/viem 依赖</div>
+        <div style="color:#f87171;font-size:12px;">❌ Navbar 仍是旧手写钱包逻辑</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#fca5a5;margin-top:12px;">用户浏览器当前打开 3001 端口 = AICode 目录，看到的是 v0.2.0（只有钱包连接、无 Phase 3 交易功能）；完整 Phase 3 产物只存在于 workspace 副本，未提交、未推送、未同步。</div>
+  </div>
+
+  <!-- 问题清单 -->
+  <div style="margin-bottom:20px;">
+    <div style="font-weight:800;font-size:15px;margin-bottom:12px;">问题清单（按严重度）</div>
+
+    <div style="margin-bottom:12px;">
+      <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#f87171;font-size:13px;">C1 · 交付断裂：Phase 3 产物未同步/未提交/未推送</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">5 个交易 hook、trade 组件、mockTransaction、bondingCurve、legacy 全部只在 workspace 副本，用户项目目录 AICode 完全缺失。v0.3.0 从未发布。</div>
+      </div>
+      <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#f87171;font-size:13px;">C2 · 架构分叉：Phase 3 建立在缺失 wagmi 的旧代码上</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">workspace 的 package.json 无 wagmi/viem，web3/ 目录缺 config.ts / WagmiProvider / contracts.ts；useWriteContractTx 是 mock 版（无 provider），real 模式全部是「not configured」占位——交易功能无法真正上链。</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#fbbf24;font-size:13px;">I1 · 5 个交易 hook 的 runMockTransaction 重复（每份约 40 行 × 5）</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">useAuctionBid / usePassMintBurn / useStaking / useClaim / useArbitrationVote 各自内联同一套 sleep(400/700/1100) + executeMockTransaction 流程。虽有意的模式一致性，但违反 DRY，可提取共享 hook。</div>
+      </div>
+      <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#fbbf24;font-size:13px;">I2 · Navbar 双版本并存（AICode 用 ConnectButton 63 行 / workspace 旧手写 276 行）</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">workspace 的 Navbar 仍含 mock connect()/disconnect()、Deposit/Withdraw/Manage Wallets/Settings 占位项与 dicebear 头像；与 Phase 2 交付的 ConnectButton 集成不一致。</div>
+      </div>
+      <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#fbbf24;font-size:13px;">I3 · AICode 目录残留 112 个 TS 错误（旧遗留文件未清入 legacy）</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">Staking.tsx / KOLs.tsx / MintBurnPanel / 旧 api+data 等文件仍引用不存在类型/依赖（recharts、StakeLockDays 等），未执行 workspace 已完成的 legacy 迁移。</div>
+      </div>
+      <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#fbbf24;font-size:13px;">I4 · real 模式全部为占位，未达商业化上线标准</div>
+        <div style="font-size:12px;color:#d1d5db;margin-top:4px;">useStaking/useClaim/useArbitrationVote 的 real 分支均 return「contract is not configured for real mode yet」；useAuctionBid real 模式 value 未转 wei + abi 空数组；智能合约 ABI/地址未提供。</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#9ca3af;font-size:13px;">M1 · TradeConfirmationModal 硬编码区块浏览器 URL（chainId prop 预留未用）</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">success 态固定跳 testnet.monadexplorer.com，未按 chainId 分发。</div>
+      </div>
+      <div style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#9ca3af;font-size:13px;">M2 · MOCK_CHAIN_ID 10143 标注「待确认」；import.meta.env?.VITE_AUCTION_MODE 可选链在 Vite 下无意义</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Monad 测试网 chainId 正确性需向官方核实。</div>
+      </div>
+      <div style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;color:#9ca3af;font-size:13px;">M3 · legacy 目录 52 个文件保留在仓库（tsconfig 排除但未删除）</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">符合「保留参考」决策，但若商业化上线建议彻底移除；另有 useToast 的 globalToast/setGlobalToast 定义后无使用者。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 健康项 -->
+  <div style="border:1px solid rgba(62,196,112,0.35);background:rgba(62,196,112,0.08);border-radius:14px;padding:16px;margin-bottom:20px;">
+    <div style="color:#4ade80;font-weight:800;font-size:14px;margin-bottom:10px;">✅ 健康项（workspace 副本中验证良好）</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">
+      <div style="font-size:12px;color:#d1d5db;">• tsc 0 错误 · 生产构建成功（2130 modules）</div>
+      <div style="font-size:12px;color:#d1d5db;">• 5 大交易 e2e 全流程通过（21/21 · 19/19 · 23/23 · 20/20 · 19/20）</div>
+      <div style="font-size:12px;color:#d1d5db;">• 债券曲线计价唯一来源 bondingCurve.ts，价格零偏差</div>
+      <div style="font-size:12px;color:#d1d5db;">• web3Errors 5 类错误分类 + 用户拒绝静默处理</div>
+      <div style="font-size:12px;color:#d1d5db;">• refreshBalance(delta+round2) 消除二进制浮点误差</div>
+      <div style="font-size:12px;color:#d1d5db;">• 业务常量集中在 constants.ts（AUCTION/CURVE/STAKING/POINTS/CHAIN）</div>
+    </div>
+  </div>
+
+  <!-- 修复路径 -->
+  <div style="border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;">
+    <div style="font-weight:800;font-size:14px;margin-bottom:10px;">🔧 建议修复路径（按优先级）</div>
+    <div style="font-size:12px;color:#d1d5db;margin-bottom:6px;"><b style="color:#f87171;">①</b> 以 AICode（含真实 wagmi Phase 2）为基线，把 workspace 的 Phase 3 产物（5 hook + trade 组件 + mockTransaction + bondingCurve + legacy 迁移 + Navbar/页面改动）合并过来，补齐依赖，跑通 tsc + build + e2e</div>
+    <div style="font-size:12px;color:#d1d5db;margin-bottom:6px;"><b style="color:#fbbf24;">②</b> 统一 Navbar 到 ConnectButton 版本，清掉 AICode 的 112 个 TS 错误（旧文件入 legacy）</div>
+    <div style="font-size:12px;color:#d1d5db;margin-bottom:6px;"><b style="color:#fbbf24;">③</b> 提交并推送 v0.3.0（含 CHANGELOG + tag），同步两个目录</div>
+    <div style="font-size:12px;color:#d1d5db;"><b style="color:#9ca3af;">④</b> 提取共享 mock 交易 hook 去重；接入真实合约 ABI/地址后替换 real 模式占位</div>
+  </div>
+</div>
+</html>
