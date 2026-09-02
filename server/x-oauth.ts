@@ -4,10 +4,12 @@
 //   1. GET /api/kol/x-auth-url  → 生成 PKCE(state+verifier) 并返回 X 授权 URL
 //   2. 用户跳转 X 登录自己的账号授权 → X 重定向回 {CALLBACK}?code=..&state=..
 //   3. GET {CALLBACK}  → 用 code+verifier 换 access_token → 调 /2/users/me 拿本人 username
-//   4. 再用 SocialData 查粉丝数 → 返回 { verified, username, followers, provider }
+//   4. 粉丝数阈值判断 → 302 跳回前端（xoauth=success / xoauth=denied / xoauth=error）
 //
-// 前置：.env 配置 X_CLIENT_ID / X_CLIENT_SECRET，并在 X Developer App 的
-//       User authentication settings 登记回调地址（Redirect/Callback URL）。
+// 无状态 PKCE（serverless 安全）：
+//   state 自包含 verifier + 过期时间，用服务端密钥 HMAC 签名。
+//   回调时解签校验，不依赖进程内存 → 兼容 Vercel 冷启动/多实例。
+//   需要 .env 配置 X_STATE_SECRET（随机长字符串）。
 import express from 'express';
 import crypto from 'node:crypto';
 
@@ -21,18 +23,12 @@ const CALLBACK_URL =
 // 前端地址：OAuth 成功后跳回（本地开发默认 localhost:3000，生产用 X_FRONTEND_URL）
 const FRONTEND_URL = process.env.X_FRONTEND_URL || 'http://localhost:3000';
 const FOLLOWERS_THRESHOLD = 10000;
-
-// 内存态 PKCE 存储：state → { verifier, createdAt }
-// MVP 无数据库；流程即时完成，重启丢失可接受
-const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
-const PKCE_TTL_MS = 10 * 60 * 1000; // 10 分钟
+// state 签名密钥：务必在 .env 配置（生产随机长串）
+const STATE_SECRET = process.env.X_STATE_SECRET || 'dev-insecure-state-secret-change-me';
+const STATE_TTL_MS = 10 * 60 * 1000; // 10 分钟
 
 function b64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function genRandomState(): string {
-  return b64url(crypto.randomBytes(24));
 }
 
 function genVerifier(): string {
@@ -44,15 +40,45 @@ function genCodeChallenge(verifier: string): string {
   return b64url(crypto.createHash('sha256').update(verifier).digest());
 }
 
+/** 无状态 state 生成：payload(verifier|exp) + HMAC 签名 */
+function signState(verifier: string): string {
+  const payload = b64url(
+    Buffer.from(JSON.stringify({ v: verifier, exp: Date.now() + STATE_TTL_MS }))
+  );
+  const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(payload).digest());
+  return `${payload}.${sig}`;
+}
+
+/** 无状态 state 校验：返回 verifier，失败返回 null */
+function verifyState(state: string): string | null {
+  const parts = state.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  const expected = b64url(crypto.createHmac('sha256', STATE_SECRET).update(payload).digest());
+  // 常量时间比较
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      v?: string;
+      exp?: number;
+    };
+    if (!data.v || typeof data.exp !== 'number' || Date.now() > data.exp) return null;
+    return data.v;
+  } catch {
+    return null;
+  }
+}
+
 /** 1. 生成授权 URL（前端跳转用） */
 router.get('/x-auth-url', (req, res) => {
   if (!CLIENT_ID || !CLIENT_SECRET) {
     res.status(503).json({ error: 'X_CLIENT_ID/X_CLIENT_SECRET not configured' });
     return;
   }
-  const state = genRandomState();
   const verifier = genVerifier();
-  pkceStore.set(state, { verifier, createdAt: Date.now() });
+  const state = signState(verifier);
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -86,12 +112,11 @@ router.get('/x-oauth-callback', async (req, res) => {
     return;
   }
 
-  const entry = pkceStore.get(state);
-  if (!entry || Date.now() - entry.createdAt > PKCE_TTL_MS) {
+  const verifier = verifyState(state);
+  if (!verifier) {
     res.status(400).send('state invalid or expired');
     return;
   }
-  pkceStore.delete(state);
 
   try {
     // 3. code + verifier → access_token（Basic Auth: client_id:client_secret）
@@ -106,18 +131,27 @@ router.get('/x-oauth-callback', async (req, res) => {
         grant_type: 'authorization_code',
         code,
         redirect_uri: CALLBACK_URL,
-        code_verifier: entry.verifier,
+        code_verifier: verifier,
       }),
     });
     if (!tokenRes.ok) {
       const t = await tokenRes.text();
-      res.status(502).send(`token exchange failed: ${tokenRes.status} ${t.slice(0, 200)}`);
+      // 重定向回前端并带错误，让用户看到明确反馈
+      res.redirect(
+        `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=token&message=${encodeURIComponent(
+          `Token exchange failed (${tokenRes.status})`
+        )}`
+      );
       return;
     }
     const tokenData = (await tokenRes.json()) as { access_token?: string };
     const accessToken = tokenData.access_token;
     if (!accessToken) {
-      res.status(502).send('no access_token in response');
+      res.redirect(
+        `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=token&message=${encodeURIComponent(
+          'No access_token in response'
+        )}`
+      );
       return;
     }
 
@@ -128,7 +162,11 @@ router.get('/x-oauth-callback', async (req, res) => {
     );
     if (!meRes.ok) {
       const t = await meRes.text();
-      res.status(502).send(`users/me failed: ${meRes.status} ${t.slice(0, 200)}`);
+      res.redirect(
+        `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=usersme&message=${encodeURIComponent(
+          `users/me failed (${meRes.status})`
+        )}`
+      );
       return;
     }
     const me = (await meRes.json()) as {
@@ -144,7 +182,11 @@ router.get('/x-oauth-callback', async (req, res) => {
       )}&followers=${followers}&verified=${followers >= FOLLOWERS_THRESHOLD}`
     );
   } catch (e) {
-    res.status(500).send('oauth callback error');
+    res.redirect(
+      `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=callback&message=${encodeURIComponent(
+        'Internal error during OAuth callback'
+      )}`
+    );
   }
 });
 
