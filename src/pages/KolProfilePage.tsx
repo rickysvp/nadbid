@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, TrendingUp, Info, Copy, ZoomIn } from 'lucide-react';
@@ -9,6 +9,9 @@ import type { MintBurnResultPayload } from '../components/kol-profile/MintBurnPa
 import { useToast } from '../hooks/useToast';
 import { getKolByHandle, mockKolStats } from '../data/mockKols';
 import { CURVE_DEFAULTS } from '../utils/constants';
+import { useWalletStore } from '../stores/walletStore';
+import { useKolPass } from '../web3/hooks/useKolPass';
+import type { Kol } from '../types';
 import { cn } from '../utils/cn';
 
 // Interactive Bonding Curve with zoom and tooltip
@@ -204,6 +207,21 @@ const historicalAuctions = [
   { round: '#37', bidders: '12', bids: '45', tvl: '120.00', status: 'FAILED', statusColor: 'text-red-400 border-red-400/30 bg-red-400/10' },
 ];
 
+/**
+ * 推断 KOL 的 KolPass 合约地址（Task 12 链上接入）。
+ *
+ * 链上 KOL 是地址（Registry.getKol(钱包).passContracts[0]），而页面路由 handle 是字符串
+ * （如 0xchine），需 handle → 地址映射。当前 mock 数据无地址字段，无法可靠推断 →
+ * 返回 undefined，页面保留 mock 展示（标注待部署后接入）。
+ * 预留：mockKols 增加可选 address / passAddress 字段，或合约部署后由链上索引补充时，
+ * 本函数无需改动即可命中。
+ */
+function inferPassAddress(kol: Kol | undefined): `0x${string}` | undefined {
+  const addr = (kol as (Kol & { passAddress?: string }) | undefined)?.passAddress;
+  if (addr && addr.startsWith('0x')) return addr as `0x${string}`;
+  return undefined;
+}
+
 export default function KolProfilePage() {
   const { handle } = useParams<{ handle: string }>();
   const kol = handle ? getKolByHandle(handle) : undefined;
@@ -216,6 +234,22 @@ export default function KolProfilePage() {
   // MintBurnPanel.onTradeSuccess 更新，驱动 Overview 卡片与曲线图联动。
   const [curveSupply, setCurveSupply] = useState<number>(CURVE_DEFAULTS.REFERENCE_SUPPLY);
   const [curvePrice, setCurvePrice] = useState<number>(CURVE_DEFAULTS.BASE_PRICE);
+
+  // ---- Task 12 链上接入：推断 passAddress（当前 mock 无地址映射 → undefined，保留 mock）----
+  const wallet = useWalletStore();
+  const account =
+    wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
+  const passAddress = useMemo(() => inferPassAddress(kol), [kol]);
+  const chainPass = useKolPass(passAddress, account);
+
+  // 链上数据（wei → MON / 供应量整数）；undefined 时回退 mock 基线
+  const chainSupply = chainPass.totalSupply !== undefined ? Number(chainPass.totalSupply) : undefined;
+  const chainPrice =
+    chainPass.curvePrice !== undefined ? Number(chainPass.curvePrice) / 1e18 : undefined;
+
+  // 展示值：链上路径优先链上 curvePrice / totalSupply；mock 路径维持页面 useState 联动逻辑
+  const actualSupply = chainSupply ?? curveSupply;
+  const actualMintPrice = chainPrice ?? curvePrice;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -251,9 +285,6 @@ export default function KolProfilePage() {
       </div>
     );
   }
-
-  const actualSupply = curveSupply;
-  const actualMintPrice = curvePrice;
 
   const d = Math.floor(timeLeft / (3600 * 24));
   const h = Math.floor((timeLeft % (3600 * 24)) / 3600);
@@ -364,11 +395,13 @@ export default function KolProfilePage() {
             <div className="mt-4 pt-4 border-t border-white/[0.04] flex justify-between items-center">
               <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.1em] flex items-center gap-2">
                 <span>Contract</span>
-                <span className="font-mono text-white/70 tracking-widest hidden sm:inline">0x742d...f44e</span>
+                <span className="font-mono text-white/70 tracking-widest hidden sm:inline">
+                  {passAddress ?? '0x742d...f44e'}
+                </span>
               </div>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText('0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
+                  navigator.clipboard.writeText(passAddress ?? '0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
                   success('Address copied');
                 }}
                 className="text-white/40 hover:text-white transition-colors"
@@ -383,8 +416,9 @@ export default function KolProfilePage() {
             <MintBurnPanel
               kolHandle={kol.handle.replace(/^@/, '').toLowerCase()}
               kolName={kol.name}
-              supply={curveSupply}
-              price={curvePrice}
+              supply={actualSupply}
+              price={actualMintPrice}
+              passAddress={passAddress}
               onTradeSuccess={handleTradeSuccess}
             />
           </div>
