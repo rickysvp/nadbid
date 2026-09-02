@@ -11,6 +11,7 @@ import {
   Check,
   AlertTriangle,
   ExternalLink,
+  Lock,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { KolOnboardingCard, type StepStatus } from '../components/kol/KolOnboardingCard';
@@ -57,13 +58,6 @@ const STEPS: StepDef[] = [
     icon: <Gavel className="h-4 w-4" />,
   },
 ];
-
-/** 后端推特验证响应 */
-interface TwitterVerifyResponse {
-  verified: boolean;
-  followers: number;
-  mock?: boolean;
-}
 
 // ============================================================================
 // 页面组件
@@ -123,6 +117,34 @@ export default function KolOnboardingPage() {
     setCurrentStep(STEPS.length); // 全部完成
   }, [completedSteps]);
 
+  // ---- X OAuth 回调参数检测：xoauth=success&username=..&followers=.. ----
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const xoauth = params.get('xoauth');
+    if (xoauth === 'success') {
+      const username = params.get('username') || '';
+      const followers = Number(params.get('followers') || 0);
+      const verified = params.get('verified') === 'true';
+      // 清理 URL（去掉回调参数，避免刷新重复触发）
+      window.history.replaceState({}, '', window.location.pathname);
+      if (username && verified) {
+        setTwitterHandle(username);
+        setTwitterVerified(true);
+        setTwitterFollowers(followers);
+        success(`X account @${username} verified — ${followers.toLocaleString()} followers`);
+      } else if (username) {
+        setTwitterHandle(username);
+        toastError(
+          `@${username} has ${followers.toLocaleString()} followers — need 10,000+ to become a KOL`,
+        );
+      }
+    } else if (xoauth === 'denied') {
+      window.history.replaceState({}, '', window.location.pathname);
+      info('X authorization cancelled.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const allDone = currentStep >= STEPS.length;
   const contractsMissing = registry.isAddressMissing || factory.isAddressMissing;
 
@@ -142,34 +164,18 @@ export default function KolOnboardingPage() {
   // ==========================================================================
 
   const handleVerifyTwitter = async () => {
-    const handle = twitterHandle.trim().replace(/^@/, '');
-    if (!handle) {
-      toastError('Please enter your Twitter handle');
-      return;
-    }
-
+    // 方式改为 X OAuth 授权：跳转 X 登录本人账号授权，回调后带回 username/followers
     setIsVerifyingTwitter(true);
     try {
-      const res = await fetch('http://localhost:3001/api/kol/verify-twitter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ twitterHandle: handle }),
-      });
-
+      const res = await fetch('http://localhost:3001/api/kol/x-auth-url');
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
-      const data: TwitterVerifyResponse = await res.json();
-
-      if (data.verified) {
-        setTwitterVerified(true);
-        setTwitterFollowers(Number(data.followers) || 0);
-        success(
-          `Verified @${handle} (${(Number(data.followers) || 0).toLocaleString()} followers)`,
-        );
-        if (data.mock) {
-          info('Using mock verification — start the backend server for real data.');
-        }
+      const data = await res.json();
+      if (data.authUrl) {
+        // 保存原 handle（如有），供 OAuth 成功后校对；直接跳转 X 授权页
+        window.location.href = data.authUrl;
       } else {
-        toastError('Twitter verification failed. Please check your handle.');
+        toastError('OAuth not configured on server');
+        setIsVerifyingTwitter(false);
       }
     } catch {
       warning(
@@ -177,7 +183,6 @@ export default function KolOnboardingPage() {
       );
       setTwitterVerified(true);
       setTwitterFollowers(1000);
-    } finally {
       setIsVerifyingTwitter(false);
     }
   };
@@ -192,8 +197,7 @@ export default function KolOnboardingPage() {
       return;
     }
     const handle = twitterHandle.trim().replace(/^@/, '');
-    await registry.registerKol(handle, BigInt(twitterFollowers), {
-      onSuccess: () => {
+    await registry.registerKol(handle, BigInt(twitterFollowers), {      onSuccess: () => {
         success('KOL registered on-chain!');
         invalidateAll();
       },
@@ -322,49 +326,53 @@ export default function KolOnboardingPage() {
       case 1:
         return (
           <div className="space-y-4">
-            {/* 推特 handle 输入 */}
+            {/* X OAuth 授权（验证本人账号） */}
             <div>
               <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                Twitter Handle
+                Connect X Account
               </label>
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">
-                    @
-                  </span>
-                  <input
-                    type="text"
-                    value={twitterHandle}
-                    onChange={(e) => {
-                      setTwitterHandle(e.target.value);
-                      setTwitterVerified(false);
-                    }}
-                    placeholder="yourhandle"
-                    disabled={twitterVerified || registry.isLoading}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-8 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
-                  />
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleVerifyTwitter}
-                  loading={isVerifyingTwitter}
-                  disabled={twitterVerified}
-                >
-                  {twitterVerified ? (
-                    <>
-                      <Check className="h-3.5 w-3.5" /> Verified
-                    </>
-                  ) : (
-                    'Verify'
-                  )}
-                </Button>
+              <p className="text-xs text-white/40 mb-3">
+                Authorize with X to verify this is your account. We never ask for your
+                password — X handles the login.
+              </p>
+              <div className="flex gap-2 items-center">
+                {twitterVerified ? (
+                  <div className="flex-1 flex items-center gap-2 bg-black/40 border border-[#3ec470]/30 rounded-lg px-4 py-2.5">
+                    <Check className="h-4 w-4 text-[#3ec470]" />
+                    <span className="text-sm text-white font-medium">
+                      @{twitterHandle.replace(/^@/, '')}
+                    </span>
+                    <span className="text-xs text-[#3ec470]">
+                      {twitterFollowers.toLocaleString()} followers
+                    </span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleVerifyTwitter}
+                    loading={isVerifyingTwitter}
+                    className="flex-1 justify-center"
+                  >
+                    <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                    Authorize with X
+                  </Button>
+                )}
               </div>
-              {twitterVerified && (
+              {twitterVerified ? (
                 <div className="mt-2 flex items-center gap-2 text-xs text-[#3ec470]">
                   <Check className="h-3 w-3" />
                   <span>
-                    {twitterFollowers.toLocaleString()} followers verified
+                    Identity verified via X OAuth — you control this account
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-2 text-xs text-white/30">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" />
+                    Secured by X OAuth 2.0 — only you can authorize your own account
                   </span>
                 </div>
               )}
@@ -373,7 +381,7 @@ export default function KolOnboardingPage() {
             {/* 注册按钮 */}
             <div className="pt-2 border-t border-white/[0.04]">
               <p className="text-xs text-white/40 mb-3">
-                Register your KOL profile on-chain with the verified follower count.
+                Register your KOL profile on-chain with your verified X account.
               </p>
               <Button
                 fullWidth
