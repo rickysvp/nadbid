@@ -167,7 +167,7 @@ export default function KolOnboardingPage() {
     // 方式改为 X OAuth 授权：跳转 X 登录本人账号授权，回调后带回 username/followers
     setIsVerifyingTwitter(true);
     try {
-      const res = await fetch('http://localhost:3001/api/kol/x-auth-url');
+      const res = await fetch('/api/kol/x-auth-url');
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const data = await res.json();
       if (data.authUrl) {

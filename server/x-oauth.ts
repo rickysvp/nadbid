@@ -18,6 +18,8 @@ const CLIENT_SECRET = process.env.X_CLIENT_SECRET || '';
 // 回调地址：必须在 X App 的 User authentication settings 中精确登记
 const CALLBACK_URL =
   process.env.X_CALLBACK_URL || 'http://localhost:3001/api/kol/x-oauth-callback';
+// 前端地址：OAuth 成功后跳回（本地开发默认 localhost:3000，生产用 X_FRONTEND_URL）
+const FRONTEND_URL = process.env.X_FRONTEND_URL || 'http://localhost:3000';
 const FOLLOWERS_THRESHOLD = 10000;
 
 // 内存态 PKCE 存储：state → { verifier, createdAt }
@@ -75,7 +77,7 @@ router.get('/x-oauth-callback', async (req, res) => {
   if (error) {
     // 用户拒绝授权
     res.redirect(
-      `http://localhost:3000/kol/onboarding?xoauth=denied&error=${encodeURIComponent(error)}`
+      `${FRONTEND_URL}/kol/onboarding?xoauth=denied&error=${encodeURIComponent(error)}`
     );
     return;
   }
@@ -137,7 +139,7 @@ router.get('/x-oauth-callback', async (req, res) => {
 
     // 5. 返回验证结果（粉丝数阈值判断）
     res.redirect(
-      `http://localhost:3000/kol/onboarding?xoauth=success&username=${encodeURIComponent(
+      `${FRONTEND_URL}/kol/onboarding?xoauth=success&username=${encodeURIComponent(
         username
       )}&followers=${followers}&verified=${followers >= FOLLOWERS_THRESHOLD}`
     );
