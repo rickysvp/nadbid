@@ -18,7 +18,7 @@ contract KolAuctionTest is Test {
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform);
         // KolAuction 需传 registry（供 banned 检查）；测试用独立 registry 实例
-        NadbidRegistry reg = new NadbidRegistry();
+        NadbidRegistry reg = new NadbidRegistry(1000);
         auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg));
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);

@@ -2,7 +2,7 @@
 // POST /api/kol/verify-twitter { wallet, twitterHandle }
 // → 调第三方 SocialData.tools API（免官方 X 开发者审核）：
 //   GET https://api.socialdata.tools/twitter/user/{handle}
-//   → 返回 { verified: followers >= 10000, followers, provider }
+//   → 返回 { verified: followers >= 5000, followers, provider }
 // → 未配置 SOCIALDATA_API_KEY 时返回 mock 数据，供前端联调
 //
 // SocialData.tools：$0.0002/次（≈0.0014 元），每分钟前 3 次免费，
@@ -12,7 +12,7 @@ import express from 'express';
 const router = express.Router();
 
 const SOCIALDATA_API_KEY = process.env.SOCIALDATA_API_KEY;
-const FOLLOWERS_THRESHOLD = 10000;
+const FOLLOWERS_THRESHOLD = Number(process.env.X_FOLLOWERS_THRESHOLD) || 5000;
 
 router.post('/verify-twitter', async (req, res) => {
   const { twitterHandle } = req.body ?? {};

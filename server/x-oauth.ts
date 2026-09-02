@@ -22,7 +22,8 @@ const CALLBACK_URL =
   process.env.X_CALLBACK_URL || 'http://localhost:3001/api/kol/x-oauth-callback';
 // 前端地址：OAuth 成功后跳回（本地开发默认 localhost:3000，生产用 X_FRONTEND_URL）
 const FRONTEND_URL = process.env.X_FRONTEND_URL || 'http://localhost:3000';
-const FOLLOWERS_THRESHOLD = 10000;
+// 粉丝门槛：测试网 1000（Vercel X_FOLLOWERS_THRESHOLD），主网正式值部署时配置
+const FOLLOWERS_THRESHOLD = Number(process.env.X_FOLLOWERS_THRESHOLD) || 5000;
 // state 签名密钥：务必在 .env 配置（生产随机长串）
 const STATE_SECRET = process.env.X_STATE_SECRET || 'dev-insecure-state-secret-change-me';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 分钟

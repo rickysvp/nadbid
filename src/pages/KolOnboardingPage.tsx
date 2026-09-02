@@ -137,7 +137,7 @@ export default function KolOnboardingPage() {
         setTwitterHandle(username);
         setTwitterFollowers(followers);
         toastError(
-          `@${username} has ${followers.toLocaleString()} followers — need 10,000+ to become a KOL`,
+          `@${username} has ${followers.toLocaleString()} followers — need 1,000+ to become a KOL`,
         );
       }
     } else if (xoauth === 'denied') {
@@ -389,11 +389,11 @@ export default function KolOnboardingPage() {
                 <div className="mt-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2">
                   <div className="flex items-center gap-2 text-xs text-red-400 font-medium">
                     <AlertCircle className="h-3.5 w-3.5" />
-                    <span>Minimum 10,000 followers required</span>
+                    <span>Minimum 1,000 followers required</span>
                   </div>
                   <p className="mt-1 text-xs text-red-300/70">
                     @{twitterHandle.replace(/^@/, '')} has{' '}
-                    {twitterFollowers.toLocaleString()} followers — below the 10,000
+                    {twitterFollowers.toLocaleString()} followers — below the 1,000
                     threshold. Grow your audience and authorize again.
                   </p>
                 </div>

@@ -15,7 +15,7 @@ contract IntegrationTest is Test {
     address platform = address(0xCAFE);
 
     function setUp() public {
-        registry = new NadbidRegistry();
+        registry = new NadbidRegistry(1000);
         factory = new NadbidFactory(address(registry), platform);
         registry.setFactory(address(factory));
     }

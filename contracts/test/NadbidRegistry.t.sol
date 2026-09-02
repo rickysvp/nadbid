@@ -9,7 +9,7 @@ contract NadbidRegistryTest is Test {
     address kol = address(0xBEEF);
 
     function setUp() public {
-        registry = new NadbidRegistry();
+        registry = new NadbidRegistry(1000);
     }
 
     function test_RegisterKol() public {
@@ -21,7 +21,7 @@ contract NadbidRegistryTest is Test {
     function test_RegisterKol_RejectsLowFollowers() public {
         vm.prank(kol);
         vm.expectRevert();
-        registry.registerKol("small", 9999);
+        registry.registerKol("small", 999);
     }
 
     function test_DepositBond_RequiresExactAmount() public {

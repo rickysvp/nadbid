@@ -11,7 +11,7 @@ contract NadbidFactoryTest is Test {
     address kol = address(0xBEEF);
 
     function setUp() public {
-        registry = new NadbidRegistry();
+        registry = new NadbidRegistry(1000);
         factory = new NadbidFactory(address(registry), address(0xCAFE));  // registry + platformTreasury 两参
         registry.setFactory(address(factory));
     }

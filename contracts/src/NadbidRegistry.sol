@@ -4,7 +4,8 @@ pragma solidity ^0.8.28;
 contract NadbidRegistry {
     uint256 public constant BOND_AMOUNT = 10 ether;          // 对 SPEC §3.1 的裁剪
     uint256 public constant BOND_REDEEM_COOLDOWN = 48 hours;
-    uint256 public constant MIN_FOLLOWERS = 10_000;
+    // 粉丝门槛：构造时注入（测试网 1000，主网正式值如 5000），便于多环境分别部署
+    uint256 public immutable MIN_FOLLOWERS;
 
     struct Kol {
         address wallet;
@@ -96,7 +97,10 @@ contract NadbidRegistry {
     address public factory;
     address public owner;
     modifier onlyOwner() { require(msg.sender == owner, "!OWNER"); _; }
-    constructor() { owner = msg.sender; }
+    constructor(uint256 minFollowers) {
+        owner = msg.sender;
+        MIN_FOLLOWERS = minFollowers;
+    }
     function setFactory(address _factory) external onlyOwner { require(factory == address(0), "SET"); factory = _factory; }
     function canCreate(address kol) external view returns (bool) {
         Kol storage k = kols[kol];
