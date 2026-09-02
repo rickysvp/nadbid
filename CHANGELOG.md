@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-02
+
+### Added
+- **链上合约层（Foundry）**：NadbidRegistry（KOL 入驻 + 10 MON 担保 + 48h 赎回）、NadbidFactory（创建 KolPass/KolAuction）、KolPass（债券曲线 ERC721 + 8% 手续费即时拆分）、KolAuction（便士拍卖 + 40s 倒计时重置 + 结算 20/80）
+- 合约测试：18 项全通过（4 合约单测 + 集成全流程）
+- 部署脚本（contracts/script/Deploy.s.sol）：Monad 测试网（chainId 10143）一键部署三笔交易
+- **前端真实 ABI**：contracts.ts 从编译 artifacts 提取 4 合约真实 ABI，contractAddresses 从环境变量读取 registry/factory
+- **链上 hooks**：useKolPass（curvePrice/totalSupply/mint）、useAuction（getAuction/placeBid/settle + BidPlaced 事件订阅）、useRegistry（registerKol/depositBond/赎回）、useFactory（createKolPass/createKolAuction）
+- **后端 X API 粉丝验证服务**（server/）：Express + `POST /api/kol/verify-twitter`，粉丝 ≥ 1 万通过，无 token 时 mock fallback
+- **KOL 入驻页**（/kol/onboarding）：5 步流程（连接钱包 → 验证推特 → 质押 10 MON → 创建 PASS → 创建拍卖），链上状态自动推导步骤
+- 拍卖详情页链上双路径（0x 地址 → 链上真实数据 + BidPlaced 事件驱动刷新；mock id 回退兼容）
+- KolProfile / 首页拍卖列表链上双路径（Registry 索引 + 各 KolAuction 状态；合约未部署时 mock 回退）
+
+### Changed
+- package.json 版本 → 0.4.0
+- Monad 测试网合约上限确认 128KB（非以太坊 24KB），Foundry via_ir 编译
+
+### Fixed
+- Deploy.s.sol 缺失 console2 import（原 organizer 失败根因）
+- "contract size limit" 误报（Monad 128KB 上限 vs forge 本地以太坊默认 24KB，用 --disable-code-size-limit）
+
+### Technical
+- Foundry 1.5.1 + OpenZeppelin 5.3.0 + forge-std
+- 前端 tsc 0 错误、build 成功、合约 18/18 测试通过
+- 部署后需填 VITE_CONTRACT_REGISTRY / VITE_CONTRACT_FACTORY + X_API_BEARER_TOKEN
+
 ## [0.3.0] - 2026-09-01
 
 ### Added
