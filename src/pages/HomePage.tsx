@@ -1,26 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search } from 'lucide-react';
-import { kolProfilePath } from '../config/routes';
+import { Search, ArrowRight } from 'lucide-react';
+import { ROUTES } from '../config/routes';
 
-const partners = [
-  'Monad', 'Paradigm', 'Jump Crypto', 'Wintermute', 'Dragonfly',
-  'Multicoin', 'Framework', 'Binance Labs', 'GSR', 'Pantera',
-];
-
-const generatedKols = Array.from({ length: 100 }).map((_, i) => {
-  const names = ['Ansem', 'Cobie', 'Hsaka', 'Pentoshi', 'Sisyphus', 'Loomdart', 'DegenSpartan', 'CryptoHayes', 'GCR', 'Gainzy'];
-  const name = names[i % names.length] + (i >= names.length ? `_${i}` : '');
-  return {
-    rank: `#${i + 1}`,
-    name,
-    handle: `@${name.toLowerCase()}`,
-    tvl: (100000 - i * 850 - Math.random() * 500).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    status: Math.random() > 0.3 ? 'Active' : 'Bidding',
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}${i}`,
-  };
-});
+const marqueeWords = ['Monad', 'Nadbid.fun', 'Penny Auctions', 'Soulbound PASS', 'On-chain', 'KOL Service', 'Fixed Bid 99 MON'];
 
 function Hero({ onExplore }: { onExplore: () => void }) {
   return (
@@ -167,7 +151,7 @@ function PartnersMarquee() {
       <div className="bg-[#050505] z-30 px-6 py-4 flex items-center shrink-0 border-r border-white/10 shadow-[20px_0_20px_-10px_rgba(5,5,5,1)]">
         <span className="text-brand-green/80 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
           <div className="w-1.5 h-1.5 bg-brand-green rounded-full animate-pulse"></div>
-          Partners
+          Network
         </span>
       </div>
       <div className="flex-1 overflow-hidden relative flex items-center py-4">
@@ -176,9 +160,9 @@ function PartnersMarquee() {
           animate={{ x: [0, -2500] }}
           transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
         >
-          {[...partners, ...partners, ...partners, ...partners].map((partner, idx) => (
+          {[...marqueeWords, ...marqueeWords, ...marqueeWords, ...marqueeWords].map((word, idx) => (
             <div key={`mq-${idx}`} className="flex items-center shrink-0">
-              <span className="text-white/40 hover:text-white transition-colors duration-300 font-black text-xl uppercase tracking-[0.2em]">{partner}</span>
+              <span className="text-white/40 hover:text-white transition-colors duration-300 font-black text-xl uppercase tracking-[0.2em]">{word}</span>
             </div>
           ))}
         </motion.div>
@@ -187,95 +171,50 @@ function PartnersMarquee() {
   );
 }
 
-function KOLRank({ onSelectKOL }: { onSelectKOL: (handle: string) => void }) {
+/** 链上实时拍卖入口（无 mock 榜单，全部真实链上数据在 /auctions 展示） */
+function LiveAuctionsCTA() {
   const [searchTerm, setSearchTerm] = useState('');
-  const filteredKols = generatedKols.filter(kol =>
-    kol.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    kol.handle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const navigate = useNavigate();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigate(ROUTES.AUCTIONS);
+  };
 
   return (
     <section className="bg-transparent pb-32 px-6 pt-12 relative z-10">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
-            <h2 className="text-white text-4xl md:text-5xl font-bold tracking-tight">KOL RANK</h2>
+            <h2 className="text-white text-4xl md:text-5xl font-bold tracking-tight">LIVE AUCTIONS</h2>
+            <p className="text-white/40 text-[14px] mt-3 max-w-xl leading-relaxed">
+              Real-time penny auctions from on-chain KOLs on Monad testnet. Each bid costs 99 MON and extends the countdown.
+            </p>
           </div>
-          <div className="relative w-full md:w-80">
+          <form onSubmit={handleSearch} className="relative w-full md:w-80">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-500" />
             </div>
             <input
               type="text"
               className="block w-full pl-12 pr-4 py-3 bg-[#111] border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-green focus:border-brand-green transition-colors font-medium"
-              placeholder="Search KOL name or handle..."
+              placeholder="Explore live auctions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
+          </form>
         </div>
 
-        <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-2xl overflow-hidden h-[600px] flex flex-col">
-          <div className="overflow-x-auto overflow-y-auto flex-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead className="sticky top-0 bg-[#0a0a0a] z-10">
-                <tr className="border-b border-white/5 text-gray-500 text-xs font-semibold tracking-wider uppercase bg-white/[0.02] backdrop-blur-md">
-                  <th className="py-6 px-8">Rank</th>
-                  <th className="py-6 px-8">KOL</th>
-                  <th className="py-6 px-8 text-right">Total TVL (MON)</th>
-                  <th className="py-6 px-8 text-center">Status</th>
-                  <th className="py-6 px-8 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredKols.length > 0 ? (
-                  filteredKols.map((kol, i) => (
-                    <motion.tr
-                      key={i}
-                      onClick={() => onSelectKOL(kol.handle.replace('@', ''))}
-                      className="hover:bg-white/[0.04] transition-all group relative z-0 hover:z-10 bg-transparent cursor-pointer origin-center"
-                      whileHover={{ scale: 1.02, y: -2, boxShadow: '0px 10px 30px rgba(0,0,0,0.5)', backgroundColor: 'rgba(255,255,255,0.06)' }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    >
-                      <td className="py-6 px-8 text-gray-400 font-medium text-lg tabular-nums">{kol.rank}</td>
-                      <td className="py-6 px-8">
-                        <div className="flex items-center gap-4">
-                          <motion.img src={kol.avatar} alt={kol.name} className="w-12 h-12 rounded-full border border-white/10 bg-[#111]" whileHover={{ scale: 1.15, rotate: 5 }} transition={{ type: 'spring', stiffness: 300 }} />
-                          <div>
-                            <div className="text-white font-semibold text-lg leading-none mb-1.5 hover:text-brand-green transition-colors">{kol.name}</div>
-                            <div className="text-gray-500 font-normal text-sm leading-none">{kol.handle}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-6 px-8 text-right text-white font-medium text-xl tabular-nums">{kol.tvl}</td>
-                      <td className="py-6 px-8 text-center">
-                        {kol.status === 'Bidding' ? (
-                          <span className="inline-flex items-center gap-2 bg-brand-green/10 border border-brand-green/20 text-brand-green px-3 py-1 rounded-full text-xs font-medium">
-                            <span className="w-1.5 h-1.5 bg-brand-green rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
-                            BIDDING
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-gray-400 px-3 py-1 rounded-full text-xs font-medium">Active</span>
-                        )}
-                      </td>
-                      <td className="py-6 px-8 text-right">
-                        {kol.status === 'Bidding' ? (
-                          <button className="text-black bg-brand-green font-medium text-sm px-8 py-2 rounded-full hover:bg-green-400 hover:shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:-translate-y-0.5 transition-all duration-300">Bid</button>
-                        ) : (
-                          <button className="text-white bg-white/5 font-medium text-sm px-8 py-2 border border-white/10 rounded-full hover:bg-white/10 transition-all duration-300">View</button>
-                        )}
-                      </td>
-                    </motion.tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-24 text-center text-gray-500 text-lg">No results found for "{searchTerm}"</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        <button
+          onClick={() => navigate(ROUTES.AUCTIONS)}
+          className="w-full bg-[#0a0a0a] border border-white/10 rounded-3xl p-16 text-center hover:border-brand-green/40 transition-all group"
+        >
+          <div className="text-white/30 text-[12px] font-bold uppercase tracking-[0.2em] mb-4">View All Auctions</div>
+          <div className="text-white text-2xl font-bold group-hover:text-brand-green transition-colors flex items-center justify-center gap-3">
+            Enter the Live Marketplace
+            <ArrowRight className="w-6 h-6" />
           </div>
-        </div>
+        </button>
       </div>
     </section>
   );
@@ -288,7 +227,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-transparent">
       <Hero onExplore={() => navigate('/auctions')} />
       <PartnersMarquee />
-      <KOLRank onSelectKOL={(handle) => navigate(kolProfilePath(handle))} />
+      <LiveAuctionsCTA />
     </div>
   );
 }

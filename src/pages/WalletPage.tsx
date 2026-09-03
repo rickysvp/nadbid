@@ -1,17 +1,14 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useDisconnect } from 'wagmi';
-import { Wallet, Coins, Layers, Trophy, Users, ArrowRight, Copy, ExternalLink, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
-import { KolAvatar } from '../components/kol/KolAvatar';
+import { Wallet, Layers, Coins, Trophy, Copy, ExternalLink, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { StatCard } from '../components/ui/StatCard';
 import { ConnectModal } from '../components/wallet/ConnectModal';
 import { useWalletStore } from '../stores/walletStore';
 import { useToast } from '../hooks/useToast';
-import { shortenAddress, formatRelativeTime } from '../utils/format';
-import { mockStakedPositions, mockClaimHistory, mockPointsBalance } from '../data/mockStaking';
-import { kolProfilePath } from '../config/routes';
+import { shortenAddress } from '../utils/format';
 import { useState } from 'react';
 
 export default function WalletPage() {
@@ -32,10 +29,6 @@ export default function WalletPage() {
     disconnect();
     info('Wallet disconnected');
   };
-
-  const totalStaked = mockStakedPositions.reduce((sum, p) => sum + p.passQuantity, 0);
-  const totalYield = mockStakedPositions.reduce((sum, p) => sum + p.yieldEarned, 0);
-  const pendingRewards = 7250.5;
 
   if (!isConnected) {
     return (
@@ -68,7 +61,7 @@ export default function WalletPage() {
           <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="text-xs text-white/60 leading-relaxed">
             <span className="font-bold text-amber-400">MVP Preview：</span>
-            Staking / Points / Activity 数据尚未上链，以下内容为预览展示。质押与领取功能将在后续版本接入合约。
+            Staking / Points / Activity 数据尚未上链，以下区域为占位，接入链上合约后显示真实数据。
           </div>
         </div>
 
@@ -106,7 +99,7 @@ export default function WalletPage() {
             </div>
           </div>
 
-          {/* Balance */}
+          {/* Balance（链上真实） */}
           <div className="relative z-10 mt-8 pt-8 border-t border-white/[0.06]">
             <div className="text-[10px] text-white/40 font-bold uppercase tracking-[0.15em] mb-2">Wallet Balance</div>
             <div className="flex items-baseline gap-3">
@@ -114,109 +107,67 @@ export default function WalletPage() {
                 {balanceMon.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xl text-white/50 font-mono">$MON</span>
-              <Badge variant="claimable"><TrendingUp className="w-3 h-3" /> +2.4%</Badge>
             </div>
           </div>
         </motion.div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats（链上钱包维度的真实指标） */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-          <StatCard label="PASS Holdings" value="25" variant="green" />
-          <StatCard label="Staked PASS" value={totalStaked.toString()} />
-          <StatCard label="Pending Rewards" value={pendingRewards.toLocaleString()} unit="MON" variant="green" />
-          <StatCard label="Total Yield Earned" value={totalYield.toLocaleString()} unit="MON" />
+          <StatCard label="Wallet Balance" value={balanceMon.toFixed(2)} unit="MON" variant="green" />
+          <StatCard label="Staked PASS" value="--" />
+          <StatCard label="Pending Rewards" value="--" unit="MON" />
+          <StatCard label="Total Yield" value="--" unit="MON" />
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* PASS Holdings */}
-          <div className="lg:col-span-2">
-            <div className="bg-[#161616] border border-white/[0.04] rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-white/[0.04] flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-[#3ec470]" />
-                  PASS Holdings
-                </h3>
-                <Link to="/staking">
-                  <Button variant="secondary" size="sm">
-                    Manage <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="divide-y divide-white/[0.02]">
-                {mockStakedPositions.slice(0, 5).map((position) => (
-                  <Link
-                    key={position.id}
-                    to={kolProfilePath(position.kol.handle)}
-                    className="flex items-center justify-between py-5 px-6 hover:bg-white/[0.02] transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <KolAvatar handle={position.kol.handle} size="md" name={position.kol.name} />
-                      <div>
-                        <div className="font-bold text-white text-[14px]">{position.kol.name}</div>
-                        <div className="text-[11px] text-white/40 font-mono">{position.kol.handle}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-mono font-bold text-white">{position.passQuantity} PASS</div>
-                      <Badge variant={position.status === 'ACTIVE' ? 'stake_active' : position.status === 'PENDING' ? 'stake_pending' : 'unlocking'}>
-                        {position.status}
-                      </Badge>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="space-y-6">
-            <div className="bg-[#161616] border border-white/[0.04] rounded-2xl p-6">
-              <h3 className="text-[13px] font-bold text-white uppercase tracking-wider mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <Link to="/staking">
-                  <Button fullWidth variant="secondary" size="sm">
-                    <Layers className="w-4 h-4" /> Stake PASS
-                  </Button>
-                </Link>
-                <Link to="/claim">
-                  <Button fullWidth variant="secondary" size="sm">
-                    <Coins className="w-4 h-4" /> Claim Rewards
-                  </Button>
-                </Link>
-                <Link to="/auctions">
-                  <Button fullWidth variant="secondary" size="sm">
-                    <Trophy className="w-4 h-4" /> Browse Auctions
-                  </Button>
-                </Link>
-                <Link to="/points">
-                  <Button fullWidth variant="secondary" size="sm">
-                    <Users className="w-4 h-4" /> View Points
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Points Summary */}
-            <div className="bg-gradient-to-br from-[#0d1611] to-[#161616] border border-[#3ec470]/30 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Trophy className="w-5 h-5 text-[#3ec470]" />
-                <h3 className="text-[13px] font-bold text-[#3ec470] uppercase tracking-wider">Your Points</h3>
-              </div>
-              <div className="font-mono text-3xl font-black text-[#3ec470] mb-1">
-                {mockPointsBalance.total.toLocaleString()}
-              </div>
-              <div className="text-[11px] text-white/40 mb-4">Global Rank #{mockPointsBalance.rank}</div>
-              <Link to="/points">
+        {/* Quick Actions */}
+        <div className="space-y-6 mb-12">
+          <div className="bg-[#161616] border border-white/[0.04] rounded-2xl p-6">
+            <h3 className="text-[13px] font-bold text-white uppercase tracking-wider mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <Link to="/staking">
                 <Button fullWidth variant="secondary" size="sm">
-                  View Details <ArrowRight className="w-3.5 h-3.5" />
+                  <Layers className="w-4 h-4" /> Stake PASS
+                </Button>
+              </Link>
+              <Link to="/claim">
+                <Button fullWidth variant="secondary" size="sm">
+                  <Coins className="w-4 h-4" /> Claim Rewards
+                </Button>
+              </Link>
+              <Link to="/auctions">
+                <Button fullWidth variant="secondary" size="sm">
+                  <Trophy className="w-4 h-4" /> Browse Auctions
                 </Button>
               </Link>
             </div>
           </div>
+
+          {/* PASS Holdings — 链上接入中占位 */}
+          <div className="bg-[#161616] border border-white/[0.04] rounded-2xl overflow-hidden">
+            <div className="p-6 border-b border-white/[0.04] flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#3ec470]" />
+                PASS Holdings
+              </h3>
+            </div>
+            <div className="p-8 text-center">
+              <p className="text-white/30 text-[12px] font-mono">
+                On-chain PASS holdings list coming soon.
+              </p>
+            </div>
+          </div>
+
+          {/* Points Summary — 未上线占位 */}
+          <div className="bg-gradient-to-br from-[#0d1611] to-[#161616] border border-[#3ec470]/30 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-5 h-5 text-[#3ec470]" />
+              <h3 className="text-[13px] font-bold text-[#3ec470] uppercase tracking-wider">Your Points</h3>
+            </div>
+            <p className="text-white/30 text-[11px] font-mono mb-4">Points system not yet on-chain.</p>
+          </div>
         </div>
 
-        {/* Transaction History */}
+        {/* Transaction History — 链上接入中占位 */}
         <div className="bg-[#161616] border border-white/[0.04] rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-white/[0.04]">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -224,35 +175,10 @@ export default function WalletPage() {
               Recent Activity
             </h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr className="border-b border-white/[0.08] bg-[#0f0f0f]">
-                  <th className="py-4 px-6 text-left text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Type</th>
-                  <th className="py-4 px-6 text-left text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Event</th>
-                  <th className="py-4 px-6 text-left text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Date</th>
-                  <th className="py-4 px-6 text-right text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Amount</th>
-                  <th className="py-4 px-6 text-center text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Status</th>
-                </tr>
-              </thead>
-              <tbody className="text-[13px]">
-                {mockClaimHistory.map((record) => (
-                  <tr key={record.id} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01] transition-colors">
-                    <td className="py-4 px-6">
-                      <Badge variant={record.type === 'STAKING' ? 'stake_active' : 'amber'}>{record.type}</Badge>
-                    </td>
-                    <td className="py-4 px-6 font-bold text-white/90">{record.event}</td>
-                    <td className="py-4 px-6 text-white/40 font-mono text-[12px]">{formatRelativeTime(record.timestamp)}</td>
-                    <td className="py-4 px-6 text-right font-mono font-bold text-[#3ec470]">
-                      + {record.amount.toLocaleString()} MON
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <Badge variant="settled">{record.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-8 text-center">
+            <p className="text-white/30 text-[12px] font-mono">
+              On-chain transaction history coming soon.
+            </p>
           </div>
         </div>
       </div>

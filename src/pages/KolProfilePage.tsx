@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, TrendingUp, Info, Copy, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Info, Copy, ZoomIn } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
 import { MintBurnPanel } from '../components/kol-profile/MintBurnPanel';
 import type { MintBurnResultPayload } from '../components/kol-profile/MintBurnPanel';
 import { useToast } from '../hooks/useToast';
-import { getKolByHandle, mockKolStats } from '../data/mockKols';
 import { CURVE_DEFAULTS } from '../utils/constants';
 import { useWalletStore } from '../stores/walletStore';
 import { useKolPass } from '../web3/hooks/useKolPass';
 import { useRegistry, type KolData } from '../web3/hooks/useRegistry';
 import { shortenAddress } from '../utils/format';
-import { cn } from '../utils/cn';
 
 // Interactive Bonding Curve with zoom and tooltip
 function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSupply: number; currentPrice: number }) {
@@ -199,22 +197,11 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
   );
 }
 
-const historicalAuctions = [
-  { round: '#42', bidders: '124', bids: '842', tvl: '4,250.00', status: 'ONGOING', statusColor: 'text-[#3ec470] border-[#3ec470]/30 bg-[#3ec470]/10' },
-  { round: '#41', bidders: '89', bids: '567', tvl: '2,840.50', status: 'FULFILLED', statusColor: 'text-white/60 border-white/20 bg-white/5' },
-  { round: '#40', bidders: '156', bids: '1,102', tvl: '5,120.00', status: 'ARBITRATING', statusColor: 'text-orange-400 border-orange-400/30 bg-orange-400/10' },
-  { round: '#39', bidders: '42', bids: '215', tvl: '1,050.25', status: 'CLOSED', statusColor: 'text-white/40 border-white/10 bg-transparent' },
-  { round: '#38', bidders: '-', bids: '-', tvl: '0.00', status: 'UPCOMING', statusColor: 'text-white/40 border-white/10 bg-transparent' },
-  { round: '#37', bidders: '12', bids: '45', tvl: '120.00', status: 'FAILED', statusColor: 'text-red-400 border-red-400/30 bg-red-400/10' },
-];
-
 /**
- * 推断 KOL 的 KolPass 合约地址（Task 12 链上接入）。
+ * 解析 KOL 的链上身份（纯链上，无 mock）。
  *
- * 路由 handle 有两种形态：
- *  1. 0x 钱包地址（链上 KOL 唯一身份，从链上拍卖卡片 /kol/0x... 进入）→
- *     直接视为 KOL 钱包地址，passAddress = getKol(wallet).passContracts[0]。
- *  2. 字符串 handle（mock KOL，如 @0xchine）→ 链上无法解析，保留 mock 展示。
+ * handle 路由仅支持 0x 钱包地址（链上 KOL 唯一身份）：
+ *  → 钱包地址 + Registry.getKol(wallet) 读取真实 KOL 信息与 passContracts。
  *
  * 返回 { kolAddress, passAddress, chainKolData }：
  *  - kolAddress：链上 KOL 钱包地址（handle 为 0x 时等于 handle，否则 undefined）
@@ -235,10 +222,6 @@ function resolveChainKol(handle: string | undefined): {
 
 export default function KolProfilePage() {
   const { handle } = useParams<{ handle: string }>();
-  const kol = handle ? getKolByHandle(handle) : undefined;
-  const [stakeTerm, setStakeTerm] = useState('90');
-  const [stakeAmount, setStakeAmount] = useState('');
-  const [timeLeft, setTimeLeft] = useState(2 * 24 * 3600 + 14 * 3600 + 35 * 60);
   const { success, info } = useToast();
 
   // 债券曲线状态（供应量 / 价格）— 由页面统一维护，Mint/Burn 成功后通过
@@ -273,31 +256,10 @@ export default function KolProfilePage() {
   const chainPrice =
     chainPass.curvePrice !== undefined ? Number(chainPass.curvePrice) / 1e18 : undefined;
 
-  // 展示值：链上路径优先链上 curvePrice / totalSupply；mock 路径维持页面 useState 联动逻辑
+  // 展示值：链上真实 curvePrice / totalSupply（无 mock 回退）
   const actualSupply = chainSupply ?? curveSupply;
   const actualMintPrice = chainPrice ?? curvePrice;
 
-  // 链上 KOL 展示信息（handle 为 0x 且链上已注册时，用链上 twitterHandle / followers 覆盖 mock 字段）
-  const chainKolName =
-    kolAddress && chainKolInfo?.registered && chainKolInfo.twitterHandle
-      ? chainKolInfo.twitterHandle.replace(/^@/, '')
-      : undefined;
-  const chainKolFollowers =
-    kolAddress && chainKolInfo?.registered ? Number(chainKolInfo.followers) : undefined;
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 路由间切换 KOL 时重置曲线基线（交易产生的偏移不跨 KOL 保留）
-  useEffect(() => {
-    const stats = kol ? mockKolStats[kol.id] : undefined;
-    setCurveSupply(stats?.passSupply ?? CURVE_DEFAULTS.REFERENCE_SUPPLY);
-    setCurvePrice(stats?.currentPrice ?? CURVE_DEFAULTS.BASE_PRICE);
-  }, [kol?.id]);
 
   /** 交易成功：用返回的新供应量 / 新价格刷新页面曲线状态（交易通知由弹窗 toast 处理） */
   const handleTradeSuccess = (result: MintBurnResultPayload) => {
@@ -305,27 +267,35 @@ export default function KolProfilePage() {
     setCurvePrice(result.newPrice);
   };
 
-  // 展示用的 KOL 信息：链上优先，mock 回退
-  const displayName = chainKolName ?? kol?.name ?? (kolAddress ? shortenAddress(kolAddress) : '');
-  const displayHandle = chainKolName
-    ? `@${chainKolName}`
-    : kol?.handle ?? (kolAddress ? shortenAddress(kolAddress) : '');
-  const displayFollowers = chainKolFollowers ?? kol?.followers ?? 0;
-  const displayBio = kol?.bio;
-  const displayRank = kol?.rank;
-  const displayAvatarHandle = chainKolName ?? kol?.handle ?? (kolAddress ?? '');
-  // 链上 KOL 页面：handle 为 0x 钱包地址且 Registry 已注册（区别于 mock KOL）
+  // 展示用的 KOL 信息 — 全部来自链上 Registry.getKol（无 mock 回退）
+  const hasChainHandle = chainKolInfo?.twitterHandle && chainKolInfo.twitterHandle.trim() !== '';
+  const displayName = hasChainHandle
+    ? chainKolInfo!.twitterHandle.replace(/^@/, '')
+    : kolAddress
+      ? shortenAddress(kolAddress)
+      : '';
+  const displayHandle = hasChainHandle
+    ? chainKolInfo!.twitterHandle
+    : kolAddress
+      ? shortenAddress(kolAddress)
+      : '';
+  const displayFollowers =
+    chainKolInfo?.registered && chainKolInfo.followers !== undefined && chainKolInfo.followers !== 0n
+      ? Number(chainKolInfo.followers)
+      : 0;
+  const displayAvatarHandle = hasChainHandle ? chainKolInfo!.twitterHandle : (kolAddress ?? '');
+  // 链上 KOL 页面：handle 为 0x 钱包地址且 Registry 已注册
   const isChainKol = !!kolAddress && !!chainKolInfo?.registered;
   // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
   const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
 
-  if (!kol && !kolAddress) {
+  if (!kolAddress) {
     return (
       <div className="min-h-screen bg-transparent pt-32 pb-24">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
           <div className="text-6xl mb-6">👤</div>
           <h1 className="text-3xl font-black text-white mb-4">KOL Not Found</h1>
-          <p className="text-white/40 mb-8">The KOL you're looking for doesn't exist.</p>
+          <p className="text-white/40 mb-8">Use the KOL's wallet address as the profile route.</p>
           <Link to="/">
             <Button>Back to Home</Button>
           </Link>
@@ -333,10 +303,6 @@ export default function KolProfilePage() {
       </div>
     );
   }
-
-  const d = Math.floor(timeLeft / (3600 * 24));
-  const h = Math.floor((timeLeft % (3600 * 24)) / 3600);
-  const m = Math.floor((timeLeft % 3600) / 60);
 
   return (
     <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
@@ -365,7 +331,13 @@ export default function KolProfilePage() {
             </motion.div>
             <h1 className="text-2xl font-black tracking-tight mb-1">{displayName}</h1>
             <div className="text-white/40 text-sm font-mono mb-6">{displayHandle}</div>
-            <button onClick={() => info('Opening X profile...')} className="w-full bg-[#3ec470] text-black font-bold text-[11px] uppercase tracking-[0.15em] py-3 rounded hover:bg-[#4ade80] transition-all">
+            <button
+              onClick={() => {
+                if (hasChainHandle) window.open(`https://x.com/${chainKolInfo!.twitterHandle.replace(/^@/, '')}`, '_blank');
+                else info('No X handle on-chain yet');
+              }}
+              className="w-full bg-[#3ec470] text-black font-bold text-[11px] uppercase tracking-[0.15em] py-3 rounded hover:bg-[#4ade80] transition-all"
+            >
               Follow on X
             </button>
           </div>
@@ -375,11 +347,12 @@ export default function KolProfilePage() {
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-4">Overview</h2>
               <p className="text-white/60 text-[13px] leading-relaxed max-w-3xl">
-                {displayBio || 'High-frequency trading analyst focused on emerging L1 ecosystems. Primary proponent of Monad yield strategies and automated liquidity provision. Author of the definitive guide to MEV protection for retail traders.'}
+                Verified on-chain KOL. Bid for a personalized service on nadbid.fun — the last bidder at countdown end wins.
+                Hold a PASS of this KOL to place bids.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Followers</div>
                 <div className="font-mono text-sm font-bold">{displayFollowers.toLocaleString()}</div>
@@ -392,19 +365,15 @@ export default function KolProfilePage() {
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Pass TVL</div>
                 <div className="font-mono text-sm font-bold text-[#3ec470]">
                   {passTvl !== undefined
-                    ? `${Math.round(passTvl).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-[10px] text-white/50">MON</span>`
-                    : '105,420 <span className="text-[10px] text-white/50">MON</span>'}
+                    ? `${Math.round(passTvl).toLocaleString(undefined, { maximumFractionDigits: 0 })} MON`
+                    : '-- MON'}
                 </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Auction TVL</div>
+                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Auctions</div>
                 <div className="font-mono text-sm font-bold text-[#3ec470]">
-                  {isChainKol ? '-- <span className="text-[10px] text-white/50">MON</span>' : '42,850 <span className="text-[10px] text-white/50">MON</span>'}
+                  {chainKolInfo?.auctionContracts?.length ?? 0}
                 </div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">KOL Rank</div>
-                <div className="font-mono text-sm font-bold text-[#3ec470]">#{displayRank ?? '-'}</div>
               </div>
             </div>
           </div>
@@ -428,19 +397,11 @@ export default function KolProfilePage() {
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Latest Mint Price:</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs font-bold text-white">{actualMintPrice.toFixed(2)} <span className="text-white/40">MON</span></span>
-                  <div className="flex items-center gap-0.5 text-[#3ec470] bg-[#3ec470]/10 px-1.5 py-0.5 rounded ml-1 border border-[#3ec470]/20">
-                    <TrendingUp className="w-2.5 h-2.5" />
-                    <span className="font-mono text-[9px] font-bold">+14.2%</span>
-                  </div>
                 </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Supply:</span>
                 <span className="font-mono text-xs font-bold text-white">{actualSupply.toLocaleString()}</span>
-              </div>
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
-                <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Staking:</span>
-                <span className="font-mono text-xs font-bold text-white">{isChainKol ? '--' : '5,120'}</span>
               </div>
             </div>
 
@@ -450,15 +411,18 @@ export default function KolProfilePage() {
               <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.1em] flex items-center gap-2">
                 <span>Contract</span>
                 <span className="font-mono text-white/70 tracking-widest hidden sm:inline">
-                  {passAddress ?? '0x742d...f44e'}
+                  {passAddress ?? 'N/A'}
                 </span>
               </div>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(passAddress ?? '0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
-                  success('Address copied');
+                  if (passAddress) {
+                    navigator.clipboard.writeText(passAddress);
+                    success('Address copied');
+                  }
                 }}
-                className="text-white/40 hover:text-white transition-colors"
+                className="text-white/40 hover:text-white transition-colors disabled:opacity-30"
+                disabled={!passAddress}
               >
                 <Copy className="w-4 h-4" />
               </button>
@@ -477,130 +441,47 @@ export default function KolProfilePage() {
             />
           </div>
 
-          {/* Dividend Pool */}
+          {/* Dividend Pool — 未上链，占位 */}
           <div className="lg:col-span-6 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em]">Dividend Pool</h3>
-              {isChainKol && <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Preview</span>}
+              <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Coming Soon</span>
               <Info className="w-3.5 h-3.5 text-white/30" />
             </div>
-            <p className="text-white/50 text-[12px] mb-6">20% of all auction revenue is distributed to PASS holders.{isChainKol && ' (链上分红数据接入中 — 此区域为预览)'}</p>
-
-            <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-5 mb-4">
-              <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Distribution Countdown</div>
-              <div className="font-mono text-2xl font-bold text-[#3ec470] tracking-tight">
-                {d.toString().padStart(2, '0')}d {h.toString().padStart(2, '0')}h {m.toString().padStart(2, '0')}m
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-4">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Current Period</div>
-                <div className="font-mono text-[13px] font-bold text-[#3ec470]">1,240.50 MON</div>
-              </div>
-              <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-4">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Previous Period</div>
-                <div className="font-mono text-[13px] font-bold text-white">980.25 MON</div>
-              </div>
+            <p className="text-white/50 text-[12px] mb-6">20% of auction revenue is distributed to PASS holders. On-chain distribution is not yet live.</p>
+            <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-5 text-center">
+              <p className="text-white/30 text-[11px] font-mono">Awaiting on-chain distribution contract</p>
             </div>
           </div>
 
-          {/* Staking */}
+          {/* Staking — 未上链，占位 */}
           <div className="lg:col-span-6 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0">
                 <KolAvatar handle={displayAvatarHandle} size="sm" name={displayName} className="w-4 h-4 rounded-full" />
               </div>
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em]">Staking</h3>
-              {isChainKol && <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Preview</span>}
+              <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Coming Soon</span>
               <Info className="w-3.5 h-3.5 text-white/30 ml-1" />
             </div>
-            <p className="text-white/50 text-[12px] mb-6">Stake PASS to earn 10% of auction revenue. Earnings vary based on activity.</p>
-
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {[
-                { days: '7', mult: '1.0x' },
-                { days: '30', mult: '1.5x' },
-                { days: '90', mult: '2.0x', best: true },
-              ].map((term) => (
-                <button
-                  key={term.days}
-                  onClick={() => setStakeTerm(term.days)}
-                  className={cn(
-                    'relative flex flex-col items-center justify-center p-4 rounded border transition-all',
-                    stakeTerm === term.days
-                      ? 'bg-[#3ec470]/5 border-[#3ec470]/30 text-[#3ec470]'
-                      : 'bg-[#0f0f0f] border-white/[0.04] text-white/50 hover:bg-white/[0.02]'
-                  )}
-                >
-                  {term.best && (
-                    <div className="absolute -top-2 bg-[#3ec470] text-black text-[7px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Best Yield</div>
-                  )}
-                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1">{term.days} Days</span>
-                  <span className="font-mono font-bold">{term.mult}</span>
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Amount</div>
-              <div className="flex gap-4">
-                <div className="flex-1 flex bg-[#0a0a0a] border border-white/[0.06] rounded p-1">
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={stakeAmount}
-                    onChange={(e) => setStakeAmount(e.target.value)}
-                    className="bg-transparent w-full px-3 font-mono text-[14px] text-white outline-none placeholder-white/20"
-                  />
-                  <button onClick={() => setStakeAmount('10')} className="bg-white/[0.05] text-white/60 text-[9px] font-bold px-3 py-2 rounded hover:bg-white/[0.1] transition-colors tracking-[0.1em]">MAX</button>
-                </div>
-                <button onClick={() => success('Pass Staked Successfully!')} className="bg-[#3ec470] text-black font-bold text-[12px] tracking-[0.1em] px-8 rounded hover:bg-[#4ade80] transition-colors uppercase whitespace-nowrap">
-                  Stake Now
-                </button>
-              </div>
+            <p className="text-white/50 text-[12px] mb-6">Stake PASS to earn a share of auction revenue. Staking contract is not yet live.</p>
+            <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-5 text-center">
+              <p className="text-white/30 text-[11px] font-mono">Awaiting on-chain staking contract</p>
             </div>
           </div>
 
-          {/* Historical Auctions */}
+          {/* Historical Auctions — 链上数据接入中，占位 */}
           <div className="lg:col-span-12 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
             <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-6">
               Historical Auctions
-              {isChainKol && <span className="ml-2 text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded align-middle">Preview</span>}
+              <span className="ml-2 text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded align-middle">Coming Soon</span>
             </h3>
-
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="border-b border-white/[0.08] text-white/30 text-[9px] font-bold uppercase tracking-[0.15em]">
-                    <th className="pb-3 pt-1 px-4 w-24">Round</th>
-                    <th className="pb-3 pt-1 px-4 text-center">Bidders</th>
-                    <th className="pb-3 pt-1 px-4 text-center">Bids</th>
-                    <th className="pb-3 pt-1 px-4 text-right">Total TVL (MON)</th>
-                    <th className="pb-3 pt-1 px-4 text-right w-32">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-[12px]">
-                  {historicalAuctions.map((row, i) => (
-                    <motion.tr
-                      key={i}
-                      className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.04] transition-colors relative z-0 hover:z-10 cursor-pointer"
-                      whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.03)', boxShadow: '0px 10px 20px rgba(0,0,0,0.2)' }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    >
-                      <td className="py-4 px-4 font-bold text-white">{row.round}</td>
-                      <td className="py-4 px-4 text-center text-white/80">{row.bidders}</td>
-                      <td className="py-4 px-4 text-center text-white/80">{row.bids}</td>
-                      <td className="py-4 px-4 text-right font-bold text-white">{row.tvl}</td>
-                      <td className="py-4 px-4 text-right">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-[0.1em] border ${row.statusColor}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-8 text-center">
+              <p className="text-white/30 text-[12px] font-mono">
+                {isChainKol
+                  ? `${chainKolInfo?.auctionContracts?.length ?? 0} auction(s) on-chain. Full history list coming soon.`
+                  : 'No on-chain history yet.'}
+              </p>
             </div>
           </div>
         </motion.div>

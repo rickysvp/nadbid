@@ -2,22 +2,15 @@ import { create } from 'zustand';
 import type { WalletState } from '../types';
 
 /**
- * 全局钱包 Store — wagmi 驱动 + mock fallback。
+ * 全局钱包 Store — 完全由 wagmi 驱动（经 WalletStateSyncer 镜像链上真实状态）。
  *
  * 状态来源优先级：
  *   1. 真实钱包连接时：由 WalletStateSyncer 通过 _setWagmiState 写入链上数据
- *   2. 未连接真实钱包时：connect() 提供 mock 数据（开发/演示用）
- *   3. 默认：未连接状态（isConnected=false, address=null）
+ *   2. 默认：未连接状态（isConnected=false, address=null）
  *
- * TASK 3 阶段：connect() 仍为 mock 实现，真实连接逻辑在 TASK 4 接入。
+ * 真实钱包连接入口统一走 <ConnectModal>（wagmi useConnect），
+ * 本 store 不再提供 mock 连接数据。
  */
-
-/** Mock 钱包地址（开发阶段使用，正式环境由真实钱包覆盖） */
-const MOCK_ADDRESS = '0x4F8a7B9c2D1e3F4a5B6c7D8e9F0a1B2c3D4e3aB9';
-/** Mock 余额（MON） */
-const MOCK_BALANCE = 12450.75;
-/** Mock 链 ID（Monad Testnet） */
-const MOCK_CHAIN_ID = 10143;
 
 /** 当前是否 real 模式（VITE_WALLET_MODE=real），与 WalletStateSyncer 判定一致 */
 function isRealWalletMode(): boolean {
@@ -43,9 +36,9 @@ function round2(value: number): number {
 
 interface WalletStore extends WalletState {
   /**
-   * 连接钱包。
-   * TASK 3: mock 占位（设置模拟地址与余额）。
-   * TASK 4: 将替换为 wagmi useConnect / @wagmi/core connect。
+   * 连接钱包（兼容旧 API 占位）。
+   * 真实连接统一走 <ConnectModal>（wagmi useConnect）；直接调用此方法
+   * 不会建立任何钱包会话，仅提示通过 ConnectModal 操作。
    */
   connect: () => Promise<void>;
   /** 断开钱包，重置全部状态 */
@@ -97,20 +90,8 @@ export const useWalletStore = create<WalletStore>((set) => ({
   ...initialState,
 
   connect: async () => {
-    // TASK 3: mock 连接。TASK 4 接入真实 wagmi connect 后移除此模拟逻辑。
-    set({ status: 'connecting', isConnecting: true });
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    set({
-      isConnected: true,
-      address: MOCK_ADDRESS,
-      balanceMon: MOCK_BALANCE,
-      chainId: MOCK_CHAIN_ID,
-      status: 'connected',
-      isConnecting: false,
-      connectorId: 'mock',
-      connectorName: 'Mock Wallet',
-      balanceRaw: null,
-    });
+    // 真实连接统一走 <ConnectModal>（wagmi useConnect），本方法不建立任何会话。
+    console.warn('[walletStore] connect() is deprecated — use <ConnectModal> to connect a real wallet.');
   },
 
   disconnect: () => {
