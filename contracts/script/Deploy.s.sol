@@ -11,13 +11,16 @@ contract Deploy is Script {
     function run() external {
         address platformTreasury = vm.envAddress("PLATFORM_TREASURY");
         uint256 minFollowers = vm.envUint("MIN_FOLLOWERS"); // 测试网 1000，主网正式值
+        address platformSigner = vm.envAddress("PLATFORM_SIGNER"); // registerKol 注册签名验签公钥
         vm.startBroadcast();
         NadbidRegistry registry = new NadbidRegistry(minFollowers);
         NadbidFactory factory = new NadbidFactory(address(registry), platformTreasury);
         registry.setFactory(address(factory));
+        registry.setPlatformSigner(platformSigner);
         vm.stopBroadcast();
         console2.log("Registry:", address(registry));
         console2.log("Factory:", address(factory));
+        console2.log("PlatformSigner:", platformSigner);
         console2.log("MIN_FOLLOWERS:", minFollowers);
     }
 }
