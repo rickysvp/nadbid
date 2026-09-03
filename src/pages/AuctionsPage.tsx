@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Search, Clock, AlertCircle, Gavel, X } from 'lucide-react';
 import { parseEther } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePublicClient } from 'wagmi';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -15,7 +16,7 @@ import { useFactory } from '../web3/hooks/useFactory';
 import { kolProfilePath, auctionDetailPath } from '../config/routes';
 import { cn } from '../utils/cn';
 import { shortenAddress } from '../utils/format';
-import { contractAddresses, registryAbi } from '../web3/contracts';
+import { contractAddresses, registryAbi, kolAuctionAbi } from '../web3/contracts';
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { useAuction } from '../web3/hooks/useAuction';
 import type { AuctionData } from '../web3/hooks/useAuction';
@@ -332,6 +333,7 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   const account = wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
   const registry = useRegistry(account);
   const factory = useFactory();
+  const publicClient = usePublicClient();
 
   const [connectOpen, setConnectOpen] = useState(false);
   const [fixedBid, setFixedBid] = useState('99');
@@ -343,6 +345,42 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   const passContracts = registry.kolData?.passContracts ?? [];
   const isRegistered = registry.isRegistered === true;
   const canCreate = registry.canCreate === true;
+
+  // 业务规则（合约强制）：KOL 同时只能进行一场拍卖。
+  // 前端只读预检：遍历名下所有拍卖合约，任一未 settle → 禁用创建并提示"先完成履约"。
+  const auctionContracts = registry.kolData?.auctionContracts ?? [];
+  const [hasActiveAuction, setHasActiveAuction] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    setHasActiveAuction(undefined);
+    if (auctionContracts.length === 0) {
+      setHasActiveAuction(false);
+      return;
+    }
+    (async () => {
+      if (!publicClient) return;
+      try {
+        for (const addr of auctionContracts) {
+          const settled = await publicClient.readContract({
+            address: addr,
+            abi: kolAuctionAbi,
+            functionName: 'settled',
+          });
+          if (!settled) {
+            if (!cancelled) setHasActiveAuction(true);
+            return;
+          }
+        }
+        if (!cancelled) setHasActiveAuction(false);
+      } catch {
+        // 只读预检失败不阻塞创建（链上是最终防线，会以 revert 兜底）
+        if (!cancelled) setHasActiveAuction(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auctionContracts, publicClient]);
 
   // 默认选中最近创建的 PASS 合约
   useEffect(() => {
@@ -356,6 +394,11 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   /** 表单校验 + 提交：立即开始 → createKolAuction；未来开始 → createKolAuctionScheduled */
   const handleCreate = async () => {
     if (!account || !passAddr) return;
+    // 业务规则：有进行中的拍卖（未结算）时禁止开新场
+    if (hasActiveAuction === true) {
+      toastError('You have an ongoing auction — settle it before creating a new one.');
+      return;
+    }
     const fixedBidNum = Number(fixedBid);
     const durationNum = Number(duration);
     if (!(fixedBidNum > 0)) { toastError('Enter a valid fixed bid amount'); return; }
@@ -450,6 +493,21 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
             <p className="text-white/60 text-sm">You have no active creation eligibility (bond required).</p>
             <Link to="/kol/onboarding" onClick={onClose}>
               <Button fullWidth variant="secondary">Bond in KOL Onboarding</Button>
+            </Link>
+          </div>
+        ) : hasActiveAuction === true ? (
+          /* 业务规则：进行中的拍卖未结算时，禁止开启下一场（合约强制，前端预检提示） */
+          <div className="text-center py-10 space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-[#FAAD14]/10 flex items-center justify-center">
+              <Clock className="w-6 h-6 text-[#FAAD14]" />
+            </div>
+            <p className="text-white/70 text-sm font-semibold">You have an ongoing auction</p>
+            <p className="text-white/40 text-sm max-w-xs mx-auto leading-relaxed">
+              A KOL can only run one auction at a time. Settle your current auction to complete the
+              delivery before starting a new one.
+            </p>
+            <Link to="/auctions" onClick={onClose}>
+              <Button fullWidth variant="secondary">View My Auction</Button>
             </Link>
           </div>
         ) : (

@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {NadbidRegistry} from "../src/NadbidRegistry.sol";
 import {NadbidFactory} from "../src/NadbidFactory.sol";
+import {KolAuction} from "../src/KolAuction.sol";
 
 contract NadbidFactoryTest is Test {
     NadbidRegistry registry;
@@ -70,6 +71,38 @@ contract NadbidFactoryTest is Test {
         registry.depositBond{value: 1 ether}();
         vm.expectRevert("NOT_FACTORY_PASS");
         factory.createKolAuction(address(fake), 99 ether, 120, "fake content");
+        vm.stopPrank();
+    }
+
+    // 业务规则：KOL 同时只能进行一场拍卖——上一场未结算时创建新拍卖必须被拒
+    function test_CreateKolAuction_BlockedWhileActive() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
+        address pass = factory.createKolPass(13.39 ether);
+        factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");  // 第 1 场，未 settle
+        // 上一场未结算 → 拒绝创建第 2 场
+        vm.expectRevert("ACTIVE_AUCTION_EXISTS");
+        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        vm.stopPrank();
+    }
+
+    // 业务规则：完成履约（settle）后可开启下一场拍卖
+    function test_CreateKolAuction_AllowedAfterSettle() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
+        address pass = factory.createKolPass(13.39 ether);
+        address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
+        // 时间到 → settle 第 1 场
+        vm.warp(block.timestamp + 200);
+        KolAuction(a1).settle();
+        // 履约完成后可创建第 2 场
+        address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        assertTrue(a2 != address(0));
+        assertEq(registry.getKol(kol).auctionContracts.length, 2);
         vm.stopPrank();
     }
 }
