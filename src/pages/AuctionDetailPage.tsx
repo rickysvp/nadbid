@@ -515,16 +515,22 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   </div>
                   <button
                     onClick={handleMintPass}
-                    disabled={mintQty <= 0 || mintLoading || !wallet.isConnected && false}
+                    disabled={mintQty <= 0 || mintLoading || mintCostWei === undefined}
                     className={cn(
                       'w-full flex items-center justify-center gap-1.5 font-black text-[12px] py-2.5 rounded transition-all active:scale-[0.98]',
-                      !wallet.isConnected || mintLoading
+                      !wallet.isConnected || mintLoading || mintCostWei === undefined
                         ? 'bg-white/[0.06] text-white/40 cursor-pointer hover:bg-white/10'
                         : 'bg-[#3ec470] text-black hover:bg-[#4ade80]',
                     )}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    {mintLoading ? 'MINTING...' : !wallet.isConnected ? 'CONNECT TO MINT PASS' : `MINT ${mintQty} PASS`}
+                    {mintLoading
+                      ? 'MINTING...'
+                      : mintCostWei === undefined
+                        ? 'CALCULATING PRICE...'
+                        : !wallet.isConnected
+                          ? 'CONNECT TO MINT PASS'
+                          : `MINT ${mintQty} PASS`}
                   </button>
                   <div className="text-white/30 text-[9px] text-center">
                     You hold <span className="text-white/60">{account ? (balanceOf ?? 0n).toString() : '0'}</span> PASS

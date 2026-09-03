@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Hash } from 'viem';
 import { useReadContracts } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { kolPassAbi } from '../contracts';
 import type { ToastLike } from '../web3Errors';
 import { useReadContract } from './useReadContract';
@@ -149,42 +150,56 @@ export function useKolPass(
       : undefined;
 
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
+  const queryClient = useQueryClient();
+
+  /**
+   * mint/burn 交易确认后的统一处理：先失效本 PASS 相关链上读取
+   * （totalSupply / curvePrice / balanceOf / tokenId 枚举），再调用调用方 onSuccess。
+   * 关键：不刷新 totalSupply 会导致连续 mint 时按陈旧 supply 计价 → 链上 INSUFFICIENT revert。
+   */
+  const wrapOnSuccess =
+    (userOnSuccess?: (txHash: Hash, receipt: unknown) => void) =>
+    (txHash: Hash, receipt: unknown) => {
+      queryClient.invalidateQueries();
+      userOnSuccess?.(txHash, receipt);
+    };
 
   const mint = useCallback(
     (quantity: bigint, opts: { value?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
       if (!passAddress) return Promise.resolve(null);
       const { value, onSuccess, toast } = opts;
       // 精确 value 优先；否则按曲线公式逐枚累加估算（与链上 mint 完全一致），
-      // 覆盖 curvePrice × quantity 单币近似在高供应量下不足的问题。
+      // 含 8% 手续费缓冲。曲线参数或总供应量未加载（undefined）且调用方未显式
+      // 传 value 时，拒绝签名并返回 null —— 绝不用 curvePrice×quantity 这类
+      // 不含手续费/高供应量失真的近似值提交，否则链上 mint 会 INSUFFICIENT revert
+      // 或按错误金额扣款。
       let cost = value;
       if (cost === undefined) {
         cost = estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
       }
-      if (cost === undefined) {
-        cost = (curvePriceRes.data as bigint | undefined ?? 0n) * quantity;
-      }
+      if (cost === undefined) return Promise.resolve(null);
       return write({
         address: passAddress,
         abi: kolPassAbi,
         functionName: 'mint',
         args: [quantity],
         value: cost,
-        onSuccess,
+        onSuccess: wrapOnSuccess(onSuccess),
         toast,
       });
     },
-    [write, passAddress, curvePriceRes.data, totalSupplyRes.data, curveConfig],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [write, passAddress, totalSupplyRes.data, curveConfig, queryClient],
   );
 
   const estimateMintCost = useCallback(
     (quantity: bigint): bigint | undefined => {
       if (!passAddress) return undefined;
-      return (
-        estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity) ??
-        ((curvePriceRes.data as bigint | undefined ?? 0n) * quantity)
-      );
+      // 仅返回精确成本（含 8% 手续费）；曲线参数/供应量未就绪时返回 undefined
+      // （UI 应显示"计算中"并禁用 mint），不做不含手续费的降级近似。
+      return estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
     },
-    [passAddress, curveConfig, totalSupplyRes.data, curvePriceRes.data],
+    [passAddress, curveConfig, totalSupplyRes.data],
   );
 
   const burn = useCallback(
@@ -195,11 +210,12 @@ export function useKolPass(
         abi: kolPassAbi,
         functionName: 'burn',
         args: [tokenIds],
-        onSuccess: opts.onSuccess,
+        onSuccess: wrapOnSuccess(opts.onSuccess),
         toast: opts.toast,
       });
     },
-    [write, passAddress],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [write, passAddress, queryClient],
   );
 
   return {
