@@ -49,6 +49,12 @@ contract KolPass is ERC721 {
         uint256 fee = totalCost * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 pay = totalCost + fee;
         require(msg.value >= pay, "INSUFFICIENT");
+        // CEI：先更新供应量（重入 mint 会读到新 supply，按新价格计费，防止陈旧价格套利）
+        for (uint256 i = 0; i < quantity; i++) {
+            totalMinted++;
+            _safeMint(msg.sender, totalMinted);
+            tokenIds[i] = totalMinted;
+        }
         // 拆分手续费
         uint256 kolFee = totalCost * feeKOL / FEE_DENOM;
         uint256 platformFee = totalCost * feePlatform / FEE_DENOM;
@@ -60,11 +66,6 @@ contract KolPass is ERC721 {
         if (msg.value > pay) {
             (bool ok3, ) = payable(msg.sender).call{value: msg.value - pay}("");
             require(ok3, "REFUND_FAIL");
-        }
-        for (uint256 i = 0; i < quantity; i++) {
-            totalMinted++;
-            _safeMint(msg.sender, totalMinted);
-            tokenIds[i] = totalMinted;
         }
         return tokenIds;
     }
@@ -82,6 +83,8 @@ contract KolPass is ERC721 {
             refund += curvePriceAt(iSupply);
             _burn(tokenIds[i]);
         }
+        // CEI：先扣减 totalMinted（重入时读到最新供应，防止重入以陈旧 supply 多退）
+        totalMinted = totalMinted - tokenIds.length;
         // 扣 8% 手续费后返还
         uint256 fee = refund * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 net = refund - fee;
@@ -93,7 +96,6 @@ contract KolPass is ERC721 {
         require(ok2, "PLATFORM_FEE_FAIL");
         (bool ok3, ) = payable(msg.sender).call{value: net}("");
         require(ok3, "REFUND_FAIL");
-        totalMinted = totalMinted - tokenIds.length;
     }
 
     // ===== Soulbound =====
