@@ -13,17 +13,29 @@ contract IntegrationTest is Test {
     address kol = address(0xBEEF);
     address buyer = address(0x1234);
     address platform = address(0xCAFE);
+    uint256 signerSk = 0xA11CE;
+    address signer;
 
     function setUp() public {
         registry = new NadbidRegistry(1000);
+        signer = vm.addr(signerSk);
+        registry.setPlatformSigner(signer);
         factory = new NadbidFactory(address(registry), platform);
         registry.setFactory(address(factory));
+    }
+
+    function _signRegistration(address wallet, string memory handle, uint256 followers)
+        internal view returns (bytes memory)
+    {
+        bytes32 hash = keccak256(abi.encodePacked(wallet, handle, followers));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerSk, hash);
+        return abi.encodePacked(r, s, v);
     }
 
     function test_FullFlow_OnboardMintBidSettle() public {
         // 1. KOL 入驻 + 质押
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000);
+        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         // 2. 创建 PASS + 拍卖

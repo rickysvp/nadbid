@@ -84,6 +84,8 @@ export default function KolOnboardingPage() {
   const [twitterVerified, setTwitterVerified] = useState(false);
   const [twitterFollowers, setTwitterFollowers] = useState(0);
   const [isVerifyingTwitter, setIsVerifyingTwitter] = useState(false);
+  // P2-2：平台注册签名（verify-ticket 返回，registerKol 上链时随 handle/followers 验签）
+  const [registerSignature, setRegisterSignature] = useState<string | null>(null);
   const [mintPrice, setMintPrice] = useState('0.001');
 
   // ---- 从链上数据推导已完成步骤 ----
@@ -188,20 +190,25 @@ export default function KolOnboardingPage() {
     pendingTicketRef.current = null;
     (async () => {
       try {
-        const walletParam = encodeURIComponent(address);
-        const r = await fetch(
-          `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}&wallet=${walletParam}`
-        );
+        // POST（P3-5）：避免 ticket 出现在 URL/访问日志
+        const r = await fetch(`/api/kol/verify-ticket`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket, wallet: address }),
+        });
         const data = (await r.json()) as {
           verified?: boolean;
           username?: string;
           followers?: number;
+          signature?: string;
           error?: string;
         };
         if (r.ok && data.verified && data.username) {
           setTwitterHandle(data.username);
           setTwitterVerified(true);
           setTwitterFollowers(data.followers ?? 0);
+          // P2-2：缓存平台注册签名（registerKol 上链时随 handle/followers 一起验签）
+          setRegisterSignature(data.signature ?? null);
           success(
             `X account @${data.username} verified — ${(data.followers ?? 0).toLocaleString()} followers`,
           );
@@ -280,13 +287,18 @@ export default function KolOnboardingPage() {
       toastError('Please verify your Twitter handle first');
       return;
     }
+    if (!registerSignature) {
+      toastError('Missing platform signature — please re-authorize with X');
+      return;
+    }
     if (registry.isAddressMissing) {
       toastError('Registry contract not deployed. Set VITE_CONTRACT_REGISTRY in .env');
       return;
     }
     const handle = twitterHandle.trim().replace(/^@/, '');
     promptWalletConfirm();
-    await registry.registerKol(handle, BigInt(twitterFollowers), {      onSuccess: () => {
+    await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
+      onSuccess: () => {
         success('KOL registered on-chain!');
         invalidateAll();
       },
@@ -469,7 +481,7 @@ export default function KolOnboardingPage() {
                 fullWidth
                 onClick={handleRegisterKol}
                 loading={registry.isLoading}
-                disabled={!twitterVerified || registry.isAddressMissing}
+                disabled={!twitterVerified || !registerSignature || registry.isAddressMissing}
               >
                 {registry.isAddressMissing
                   ? 'Contract Not Deployed'

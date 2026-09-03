@@ -128,11 +128,17 @@ export function MintBurnPanel({
   const displayUnitPrice =
     chainCostMon !== undefined ? chainCostMon / (isMint ? qtyNum : burnQty || 1) : effectivePrice;
   const displayTotalAmount = chainCostMon !== undefined ? chainCostMon : totalAmount;
-  /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌），按真实曲线锚点推导 */
+  /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌） */
   const newSupply = isMint ? supplyAfterMint(effectiveSupply, qtyNum) : supplyAfterBurn(effectiveSupply, qtyNum);
+  /** P3-10：精确的"下一枚"价 = basePrice*(newSupply+1)²/baseSupply²（bigint 计算，
+   *  避免 Number(wei) 大数精度损失；与链上 curvePriceAt 整数除法一致） */
+  const curveCfg = chain.curveConfig;
   const newPrice =
-    chainPrice !== undefined && effectiveSupply > 0
-      ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+    curveCfg && effectiveSupply > 0
+      ? Number(
+          (curveCfg.basePrice * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
+            (curveCfg.baseSupply * curveCfg.baseSupply),
+        ) / 1e18
       : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
 
   /** 余额内可 mint 的最大数量 */
@@ -175,9 +181,13 @@ export function MintBurnPanel({
       if (!txHashRes) return; // 用户拒绝 / 失败 → 状态由 TradeConfirmationModal 展示
 
       const newSupply = supplyAfterMint(effectiveSupply, qtyNum);
+      // P3-10：精确"下一枚"价（与顶部展示公式一致）
       const newPrice =
-        chainPrice !== undefined && effectiveSupply > 0
-          ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+        curveCfg && effectiveSupply > 0
+          ? Number(
+              (curveCfg.basePrice * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
+                (curveCfg.baseSupply * curveCfg.baseSupply),
+            ) / 1e18
           : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
       // 余额刷新：按链上精确成本（含手续费）扣减，而非单枚价×qty
       const costMon = chainCostMon !== undefined ? chainCostMon : qtyNum * effectivePrice;

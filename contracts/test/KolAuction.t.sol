@@ -96,8 +96,8 @@ contract KolAuctionTest is Test {
         vm.prank(bidder);
         sched.placeBid{value: fixedBid}();
         assertEq(sched.totalBids(), 1);
-        // 出价触发 40s 倒计时重置
-        assertEq(sched.endTime(), block.timestamp + 40);
+        // 预约拍卖出价后：endTime 不被 40s 重置压缩（保持完整 duration，只延长不提前）
+        assertEq(sched.endTime(), start + duration);
     }
 
     function test_Settle_AfterEnd() public {

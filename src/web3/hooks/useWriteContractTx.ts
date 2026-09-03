@@ -80,7 +80,9 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   const [txHash, setTxHash] = useState<Hash | null>(null);
   const [status, setStatus] = useState<TxStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const onSuccessRef = useRef<((txHash: Hash, receipt: unknown) => void) | null>(null);
+  // P3-7：onSuccess 按 txHash 关联（Map），连续发起多笔交易时互不覆盖。
+  // 之前单槽 ref 会被第二笔覆盖，导致第一笔确认时触发第二笔的 onSuccess 或丢失。
+  const onSuccessMapRef = useRef<Map<Hash, (txHash: Hash, receipt: unknown) => void>>(new Map());
 
   // 等待交易收据
   const {
@@ -96,9 +98,10 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   // 交易确认成功
   if (receiptSuccess && receipt && status === 'confirming') {
     setStatus('success');
-    if (onSuccessRef.current) {
-      onSuccessRef.current(txHash!, receipt);
-      onSuccessRef.current = null;
+    const cb = onSuccessMapRef.current.get(txHash!);
+    if (cb) {
+      onSuccessMapRef.current.delete(txHash!);
+      cb(txHash!, receipt);
     }
   }
 
@@ -128,13 +131,14 @@ export function useWriteContractTx(): UseWriteContractTxResult {
       } = args;
 
       const t = customToast ?? toast;
-      onSuccessRef.current = onSuccess ?? null;
       setErrorMessage(null);
       setStatus('preparing');
 
       try {
         const hash = await writeContractAsync(contractArgs as Parameters<typeof writeContractAsync>[0]);
         setTxHash(hash);
+        // P3-7：拿到 hash 后登记该笔交易的 onSuccess（按 txHash 关联）
+        if (onSuccess) onSuccessMapRef.current.set(hash, onSuccess);
         setStatus('pending');
         t.info(submittedMessage);
 
@@ -145,7 +149,6 @@ export function useWriteContractTx(): UseWriteContractTxResult {
         const info = handleWeb3Error(err, t);
         setStatus('error');
         setErrorMessage(info.message);
-        onSuccessRef.current = null;
         return null;
       }
     },
@@ -156,7 +159,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
     setTxHash(null);
     setStatus('idle');
     setErrorMessage(null);
-    onSuccessRef.current = null;
+    onSuccessMapRef.current.clear();
     resetWrite();
   }, [resetWrite]);
 

@@ -359,12 +359,16 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
     const fixedBidNum = Number(fixedBid);
     const durationNum = Number(duration);
     if (!(fixedBidNum > 0)) { toastError('Enter a valid fixed bid amount'); return; }
+    if (fixedBidNum > 10000) { toastError('Fixed bid too large (max 10,000 MON)'); return; }
     if (!(durationNum > 0)) { toastError('Enter a valid duration'); return; }
-    if (!content.trim()) { toastError('Describe the auction content'); return; }
+    // P3-6：与合约 MAX_DURATION(24h)/MAX_START_DELAY(30d) 对齐的前端预校验，避免等到链上 revert
+    if (durationNum > 86400) { toastError('Duration too long (max 24h)'); return; }
     const startMs = new Date(startAt).getTime();
     if (Number.isNaN(startMs)) { toastError('Invalid start time'); return; }
     const startSec = Math.floor(startMs / 1000);
     const nowSec = Math.floor(Date.now() / 1000);
+    if (startSec > nowSec + 30 * 86400) { toastError('Start time too far in the future (max 30 days)'); return; }
+    if (!content.trim()) { toastError('Describe the auction content'); return; }
 
     const base = {
       passContract: passAddr,

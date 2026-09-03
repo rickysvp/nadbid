@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatUnits } from 'viem';
 import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown, Sparkles } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
@@ -29,6 +30,20 @@ const COUNTDOWN_BASE_MS = AUCTION.COUNTDOWN_BASE_MS;
 /** 浮点金额保留 2 位小数，规避二进制浮点误差 */
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/**
+ * wei → MON 字符串（P3-4：不经 Number 转换，避免大额累计金额精度丢失）。
+ * 整数部分手工加千分位，小数保留 2 位。
+ */
+function formatMonWei(value: bigint | undefined): string {
+  if (value === undefined) return '0.00';
+  const s = formatUnits(value, 18);
+  const dot = s.indexOf('.');
+  const intPart = dot === -1 ? s : s.slice(0, dot);
+  const decPart = dot === -1 ? '' : s.slice(dot + 1);
+  const intFmt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${intFmt}.${decPart.padEnd(2, '0').slice(0, 2)}`;
 }
 
 function useCountdownDetail(targetDate: number | undefined) {
@@ -138,7 +153,6 @@ function ChainAuctionDetail({ address }: { address: string }) {
 
   const fixedBid = auctionData ? Number(auctionData.fixedBidAmount) / 1e18 : DEFAULT_BID_AMOUNT;
   const totalBids = auctionData ? Number(auctionData.totalBids) : 0;
-  const totalVolume = auctionData ? Number(auctionData.totalVolume) / 1e18 : 0;
   const lastBidder =
     auctionData && auctionData.lastBidder !== '0x0000000000000000000000000000000000000000'
       ? auctionData.lastBidder
@@ -151,6 +165,24 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     success('Auction link copied to clipboard!');
+  };
+
+  /** Share：优先系统分享面板（P3-9），不支持时退化为复制链接 */
+  const handleShare = async () => {
+    const shareData = {
+      title: `NADBID · ${auctionData?.content ? auctionData.content.slice(0, 60) : 'KOL Auction'}`,
+      text: `Bid on this KOL penny auction on NADBID — ${fixedBid.toFixed(2)} MON per bid`,
+      url: window.location.href,
+    };
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // 用户取消分享面板不视为错误；其余失败回退复制链接
+      }
+    }
+    await handleCopyLink();
   };
 
   /** 出价流程三分支：未连接 → ConnectModal 引导；已连接未持 PASS → toast；已连接且持有 → placeBid */
@@ -228,7 +260,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
             <Button size="sm" variant="secondary" onClick={handleCopyLink}>
               <Copy className="w-3.5 h-3.5" /> Copy Link
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => info('Opening share dialog...')}>
+            <Button size="sm" variant="secondary" onClick={handleShare}>
               <Share2 className="w-3.5 h-3.5" /> Share
             </Button>
           </div>
@@ -336,7 +368,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                     <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Total Spent</span>
                     <span className="font-mono text-[13px] font-bold text-white">
                       {lastBidderCumulative !== undefined
-                        ? `${round2(Number(lastBidderCumulative) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
+                        ? `${formatMonWei(lastBidderCumulative)} MON`
                         : lastBidder
                           ? (isLastBidderYou
                               ? `${round2(Number(cumulativeBid ?? 0n) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
@@ -367,7 +399,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 </div>
                 <div className="flex justify-between text-white/40">
                   <span>Total Volume (MON)</span>
-                  <span className="text-white font-bold">{totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="text-white font-bold">{formatMonWei(auctionData?.totalVolume)}</span>
                 </div>
                 {account && (
                   <>
@@ -408,7 +440,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 </div>
                 <div>
                   <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">TVL (MON)</div>
-                  <div className="font-black text-sm">{isLive ? totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '-'}</div>
+                  <div className="font-black text-sm">{isLive ? formatMonWei(auctionData?.totalVolume) : '-'}</div>
                 </div>
               </div>
 

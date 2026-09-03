@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { Hash } from 'viem';
-import { useReadContracts } from 'wagmi';
+import { useReadContracts, usePublicClient } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import { kolPassAbi } from '../contracts';
 import type { ToastLike } from '../web3Errors';
@@ -151,6 +151,7 @@ export function useKolPass(
 
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
   const queryClient = useQueryClient();
+  const publicClient = usePublicClient();
 
   /**
    * mint/burn 交易确认后的统一处理：先失效本 PASS 相关链上读取
@@ -165,17 +166,37 @@ export function useKolPass(
     };
 
   const mint = useCallback(
-    (quantity: bigint, opts: { value?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
+    async (quantity: bigint, opts: { value?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
       if (!passAddress) return Promise.resolve(null);
       const { value, onSuccess, toast } = opts;
-      // 精确 value 优先；否则按曲线公式逐枚累加估算（与链上 mint 完全一致），
-      // 含 8% 手续费缓冲。曲线参数或总供应量未加载（undefined）且调用方未显式
-      // 传 value 时，拒绝签名并返回 null —— 绝不用 curvePrice×quantity 这类
-      // 不含手续费/高供应量失真的近似值提交，否则链上 mint 会 INSUFFICIENT revert
-      // 或按错误金额扣款。
+      // 精确 value 优先；否则实时直查链上最新供应量与曲线参数（绕过 react-query
+      // 缓存）计算逐枚累加成本。invalidateQueries 是异步的，用户连续 mint 时
+      // UI 的 totalSupply 可能仍是旧值，导致 value 按旧供应量低估 → 链上
+      // INSUFFICIENT revert。直查失败时回退缓存估算；仍不可得则拒绝签名返回 null，
+      // 绝不用 curvePrice×quantity 这类不含手续费/失真的近似值提交。
       let cost = value;
       if (cost === undefined) {
-        cost = estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
+        if (publicClient) {
+          try {
+            const [tm, cfg] = await Promise.all([
+              publicClient.readContract({
+                address: passAddress,
+                abi: kolPassAbi,
+                functionName: 'totalMinted',
+              }),
+              publicClient.readContract({
+                address: passAddress,
+                abi: kolPassAbi,
+                functionName: 'getCurveConfig',
+              }),
+            ]);
+            cost = estimateMintCostWei(cfg as unknown as CurveConfig, tm as bigint, quantity);
+          } catch {
+            cost = estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
+          }
+        } else {
+          cost = estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
+        }
       }
       if (cost === undefined) return Promise.resolve(null);
       return write({
@@ -189,7 +210,7 @@ export function useKolPass(
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [write, passAddress, totalSupplyRes.data, curveConfig, queryClient],
+    [write, passAddress, publicClient, curveConfig, totalSupplyRes.data, queryClient],
   );
 
   const estimateMintCost = useCallback(

@@ -39,6 +39,9 @@ contract KolAuction {
 
     address public platformTreasury;
     address public registry;  // 供 banned 检查
+    /// 是否预约拍卖（startTime 晚于部署时刻）。预约拍卖的 duration 应完整保留，
+    /// 不能被 40s 重置机制压缩（否则 24h 预约拍卖首出价后只剩 40s 即结束）。
+    bool public immutable isScheduled;
     uint256 public constant BID_EXTEND_SECONDS = 40;  // 对 SPEC §6.4 原 60s 的裁剪
     uint256 public constant PLATFORM_SETTLE_PCT = 20;
     uint256 public constant KOL_SETTLE_PCT = 80;
@@ -51,6 +54,7 @@ contract KolAuction {
     /// @param _startTime 拍卖开始时间（秒级 Unix 时间戳；= block.timestamp 立即开始）
     constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury, address _registry, uint256 _startTime) {
         require(_startTime >= block.timestamp, "START_PAST");
+        isScheduled = _startTime > block.timestamp;
         auction = Auction({
             id: 1,
             kol: _kol,
@@ -88,8 +92,14 @@ contract KolAuction {
         // 同步最后出价人（= 当前出价者）的累计数据，供前端展示高价值信息
         lastBidderCumulative = cumulativeBid[msg.sender];
         lastBidderBidCount = bidCount[msg.sender];
-        // 倒计时重置 40s
-        a.endTime = block.timestamp + BID_EXTEND_SECONDS;
+        // 倒计时：预约拍卖只延长不提前（保持 duration 完整）；立即开始拍卖重置 40s
+        if (isScheduled) {
+            if (a.endTime < block.timestamp + BID_EXTEND_SECONDS) {
+                a.endTime = block.timestamp + BID_EXTEND_SECONDS;
+            }
+        } else {
+            a.endTime = block.timestamp + BID_EXTEND_SECONDS;
+        }
         emit BidPlaced(a.id, seq, msg.sender, msg.value, block.timestamp);
         return true;
     }

@@ -12,6 +12,8 @@
 //   需要 .env 配置 X_STATE_SECRET（随机长字符串）。
 import express from 'express';
 import crypto from 'node:crypto';
+import { privateKeyToAccount } from 'viem/accounts';
+import { keccak256, encodePacked, type Hex } from 'viem';
 
 const router = express.Router();
 
@@ -30,6 +32,16 @@ if (!STATE_SECRET) {
   throw new Error('X_STATE_SECRET must be configured (server refuses to start without it)');
 }
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 分钟
+
+// 平台签名者（P2-2）：持有私钥的 server 在 X 验证通过后，对
+// (wallet, username, followers) 签发 ECDSA 注册签名；合约 registerKol 用
+// 对应公钥验签，防止绕过前端直调合约伪造粉丝数注册。私钥来自
+// PLATFORM_SIGNER_PRIVATE_KEY（与部署合约的 setPlatformSigner 公钥配对）。
+const PLATFORM_SIGNER_PRIVATE_KEY: Hex | undefined =
+  (process.env.PLATFORM_SIGNER_PRIVATE_KEY as Hex | undefined) || undefined;
+const platformSigner = PLATFORM_SIGNER_PRIVATE_KEY
+  ? privateKeyToAccount(PLATFORM_SIGNER_PRIVATE_KEY)
+  : null;
 
 function b64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -83,6 +95,10 @@ function verifyState(state: string): { verifier: string; wallet: string } | null
 // 前端不得信任 URL 参数里的 username/followers/verified（可被伪造），
 // 必须用 ticket 调 /api/kol/verify-ticket 换取可信结果，再决定是否上链注册。
 const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
+
+// 已消费票据（尽力而为的单实例消费集合；Vercel 多实例下无法强一致，
+// 主防线仍是短 TTL + wallet 绑定）
+const usedTickets = new Set<string>();
 
 interface VerifyTicket {
   u: string; // username
@@ -250,20 +266,26 @@ router.get('/x-oauth-callback', async (req, res) => {
 });
 
 /**
- * 3. 验证一次性票据（前端 OAuth 回调后调用）
- *    入参：?ticket=..&wallet=<当前钱包地址>
- *    出参：{ verified, username, followers } —— 仅服务器签发的 ticket 可通过，
- *          URL 参数伪造的 username/followers/verified 一律无效。
- *          且 ticket 内嵌的 wallet 必须与请求方当前钱包一致（防多钱包冒用）。
+ * 3. 验证票据（POST，body: { ticket, wallet }）
+ *    出参：{ verified, username, followers, signature }
+ *      - signature：平台对 (wallet, username, followers) 的 ECDSA 注册签名
+ *        （P2-2），前端 registerKol 时随 handle/followers 一起上链验签。
+ *    一次性：短 TTL（5min）+ wallet 绑定；ticket 使用后标记（尽力而为的单实例
+ *    消费集合；Vercel 多实例下无法强一致，故以短时效 + 钱包绑定为主防线）。
+ *    改 POST：避免 ticket 出现在 URL/访问日志。
  */
-router.get('/verify-ticket', (req, res) => {
-  const { ticket, wallet } = req.query as { ticket?: string; wallet?: string };
+router.post('/verify-ticket', (req, res) => {
+  const { ticket, wallet } = (req.body ?? {}) as { ticket?: string; wallet?: string };
   if (!ticket) {
     res.status(400).json({ error: 'missing ticket' });
     return;
   }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet' });
+    return;
+  }
+  if (usedTickets.has(ticket)) {
+    res.status(401).json({ error: 'ticket already used — please re-authorize' });
     return;
   }
   const result = verifyTicket(ticket);
@@ -276,10 +298,22 @@ router.get('/verify-ticket', (req, res) => {
     res.status(403).json({ error: 'ticket wallet mismatch — verify with the same wallet that started OAuth' });
     return;
   }
+  // 一次性：使用后标记（单实例尽力而为）
+  usedTickets.add(ticket);
+  // 签名（P2-2）：合约 registerKol 需要平台 ECDSA 签名。缺失私钥时无法注册。
+  if (!platformSigner) {
+    res.status(503).json({ error: 'PLATFORM_SIGNER_PRIVATE_KEY not configured' });
+    return;
+  }
+  const hash = keccak256(
+    encodePacked(['address', 'string', 'uint256'], [wallet as Hex, result.username, BigInt(result.followers)])
+  );
+  const signature = platformSigner.sign({ hash });
   res.json({
     verified: result.followers >= FOLLOWERS_THRESHOLD,
     username: result.username,
     followers: result.followers,
+    signature,
   });
 });
 

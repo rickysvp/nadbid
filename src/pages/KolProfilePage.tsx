@@ -295,10 +295,15 @@ export default function KolProfilePage() {
         <div className="max-w-[1200px] mx-auto px-6 text-center">
           <div className="text-6xl mb-6">👤</div>
           <h1 className="text-3xl font-black text-white mb-4">KOL Not Found</h1>
-          <p className="text-white/40 mb-8">Use the KOL's wallet address as the profile route.</p>
-          <Link to="/">
-            <Button>Back to Home</Button>
-          </Link>
+          <p className="text-white/40 mb-8">Chain KOL profiles use the KOL's wallet address as the route (e.g. /kols/0x…).</p>
+          <div className="flex gap-3 justify-center">
+            <Link to="/">
+              <Button>Back to Home</Button>
+            </Link>
+            <Link to="/auctions">
+              <Button variant="secondary">Browse Auctions</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
