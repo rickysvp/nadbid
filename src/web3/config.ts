@@ -39,6 +39,12 @@ export const wagmiConfig = createConfig({
     walletConnect({
       projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'c111313e8062592e9151a86a383f2994',
       showQrModal: true,
+      // 排除不支持 Monad 链的钱包（Phantom）
+      qrModalOptions: {
+        explorerExcludedWalletIds: [
+          'a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393',
+        ],
+      },
     }),
   ],
   transports: {
