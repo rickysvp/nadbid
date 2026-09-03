@@ -46,7 +46,7 @@ const STEPS: StepDef[] = [
     icon: <Twitter className="h-4 w-4" />,
   },
   {
-    title: 'Bond 10 MON',
+    title: 'Bond 1 MON',
     description: 'Deposit collateral to become a verified KOL',
     icon: <Coins className="h-4 w-4" />,
   },
@@ -471,7 +471,7 @@ export default function KolOnboardingPage() {
               </div>
             </div>
             <p className="text-xs text-white/40 leading-relaxed">
-              Deposit 10 MON as collateral. This bond ensures KOL accountability and
+              Deposit 1 MON as collateral. This bond ensures KOL accountability and
               can be redeemed after a cooldown period if you choose to leave the
               platform.
             </p>
@@ -483,7 +483,7 @@ export default function KolOnboardingPage() {
             >
               {registry.isAddressMissing
                 ? 'Contract Not Deployed'
-                : 'Deposit 10 MON Bond'}
+                : 'Deposit 1 MON Bond'}
             </Button>
             {registry.error && (
               <p className="text-xs text-red-400">{registry.error}</p>
@@ -593,7 +593,7 @@ export default function KolOnboardingPage() {
             <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
               <Coins className="h-4 w-4 text-[#3ec470]" />
             </div>
-            <span className="text-white/70">10 MON bond deposited</span>
+            <span className="text-white/70">1 MON bond deposited</span>
           </div>
         );
       case 3:

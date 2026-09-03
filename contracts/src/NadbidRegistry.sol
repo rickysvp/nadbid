@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 contract NadbidRegistry {
-    uint256 public constant BOND_AMOUNT = 10 ether;          // 对 SPEC §3.1 的裁剪
+    uint256 public constant BOND_AMOUNT = 1 ether;           // 对 SPEC §3.1 的裁剪（10 MON → 1 MON 降门槛）
     uint256 public constant BOND_REDEEM_COOLDOWN = 48 hours;
     // 粉丝门槛：构造时注入（测试网 1000，主网正式值如 5000），便于多环境分别部署
     uint256 public immutable MIN_FOLLOWERS;

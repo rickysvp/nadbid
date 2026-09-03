@@ -24,8 +24,8 @@ contract IntegrationTest is Test {
         // 1. KOL 入驻 + 质押
         vm.startPrank(kol);
         registry.registerKol("elonmusk", 150000000);
-        vm.deal(kol, 10 ether);
-        registry.depositBond{value: 10 ether}();
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
         // 2. 创建 PASS + 拍卖
         address passAddr = factory.createKolPass(13.39 ether);
         address auctionAddr = factory.createKolAuction(passAddr, 99 ether, 120, "1v1 live");

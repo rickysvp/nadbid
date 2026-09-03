@@ -36,14 +36,14 @@ contract NadbidRegistryTest is Test {
     function test_BondRedeem_48hCooldown() public {
         vm.startPrank(kol);
         registry.registerKol("elonmusk", 150000000);
-        vm.deal(kol, 10 ether);
-        registry.depositBond{value: 10 ether}();
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
         registry.requestBondRedeem();
         vm.expectRevert();
         registry.finalizeBondRedeem();  // 未满 48h
         vm.warp(block.timestamp + 48 hours + 1);
         registry.finalizeBondRedeem();
-        assertEq(kol.balance, 10 ether);
+        assertEq(kol.balance, 1 ether);
         vm.stopPrank();
     }
 }
