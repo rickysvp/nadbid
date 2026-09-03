@@ -314,6 +314,10 @@ export default function KolProfilePage() {
   const displayBio = kol?.bio;
   const displayRank = kol?.rank;
   const displayAvatarHandle = chainKolName ?? kol?.handle ?? (kolAddress ?? '');
+  // 链上 KOL 页面：handle 为 0x 钱包地址且 Registry 已注册（区别于 mock KOL）
+  const isChainKol = !!kolAddress && !!chainKolInfo?.registered;
+  // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
+  const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
 
   if (!kol && !kolAddress) {
     return (
@@ -386,11 +390,17 @@ export default function KolProfilePage() {
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Pass TVL</div>
-                <div className="font-mono text-sm font-bold text-[#3ec470]">105,420 <span className="text-[10px] text-white/50">MON</span></div>
+                <div className="font-mono text-sm font-bold text-[#3ec470]">
+                  {passTvl !== undefined
+                    ? `${Math.round(passTvl).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-[10px] text-white/50">MON</span>`
+                    : '105,420 <span className="text-[10px] text-white/50">MON</span>'}
+                </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Auction TVL</div>
-                <div className="font-mono text-sm font-bold text-[#3ec470]">42,850 <span className="text-[10px] text-white/50">MON</span></div>
+                <div className="font-mono text-sm font-bold text-[#3ec470]">
+                  {isChainKol ? '-- <span className="text-[10px] text-white/50">MON</span>' : '42,850 <span className="text-[10px] text-white/50">MON</span>'}
+                </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">KOL Rank</div>
@@ -430,7 +440,7 @@ export default function KolProfilePage() {
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Staking:</span>
-                <span className="font-mono text-xs font-bold text-white">5,120</span>
+                <span className="font-mono text-xs font-bold text-white">{isChainKol ? '--' : '5,120'}</span>
               </div>
             </div>
 
@@ -471,9 +481,10 @@ export default function KolProfilePage() {
           <div className="lg:col-span-6 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em]">Dividend Pool</h3>
+              {isChainKol && <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Preview</span>}
               <Info className="w-3.5 h-3.5 text-white/30" />
             </div>
-            <p className="text-white/50 text-[12px] mb-6">20% of all auction revenue is distributed to PASS holders.</p>
+            <p className="text-white/50 text-[12px] mb-6">20% of all auction revenue is distributed to PASS holders.{isChainKol && ' (链上分红数据接入中 — 此区域为预览)'}</p>
 
             <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-5 mb-4">
               <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Distribution Countdown</div>
@@ -501,6 +512,7 @@ export default function KolProfilePage() {
                 <KolAvatar handle={displayAvatarHandle} size="sm" name={displayName} className="w-4 h-4 rounded-full" />
               </div>
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em]">Staking</h3>
+              {isChainKol && <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Preview</span>}
               <Info className="w-3.5 h-3.5 text-white/30 ml-1" />
             </div>
             <p className="text-white/50 text-[12px] mb-6">Stake PASS to earn 10% of auction revenue. Earnings vary based on activity.</p>
@@ -552,7 +564,10 @@ export default function KolProfilePage() {
 
           {/* Historical Auctions */}
           <div className="lg:col-span-12 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
-            <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-6">Historical Auctions</h3>
+            <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-6">
+              Historical Auctions
+              {isChainKol && <span className="ml-2 text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded align-middle">Preview</span>}
+            </h3>
 
             <div className="w-full overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[600px]">
