@@ -2,8 +2,10 @@
 pragma solidity ^0.8.28;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract KolPass is ERC721 {
+contract KolPass is ERC721Enumerable {
     address public kol;
     address public platformTreasury;
     address public factory;          // 签发本 PASS 的 NadbidFactory（createKolAuction 校验合法 passContract）
@@ -104,12 +106,11 @@ contract KolPass is ERC721 {
     // ===== Soulbound =====
     // OZ 5.3.0: 3-arg safeTransferFrom 非 virtual 不可 override；其内部调用 4-arg virtual 版本，
     // 由下方 4-arg override 统一 revert，等价阻断所有 transferFrom/safeTransferFrom 调用。
-    function transferFrom(address, address, uint256) public override { revert("SOULBOUND"); }
-    function safeTransferFrom(address, address, uint256, bytes memory) public override { revert("SOULBOUND"); }
+    function transferFrom(address, address, uint256) public override(ERC721, IERC721) { revert("SOULBOUND"); }
+    function safeTransferFrom(address, address, uint256, bytes memory) public override(ERC721, IERC721) { revert("SOULBOUND"); }
 
-    function totalSupply() public view returns (uint256) {
-        return totalMinted;
-    }
+    // totalSupply / tokenOfOwnerByIndex / tokenByIndex 由 ERC721Enumerable 提供
+    // （burn 为联合曲线核心需求，前端需通过 tokenOfOwnerByIndex 枚举持有 token 以供选择）
 
     function getCurveConfig() external view returns (CurveConfig memory) {
         return CurveConfig({ basePrice: basePrice, baseSupply: baseSupply, exponent: exponent });

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { KolOnboardingCard, type StepStatus } from '../components/kol/KolOnboardingCard';
+import { ConnectModal } from '../components/wallet/ConnectModal';
 import { useWalletStore } from '../stores/walletStore';
 import { useRegistry } from '../web3/hooks/useRegistry';
 import { useFactory } from '../web3/hooks/useFactory';
@@ -65,10 +66,12 @@ const STEPS: StepDef[] = [
 // ============================================================================
 
 export default function KolOnboardingPage() {
-  const { isConnected, address, isConnecting, connect, disconnect } =
-    useWalletStore();
+  const { isConnected, address, isConnecting, disconnect } = useWalletStore();
   const { success, error: toastError, info } = useToast();
   const queryClient = useQueryClient();
+
+  // 真实钱包连接弹窗（wagmi）
+  const [connectOpen, setConnectOpen] = useState(false);
 
   const registry = useRegistry(
     (address ?? undefined) as `0x${string}` | undefined,
@@ -133,8 +136,9 @@ export default function KolOnboardingPage() {
       // 用服务端签名票据换取可信验证结果（不信任 URL 参数中的 username/followers/verified）
       (async () => {
         try {
+          const walletParam = address ? encodeURIComponent(address) : '';
           const r = await fetch(
-            `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}`
+            `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}&wallet=${walletParam}`
           );
           const data = (await r.json()) as {
             verified?: boolean;
@@ -196,7 +200,9 @@ export default function KolOnboardingPage() {
     // 方式改为 X OAuth 授权：跳转 X 登录本人账号授权，回调后带回 username/followers
     setIsVerifyingTwitter(true);
     try {
-      const res = await fetch('/api/kol/x-auth-url');
+      // 绑定当前钱包地址：ticket 只允许该钱包使用（防止同一 X 身份被多钱包冒用）
+      const walletParam = address ? encodeURIComponent(address) : '';
+      const res = await fetch(`/api/kol/x-auth-url?wallet=${walletParam}`);
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const data = await res.json();
       if (data.authUrl) {
@@ -286,6 +292,15 @@ export default function KolOnboardingPage() {
       toastError('Please enter auction content description');
       return;
     }
+    const durationSec = Number(auctionDuration || '120');
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      toastError('Auction duration must be a positive number of seconds');
+      return;
+    }
+    if (durationSec > 24 * 60 * 60) {
+      toastError('Auction duration cannot exceed 24 hours (on-chain limit)');
+      return;
+    }
     const passContract = passContracts[passContracts.length - 1];
     await factory.createKolAuction(
       {
@@ -344,7 +359,7 @@ export default function KolOnboardingPage() {
                 <p className="text-white/50 text-sm mb-4">
                   Connect your wallet to begin the KOL onboarding process.
                 </p>
-                <Button onClick={connect} loading={isConnecting}>
+                <Button onClick={() => setConnectOpen(true)} loading={isConnecting}>
                   <Wallet className="h-4 w-4" /> Connect Wallet
                 </Button>
               </div>
@@ -564,12 +579,17 @@ export default function KolOnboardingPage() {
               </label>
               <textarea
                 value={auctionContent}
-                onChange={(e) => setAuctionContent(e.target.value)}
+                onChange={(e) => setAuctionContent(e.target.value.slice(0, 200))}
                 disabled={factory.isLoading}
                 rows={3}
+                maxLength={200}
                 placeholder="Describe what the winner receives (e.g. 1-hour private call, signed merch, etc.)"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50 resize-none"
               />
+              <div className="flex justify-between mt-1">
+                <span className="text-[10px] text-white/30">Max 200 characters (on-chain limit)</span>
+                <span className="text-[10px] font-mono text-white/40">{auctionContent.length}/200</span>
+              </div>
             </div>
             <Button
               fullWidth
@@ -795,6 +815,9 @@ export default function KolOnboardingPage() {
           ))}
         </div>
       </div>
+
+      {/* 真实钱包连接弹窗 */}
+      <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Hash } from 'viem';
+import { useReadContracts } from 'wagmi';
 import { kolPassAbi } from '../contracts';
 import type { ToastLike } from '../web3Errors';
 import { useReadContract } from './useReadContract';
@@ -31,6 +32,11 @@ export interface UseKolPassResult {
   balanceOf: bigint | undefined;
   /** 曲线参数（basePrice / baseSupply / exponent） */
   curveConfig: CurveConfig | undefined;
+  /**
+   * 指定账户持有的 tokenId 列表（ERC721Enumerable.tokenOfOwnerByIndex 枚举，长度 = balanceOf）。
+   * 曲线数据已加载但 balanceOf 为 0 或未连接时返回 []；burn 依赖此枚举选择 token。
+   */
+  userTokenIds: bigint[] | undefined;
   // ---- 链上写入 ----
   /**
    * mint(quantity, opts)：铸造 quantity 个 PASS。
@@ -115,6 +121,33 @@ export function useKolPass(
   });
   const curveConfig = curveConfigRes.data as CurveConfig | undefined;
 
+  // ===== 枚举用户持有的 tokenId（ERC721Enumerable.tokenOfOwnerByIndex）=====
+  // 链上不得一次性枚举过多，读取上限与 MVP 单次 mint 数量一致（20），超出部分截断
+  const MAX_ENUM_TOKENS = 20;
+  const holdingCount =
+    account !== undefined ? (balanceOfRes.data as bigint | undefined) : undefined;
+  const enumCount =
+    holdingCount !== undefined ? Math.min(Number(holdingCount), MAX_ENUM_TOKENS) : 0;
+  const enumContracts = Array.from({ length: enumCount }, (_, i) => ({
+    address: (passAddress ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    abi: kolPassAbi,
+    functionName: 'tokenOfOwnerByIndex' as const,
+    args: [account, BigInt(i)] as const,
+  }));
+  const tokenReads = useReadContracts({
+    contracts: enumContracts,
+    query: {
+      enabled:
+        account !== undefined && passAddress !== undefined && (holdingCount ?? 0n) > 0n,
+    },
+  });
+  const userTokenIds: bigint[] | undefined =
+    account !== undefined && holdingCount !== undefined
+      ? (tokenReads.data ?? [])
+          .map((r) => (r.status === 'success' && r.result !== undefined ? r.result : undefined))
+          .filter((t): t is bigint => t !== undefined)
+      : undefined;
+
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
 
   const mint = useCallback(
@@ -174,6 +207,7 @@ export function useKolPass(
     totalSupply: totalSupplyRes.data as bigint | undefined,
     balanceOf: balanceOfRes.data as bigint | undefined,
     curveConfig: curveConfigRes.data as CurveConfig | undefined,
+    userTokenIds,
     mint,
     burn,
     estimateMintCost,

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NADBID.FUN 第五轮深度审计报告</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0e0e0e; color: #e5e5e5; font-family: 'Inter', 'PingFang SC', 'Segoe UI', Arial, sans-serif; line-height: 1.6; padding: 32px 16px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .sub { color: #9ca3af; font-size: 13px; margin-bottom: 24px; }
+  h2 { font-size: 18px; font-weight: 700; margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat { flex: 1 1 150px; min-width: 0; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+  .stat .n { font-size: 24px; font-weight: 800; }
+  .stat .l { font-size: 11px; color: #9ca3af; }
+  .p0 { color: #ff6b6b; } .p1 { color: #ff8585; } .p2 { color: #f0a020; } .p3 { color: #6bb8f0; }
+  .finding { border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: rgba(255,255,255,0.02); }
+  .finding .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; }
+  .badge.b1 { background: rgba(255,107,107,0.15); color: #ff8585; }
+  .badge.b2 { background: rgba(240,160,32,0.15); color: #f0a020; }
+  .badge.b3 { background: rgba(107,184,240,0.15); color: #6bb8f0; }
+  .finding h3 { font-size: 15px; font-weight: 700; flex: 1; }
+  .loc { font-size: 11px; color: #6bb8f0; font-family: 'IBM Plex Mono', monospace; }
+  .finding .body { font-size: 13px; color: #c0c0c0; }
+  .finding .body .sec { margin-top: 8px; }
+  .finding .body .lbl { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #9ca3af; text-transform: uppercase; margin-bottom: 2px; }
+  .finding .body .fix { background: rgba(82,196,26,0.08); border: 1px solid rgba(82,196,26,0.2); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 12.5px; color: #a8d8a0; }
+  .verdict { border-radius: 12px; padding: 16px; margin-top: 24px; background: rgba(240,160,32,0.1); border: 1px solid rgba(240,160,32,0.3); }
+  .verdict h3 { color: #f0a020; font-size: 16px; margin-bottom: 6px; }
+  .ok { color: #7ee2a8; }
+  code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  th { color: #9ca3af; font-weight: 600; }
+  .num { font-family: 'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NADBID.FUN 第五轮深度审计报告</h1>
+  <div class="sub">审计日期：2026-09-03 ｜ 范围：4 智能合约 + 9 前端页面 + server(OAuth) + web3 hooks + 部署配置 ｜ 基线：main @ e092f96/9b0c12a（工作树干净，23 合约测试全过，tsc/build 通过）</div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="n p0">0</div><div class="l">P0 阻断主流程</div></div>
+    <div class="stat"><div class="n p1">3</div><div class="l">P1 严重安全/资金/功能</div></div>
+    <div class="stat"><div class="n p2">5</div><div class="l">P2 普通缺陷/边界</div></div>
+    <div class="stat"><div class="n p3">6</div><div class="l">P3 影响较小</div></div>
+  </div>
+
+  <h2>一、智能合约审计（Foundry，23 测试全过）</h2>
+
+  <div class="finding">
+    <div class="head"><span class="badge b1">P1</span><h3>KolPass.burn 多人场景逆向选择套利（经济漏洞）</h3><span class="loc">contracts/src/KolPass.sol:76-102</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>burn 返还 = <code>curvePriceAt(total - i)</code>（最新供应递减）。单人 mint1→burn1 无套利（第 1 轮已修），但多人场景：A mint 1 枚（成本 ≈ 0.0000134 MON），B 大量 mint 推高曲线到供应 1001，A 再 burn 自己那枚 → 返还 ≈ 13.4 MON，净赚 ~12.3 MON（来源是 B 沉淀的资金）。先 mint 者可在供应被推高后低买高卖。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">burn 返还基准改为「该 token 铸造时的成本」而非「当前曲线价」，需在 mint 时记录每 token 的 mintPrice；或禁止 burn（soulbound 全禁）改用「持有即权益」模型；或 burn 设冷却/限额。需产品决策。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b1">P1</span><h3>settle 依赖外部转账成功，拒收地址致资金永久卡死</h3><span class="loc">contracts/src/KolAuction.sol:88-104</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>settle 把 20% 转 platformTreasury、80% 转 kol，<code>require(ok1/ok2)</code>。若任一是拒收合约（无 receive/回退失败），settle 永久 revert → 拍卖资金锁死。且 <code>requestBondRedeem</code> 要求名下全部拍卖 settled（NadbidRegistry.sol:62-64）也被连带 block → <b>KOL 的 10 MON 担保金永不可赎回</b>。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">① 创建拍卖时校验 kol/treasury 为可接收地址（或校验 isContract 时必须有 receive）；② settle 改为「记录待领金额 + 分开领取」的 pull 模式，避免单点失败阻断全部；③ 或对转账失败提供「标记失败 + 允许重试指定接收方」的逃生口。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b2">P2</span><h3>Registry 封禁功能是死代码（banned 只读不可写）</h3><span class="loc">contracts/src/NadbidRegistry.sol:26,84,105-108</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/><code>banned</code> mapping 仅被 <code>isKolBanned</code>/<code>canCreate</code> 读取，全合约无任何函数能置 true（无 ban/unban、无 onlyOwner setter）。KolAuction.placeBid 里的 BANNED 检查形同虚设——恶意 KOL 永不可被封禁。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">给 Registry 加 <code>onlyOwner</code> 的 <code>setBanned(address,bool)</code>，并可考虑同步触发已创建拍卖的冻结（需 KolAuction 增加 owner 校验）。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b2">P2</span><h3>registerKol 链上无身份绑定，X 身份与钱包无关联</h3><span class="loc">contracts/src/NadbidRegistry.sol:39-46</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>任何地址调 <code>registerKol(handle, followers)</code>，只要 <code>followers &ge; MIN_FOLLOWERS</code> 即注册成功。合约无法验证 X 真实性——攻击者可绕过前端直接调合约注册任意 handle（含冒充知名 KOL）或虚报粉丝数。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">OAuth ticket 在签发时绑定钱包地址（ticket 内嵌 wallet），verify-ticket 校验 wallet 与当前连接一致后再签名提交链上；或 registerKol 增加链上签名承诺（对 X 身份哈希做 EIP-712 签名）。属信任模型设计缺口，需产品决策。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>createKolPass 无「每 KOL 一个」限制；createKolAuction content/duration 无上限</h3><span class="loc">contracts/src/NadbidFactory.sol:20-45</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>KOL 可无限创建 PASS 合约（Registry.passContracts 无限膨胀）；超长 content（string 存链上）推高 gas 甚至 OOG；duration 无上限可造「永不结束」的拍卖。前端 textarea 也无 maxLength。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">createKolPass 加「已创建则拒绝」或「仅首枚免费/其余收费」；createKolAuction 对 content 长度（如 &le;200 字符）与 duration 上限（如 &le;24h）加 require；前端同步 maxLength 与校验。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>burn 前端实际不可用（无 tokenId 枚举能力）</h3><span class="loc">src/components/kol-profile/MintBurnPanel.tsx:99-100</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>KolPass 未继承 ERC721Enumerable，无 <code>tokenOfOwnerByIndex</code>；前端 ABI 无 tokenId 枚举 → 用户无法列出并选择要 burn 的 token，Burn Tab 一直是「提示 + 置灰」。用户当初明确要求 burn 能力。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">KolPass 继承 ERC721Enumerable（或维护 ownerTokenIds 数组），前端遍历列出 tokenId 供选择。涉及合约重部署。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>二、钱包连接 / 身份 / 前端交互</h2>
+
+  <div class="finding">
+    <div class="head"><span class="badge b1">P1</span><h3>页面内钱包连接走 mock，链上写入必然失败（假连接陷阱）</h3><span class="loc">src/components/trade/ConnectModal.tsx + src/pages/KolOnboardingPage.tsx:347 + src/stores/walletStore.ts:99-114</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>Onboarding「Connect Wallet」按钮、拍卖详情出价弹窗、Mint 弹窗、Claim/Staking/Arbitration 都调用 <code>useWalletStore().connect()</code>（mock：假地址 <code>0x4F8a...</code> + 假余额 12450 MON），不触发 wagmi 真实连接。用户点后 walletStore 显示「已连接」但 wagmi <code>useAccount</code> 仍 disconnected → 后续所有链上写入（registerKol/placeBid/mint）必然失败。全应用只有顶栏 <code>components/wallet/ConnectButton</code> 是真实 wagmi 连接入口。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">把 trade/ConnectModal 与 Onboarding 的 connect 改为复用 wagmi <code>useConnect</code>（即 wallet/ConnectModal 逻辑），或全局删除 mock connect 路径；mock 仅保留在 <code>VITE_WALLET_MODE=mock</code> 显式开启时。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b2">P2</span><h3>OAuth ticket 未绑定钱包地址（多钱包可共用同一 X 身份）</h3><span class="loc">server/x-oauth.ts:90-95,242-258</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>ticket 只含 username/followers/exp，不含申请者钱包地址。同一 X 账号完成 OAuth 后，ticket 在 URL 中传递，可被截获或转交他人 → 任意钱包用它注册该 X 身份。与合约 registerKol 无身份绑定叠加放大。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">x-auth-url 时由前端把当前钱包地址传给 server，ticket 内嵌 <code>wallet</code>；verify-ticket 校验 wallet 与请求方一致（用签名或 session）。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b2">P2</span><h3>Claim/Staking/Arbitration/Wallet 仍是 mock 占位，与「真实数据」偏好冲突</h3><span class="loc">src/pages/{StakingPage,ClaimPage,ArbitrationPage,WalletPage}.tsx</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>Staking 用 mockAvailableStakes/mockStakedPositions、Claim/Arbitration 用 mock 交易、WalletPage 显示 mock 质押/积分/历史。这些是核心功能页（导航可达），用户会误以为真的上链。与用户「测试网开发，不要模拟数据」的明确偏好直接冲突。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">要么接入真实合约（若 SP-2 有 Staking/Claim 合约），要么在页面上显著标注「MVP Preview / 未上链」，避免误导；优先隐藏或禁用入口。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>三、展示 / 交互细节（P3）</h2>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>列表页倒计时加载期显示 00:00:00</h3><span class="loc">src/pages/AuctionsPage.tsx:186-191</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>auctionData undefined 时 <code>targetTime = Date.now()</code> → 倒计时显示 00:00:00 闪烁（与 AuctionDetailPage 已修复的行为不一致）。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">auctionData undefined 时不渲染倒计时或显示占位「--:--:--」。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>「Starting Price」标签与业务冲突</h3><span class="loc">src/pages/AuctionsPage.tsx:265</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>用户明确「去掉起拍价概念，描述改为设置固定出价」，但链上卡片非 LIVE 状态时显示「Starting Price」标签。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">所有状态统一显示「Fixed Bid」。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>On-Chain Activity 面板 Bidders 恒显 '-'</h3><span class="loc">src/pages/AuctionDetailPage.tsx:909</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>链上无 bidders 数量 getter（只有 totalBids 次数），<code>isLive ? '-' : '-'</code> 是恒 '-' 的无效占位。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">移除该格子，或改为「Bid Count」与 totalBids 合并；或合约补 distinct bidders 计数。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>曲线预估与链上真实值存在偏差</h3><span class="loc">src/components/kol-profile/MintBurnPanel.tsx:125-126 + src/utils/bondingCurve.ts:17-19</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>前端 <code>curvePriceAt(newSupply, effectiveSupply, effectivePrice)</code> 把「当前点」当锚点，而链上锚点是固定的 (baseSupply=1000, basePrice)。供应量≠baseSupply 时，前端预估的 Est. New Price 与链上真实曲线价偏差可达数个百分点且随供应增加累积。链上 KOL 页未读取链上 curveConfig 驱动曲线图。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">链上路径用 <code>useKolPass.curveConfig</code>（真实 basePrice/baseSupply）计算 newPrice；或预估仅作展示并标注「估算」。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>estimateMintCost 时序竞争导致 value 可能不足</h3><span class="loc">src/web3/hooks/useKolPass.ts:128-131</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>curveConfig 已加载但 totalSupply 未就绪时回退 <code>curvePrice × quantity</code>（单币近似），高供应量下低估成本 → 链上 mint revert INSUFFICIENT。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">totalSupply 未就绪时禁用 mint 按钮或等待两查询都就绪。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="head"><span class="badge b3">P3</span><h3>Mint 后余额刷新金额与实际扣款不符</h3><span class="loc">src/components/kol-profile/MintBurnPanel.tsx:174</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>链上 mint 后 <code>wallet.refreshBalance(qtyNum * effectivePrice)</code> 用单币价×数量刷新余额，未含 8% 手续费；应改用 <code>Number(chainCostWei)/1e18</code>。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">刷新金额对齐 chainCostWei（或 real 模式直接用链上余额查询，不传 delta）。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>四、部署 / 配置（P2 提醒）</h2>
+
+  <div class="finding">
+    <div class="head"><span class="badge b2">P2</span><h3>Vercel 生产环境变量缺失风险</h3><span class="loc">.env / vercel.json / server/app.ts</span></div>
+    <div class="body">
+      <div class="sec"><span class="lbl">问题</span><br/>server 端需在 Vercel 配置：<code>X_FRONTEND_URL=https://nadbid.fun</code>（OAuth 回调跳回 + CORS）、<code>X_CALLBACK_URL=https://nadbid.fun/api/kol/x-oauth-callback</code>（X App 登记的 callback 必须是它）、<code>X_FOLLOWERS_THRESHOLD=1000</code>（与合约 MIN_FOLLOWERS 一致，缺省默认 5000 会卡掉 1000-4999 粉丝 KOL）、<code>X_STATE_SECRET</code>、<code>X_CLIENT_ID/SECRET</code>。<b>线上合约地址已是新值</b>（已核验线上 JS 含 0x33b5de3e…/0xc299e1ee…），但若 X_FOLLOWERS_THRESHOLD 未设，线上验证会按 5000 走。</div>
+      <div class="sec"><span class="lbl">最小修复方向</span>
+      <div class="fix">在 Vercel 环境变量面板逐一核对上述项；尤其 X_FOLLOWERS_THRESHOLD 必须 =1000（与合约一致）。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>五、验证情况</h2>
+  <table>
+    <tr><th>项</th><th>结果</th></tr>
+    <tr><td>合约测试 <code>cd contracts && forge test</code></td><td class="ok">23 passed, 0 failed</td></tr>
+    <tr><td>前端类型 <code>npx tsc --noEmit</code></td><td class="ok">0 errors</td></tr>
+    <tr><td>生产构建 <code>npm run build</code></td><td class="ok">成功（有 chunk &gt;500KB 警告，非阻断）</td></tr>
+    <tr><td>server 类型 <code>npx tsc -p tsconfig.server.json</code></td><td class="ok">0 errors</td></tr>
+    <tr><td>线上 nadbid.fun 合约地址</td><td class="ok">已含新地址 0x33b5de3e… / 0xc299e1ee…（已 Redeploy）</td></tr>
+    <tr><td>已排除项</td><td>CEI 顺序、STATICCALL 重入面、事件签名、48h 冷却、Factory 校验 passContract、CORS 白名单、OAuth HMAC state/ticket、Onboarding 无 mock 降级</td></tr>
+  </table>
+
+  <div class="verdict">
+    <h3>Verdict: Issues Found（P1 × 3，P2 × 5，P3 × 6）</h3>
+    <div style="font-size:13px;color:#c0c0c0;">
+      本审计为独立第五轮，聚焦智能合约资金安全 + 前端真实数据链路 + 部署配置。最重要发现是 <b>页面内钱包连接走 mock 导致链上写入必然失败</b>（已核验 walletStore/ConnectModal/使用点）与 <b>burn 多人套利 / settle 资金卡死</b> 两个合约资金级风险。合约层需重新部署（涉及 KolPass/Factory/KolAuction/Registry 改动）时，需同步更新 Vercel 合约地址并 Redeploy。
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

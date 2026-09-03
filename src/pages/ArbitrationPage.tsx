@@ -249,6 +249,10 @@ export default function ArbitrationPage() {
               <p className="text-white/50 text-[13px]">Decentralized dispute resolution for auction fulfillment</p>
             </div>
           </div>
+          <div className="inline-flex items-center gap-2 border border-amber-400/25 bg-amber-400/5 rounded-lg px-3 py-2">
+            <span className="text-amber-400 text-[10px] font-black uppercase tracking-[0.15em]">MVP Preview</span>
+            <span className="text-amber-200/70 text-[11px]">Arbitration is not yet on-chain — data shown is simulated for demo.</span>
+          </div>
         </div>
 
         {/* Stats */}

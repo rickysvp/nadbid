@@ -64,6 +64,8 @@ export const factoryAbi =
 export const kolPassAbi =
 [
   {"type": "function","name": "balanceOf","inputs": [{"name": "owner","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "tokenOfOwnerByIndex","inputs": [{"name": "owner","type": "address","internalType": "address"},{"name": "index","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "tokenByIndex","inputs": [{"name": "index","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "curvePrice","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "totalSupply","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "curvePriceAt","inputs": [{"name": "nextSupply","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},

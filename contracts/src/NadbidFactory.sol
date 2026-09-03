@@ -9,6 +9,10 @@ contract NadbidFactory {
     NadbidRegistry public registry;
     address public platformTreasury;
 
+    // 内容与时长上限（防止链上存储膨胀 / 永不结束的拍卖）
+    uint256 public constant MAX_CONTENT_LENGTH = 200;
+    uint256 public constant MAX_DURATION = 24 hours;
+
     event KolPassCreated(address indexed kol, address passContract, uint256 mintPrice);
     event KolAuctionCreated(address indexed kol, address auctionContract, address passContract, uint256 fixedBidAmount);
 
@@ -20,6 +24,8 @@ contract NadbidFactory {
     function createKolPass(uint256 mintPrice) external returns (address) {
         require(registry.canCreate(msg.sender), "!CAN_CREATE");
         require(mintPrice > 0, "ZERO_PRICE");
+        // 每 KOL 仅一个 PASS（防止 passContracts 无限膨胀 / 同名集合重复发行）
+        require(registry.getKol(msg.sender).passContracts.length == 0, "ALREADY_HAS_PASS");
         KolPass pass = new KolPass(msg.sender, mintPrice, platformTreasury, address(this));
         registry.addPassContract(msg.sender, address(pass));
         emit KolPassCreated(msg.sender, address(pass), mintPrice);
@@ -38,6 +44,9 @@ contract NadbidFactory {
         require(KolPass(passContract).kol() == msg.sender, "NOT_OWN_PASS");
         require(fixedBidAmount > 0, "ZERO_BID");
         require(duration > 0, "ZERO_DURATION");
+        require(duration <= MAX_DURATION, "DURATION_TOO_LONG");
+        require(bytes(content).length > 0, "EMPTY_CONTENT");
+        require(bytes(content).length <= MAX_CONTENT_LENGTH, "CONTENT_TOO_LONG");
         KolAuction auction = new KolAuction(msg.sender, passContract, fixedBidAmount, duration, content, platformTreasury, address(registry));
         registry.addAuctionContract(msg.sender, address(auction));
         emit KolAuctionCreated(msg.sender, address(auction), passContract, fixedBidAmount);

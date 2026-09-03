@@ -331,6 +331,10 @@ export default function StakingPage() {
           <div>
             <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Staking for Yield</h1>
             <p className="text-white/50 text-[13px] font-medium">Manage your active stakes and check distributed yields.</p>
+            <div className="mt-3 inline-flex items-center gap-2 border border-amber-400/25 bg-amber-400/5 rounded-lg px-3 py-2">
+              <span className="text-amber-400 text-[10px] font-black uppercase tracking-[0.15em]">MVP Preview</span>
+              <span className="text-amber-200/70 text-[11px]">Staking is not yet on-chain — data shown is simulated for demo.</span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4">

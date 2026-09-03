@@ -30,6 +30,7 @@ contract NadbidRegistry {
     event BondDeposited(address indexed kol, uint256 amount);
     event BondRedeemRequested(address indexed kol);
     event BondRedeemed(address indexed kol, uint256 amount);
+    event KolBanned(address indexed kol, bool banned);
 
     modifier onlyRegistered() {
         require(kols[msg.sender].registered, "!REGISTERED");
@@ -102,6 +103,15 @@ contract NadbidRegistry {
         MIN_FOLLOWERS = minFollowers;
     }
     function setFactory(address _factory) external onlyOwner { require(factory == address(0), "SET"); factory = _factory; }
+
+    /// 封禁 / 解封 KOL（onlyOwner）。封禁后：
+    /// - canCreate 返回 false（不能创建新 PASS / 拍卖）
+    /// - KolAuction.placeBid 中的 BANNED 检查会拦截该地址的出价
+    function setBanned(address kol, bool bannedFlag) external onlyOwner {
+        banned[kol] = bannedFlag;
+        emit KolBanned(kol, bannedFlag);
+    }
+
     function canCreate(address kol) external view returns (bool) {
         Kol storage k = kols[kol];
         return k.registered && k.bonded && !k.bondRedeemPending && !banned[kol];

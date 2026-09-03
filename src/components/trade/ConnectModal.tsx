@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wallet, X } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { useConnect } from 'wagmi';
+import type { Connector } from 'wagmi';
+import { Wallet, X, QrCode, Loader2 } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
-import { useWalletStore } from '../../stores/walletStore';
 
 export interface ConnectModalProps {
   open: boolean;
@@ -13,32 +13,49 @@ export interface ConnectModalProps {
 }
 
 /**
- * 钱包连接引导弹窗 — 未连接钱包时点击出价触发。
+ * 钱包连接引导弹窗 — 未连接钱包时点击出价 / 质押 / 领取等触发。
+ *
+ * 使用真实 wagmi useConnect 渲染 connectors（MetaMask injected + WalletConnect），
+ * 连接成功后调用 onClose / onConnected，状态由 WalletStateSyncer 自动同步到 walletStore。
  * 视觉与 TradeConfirmationModal 保持一致（深色弹窗 + 绿色 CTA）。
  */
 export function ConnectModal({ open, onClose, onConnected }: ConnectModalProps) {
-  const { isConnected, connect } = useWalletStore();
-  const { success, error: toastError } = useToast();
+  const { connectors, connectAsync, isPending, error, reset } = useConnect();
+  const { error: toastError } = useToast();
+  const [connectingUid, setConnectingUid] = useState<string | null>(null);
 
-  // ESC 关闭
+  // 打开弹窗时清除上一次的连接错误状态
+  useEffect(() => {
+    if (open) reset();
+  }, [open, reset]);
+
+  // ESC 关闭（连接中不允许）
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isPending) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  }, [open, isPending, onClose]);
 
-  const handleConnect = async () => {
+  const handleConnect = async (connector: Connector) => {
+    if (isPending) return;
+    setConnectingUid(connector.uid);
     try {
-      await connect();
-      success('Wallet connected successfully!');
+      await connectAsync({ connector });
       onClose();
       onConnected?.();
-    } catch {
-      toastError('Failed to connect wallet. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to connect wallet';
+      toastError(message);
+    } finally {
+      setConnectingUid(null);
     }
+  };
+
+  const handleOverlayClick = () => {
+    if (!isPending) onClose();
   };
 
   return (
@@ -52,7 +69,7 @@ export function ConnectModal({ open, onClose, onConnected }: ConnectModalProps) 
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={handleOverlayClick}
           />
 
           {/* 弹窗 */}
@@ -65,7 +82,8 @@ export function ConnectModal({ open, onClose, onConnected }: ConnectModalProps) 
           >
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+              disabled={isPending}
+              className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors disabled:opacity-40"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -83,9 +101,47 @@ export function ConnectModal({ open, onClose, onConnected }: ConnectModalProps) 
                 </p>
               </div>
 
-              <Button variant="default" fullWidth onClick={handleConnect} disabled={isConnected}>
-                {isConnected ? 'Connected' : 'Connect Wallet'}
-              </Button>
+              {/* Error banner */}
+              {error && (
+                <div className="w-full px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono text-left">
+                  {error.message ?? 'Connection failed'}
+                </div>
+              )}
+
+              {/* 钱包选择列表（真实 wagmi connectors） */}
+              <div className="w-full space-y-2.5">
+                {connectors.map((connector) => {
+                  const isConnecting = isPending && connectingUid === connector.uid;
+                  const isWalletConnect = connector.type === 'walletConnect';
+                  return (
+                    <button
+                      key={connector.uid}
+                      type="button"
+                      onClick={() => handleConnect(connector)}
+                      disabled={isPending}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-700 bg-white/[0.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/[0.08] hover:border-[#3ec470]/40"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-[#3ec470]/10 border border-[#3ec470]/20 flex items-center justify-center flex-shrink-0">
+                        {isConnecting ? (
+                          <Loader2 className="w-4.5 h-4.5 text-[#3ec470] animate-spin" />
+                        ) : isWalletConnect ? (
+                          <QrCode className="w-4.5 h-4.5 text-[#3ec470]" />
+                        ) : (
+                          <Wallet className="w-4.5 h-4.5 text-[#3ec470]" />
+                        )}
+                      </div>
+                      <span className="flex-1 text-left font-bold text-sm text-white">
+                        {connector.name}
+                      </span>
+                      {isConnecting && (
+                        <span className="text-[10px] text-[#3ec470] font-bold uppercase tracking-wider">
+                          Connecting…
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
               <button
                 onClick={onClose}

@@ -905,8 +905,8 @@ function ChainAuctionDetail({ address }: { address: string }) {
 
               <div className="w-full grid grid-cols-3 gap-2 border-y border-white/[0.04] py-5 my-6 text-center">
                 <div>
-                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Bidders</div>
-                  <div className="font-black text-sm">{isLive ? '-' : '-'}</div>
+                  <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Leader Bids</div>
+                  <div className="font-black text-sm">{lastBidder ? Number(lastBidderBidCount ?? 0n).toLocaleString() : '-'}</div>
                 </div>
                 <div>
                   <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1.5">Total Bids</div>

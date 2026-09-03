@@ -44,17 +44,19 @@ function genCodeChallenge(verifier: string): string {
   return b64url(crypto.createHash('sha256').update(verifier).digest());
 }
 
-/** 无状态 state 生成：payload(verifier|exp) + HMAC 签名 */
-function signState(verifier: string): string {
+/** 无状态 state 生成：payload(verifier|wallet|exp) + HMAC 签名。
+ *  wallet 为申请者当前钱包地址，用于把 X 身份绑定到具体钱包，
+ *  防止同一 X 账号授权后 ticket 被其他钱包冒用。 */
+function signState(verifier: string, wallet: string): string {
   const payload = b64url(
-    Buffer.from(JSON.stringify({ v: verifier, exp: Date.now() + STATE_TTL_MS }))
+    Buffer.from(JSON.stringify({ v: verifier, w: wallet, exp: Date.now() + STATE_TTL_MS }))
   );
   const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(payload).digest());
   return `${payload}.${sig}`;
 }
 
-/** 无状态 state 校验：返回 verifier，失败返回 null */
-function verifyState(state: string): string | null {
+/** 无状态 state 校验：返回 { verifier, wallet }，失败返回 null */
+function verifyState(state: string): { verifier: string; wallet: string } | null {
   const parts = state.split('.');
   if (parts.length !== 2) return null;
   const [payload, sig] = parts;
@@ -66,10 +68,11 @@ function verifyState(state: string): string | null {
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       v?: string;
+      w?: string;
       exp?: number;
     };
-    if (!data.v || typeof data.exp !== 'number' || Date.now() > data.exp) return null;
-    return data.v;
+    if (!data.v || !data.w || typeof data.exp !== 'number' || Date.now() > data.exp) return null;
+    return { verifier: data.v, wallet: data.w };
   } catch {
     return null;
   }
@@ -84,18 +87,19 @@ const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
 interface VerifyTicket {
   u: string; // username
   f: number; // followers
+  w: string; // 申请者钱包地址（绑定 X 身份，防多钱包冒用）
   exp: number;
 }
 
-function signTicket(username: string, followers: number): string {
-  const payload: VerifyTicket = { u: username, f: followers, exp: Date.now() + TICKET_TTL_MS };
+function signTicket(username: string, followers: number, wallet: string): string {
+  const payload: VerifyTicket = { u: username, f: followers, w: wallet, exp: Date.now() + TICKET_TTL_MS };
   const encoded = b64url(Buffer.from(JSON.stringify(payload)));
   const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(encoded).digest());
   return `${encoded}.${sig}`;
 }
 
-/** 验证票据，返回 { username, followers } 或 null（无效/过期/伪造） */
-function verifyTicket(ticket: string): { username: string; followers: number } | null {
+/** 验证票据，返回 { username, followers, wallet } 或 null（无效/过期/伪造） */
+function verifyTicket(ticket: string): { username: string; followers: number; wallet: string } | null {
   const parts = ticket.split('.');
   if (parts.length !== 2) return null;
   const [payload, sig] = parts;
@@ -105,23 +109,33 @@ function verifyTicket(ticket: string): { username: string; followers: number } |
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as VerifyTicket;
-    if (typeof data.u !== 'string' || typeof data.f !== 'number' || Date.now() > data.exp) {
+    if (
+      typeof data.u !== 'string' ||
+      typeof data.f !== 'number' ||
+      typeof data.w !== 'string' ||
+      Date.now() > data.exp
+    ) {
       return null;
     }
-    return { username: data.u, followers: data.f };
+    return { username: data.u, followers: data.f, wallet: data.w };
   } catch {
     return null;
   }
 }
 
-/** 1. 生成授权 URL（前端跳转用） */
+/** 1. 生成授权 URL（前端跳转用）。wallet 为申请者当前钱包地址（绑定 X 身份）。 */
 router.get('/x-auth-url', (req, res) => {
   if (!CLIENT_ID || !CLIENT_SECRET) {
     res.status(503).json({ error: 'X_CLIENT_ID/X_CLIENT_SECRET not configured' });
     return;
   }
+  const wallet = (req.query.wallet as string | undefined) ?? '';
+  if (!wallet) {
+    res.status(400).json({ error: 'missing wallet — connect your wallet first' });
+    return;
+  }
   const verifier = genVerifier();
-  const state = signState(verifier);
+  const state = signState(verifier, wallet.toLowerCase());
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -155,11 +169,12 @@ router.get('/x-oauth-callback', async (req, res) => {
     return;
   }
 
-  const verifier = verifyState(state);
-  if (!verifier) {
+  const verifierState = verifyState(state);
+  if (!verifierState) {
     res.status(400).send('state invalid or expired');
     return;
   }
+  const { verifier, wallet } = verifierState;
 
   try {
     // 3. code + verifier → access_token（Basic Auth: client_id:client_secret）
@@ -218,9 +233,10 @@ router.get('/x-oauth-callback', async (req, res) => {
     const username = me?.data?.username ?? '';
     const followers = me?.data?.public_metrics?.followers_count ?? 0;
 
-    // 5. 签发一次性验证票据（不把 username/followers/verified 明文放 URL，防伪造）
+    // 5. 签发一次性验证票据（绑定申请者钱包，防止多钱包冒用同一 X 身份；
+    //    不把 username/followers/verified 明文放 URL，防伪造）
     //    前端用 ticket 调 /api/kol/verify-ticket 换取可信结果。
-    const ticket = signTicket(username, followers);
+    const ticket = signTicket(username, followers, wallet);
     res.redirect(
       `${FRONTEND_URL}/kol/onboarding?xoauth=success&ticket=${encodeURIComponent(ticket)}`
     );
@@ -235,19 +251,29 @@ router.get('/x-oauth-callback', async (req, res) => {
 
 /**
  * 3. 验证一次性票据（前端 OAuth 回调后调用）
- *    入参：?ticket=..
+ *    入参：?ticket=..&wallet=<当前钱包地址>
  *    出参：{ verified, username, followers } —— 仅服务器签发的 ticket 可通过，
  *          URL 参数伪造的 username/followers/verified 一律无效。
+ *          且 ticket 内嵌的 wallet 必须与请求方当前钱包一致（防多钱包冒用）。
  */
 router.get('/verify-ticket', (req, res) => {
-  const { ticket } = req.query as { ticket?: string };
+  const { ticket, wallet } = req.query as { ticket?: string; wallet?: string };
   if (!ticket) {
     res.status(400).json({ error: 'missing ticket' });
+    return;
+  }
+  if (!wallet) {
+    res.status(400).json({ error: 'missing wallet' });
     return;
   }
   const result = verifyTicket(ticket);
   if (!result) {
     res.status(401).json({ error: 'invalid or expired ticket' });
+    return;
+  }
+  // 钱包绑定校验：ticket 只属于签发时的钱包
+  if (result.wallet.toLowerCase() !== wallet.toLowerCase()) {
+    res.status(403).json({ error: 'ticket wallet mismatch — verify with the same wallet that started OAuth' });
     return;
   }
   res.json({

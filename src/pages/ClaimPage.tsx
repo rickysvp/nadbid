@@ -136,6 +136,10 @@ export default function ClaimPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Pending Rewards Breakdown</h1>
             <p className="text-white/50 text-sm font-medium">Review and collect your outstanding balances.</p>
+            <div className="mt-3 inline-flex items-center gap-2 border border-amber-400/25 bg-amber-400/5 rounded-lg px-3 py-2">
+              <span className="text-amber-400 text-[10px] font-black uppercase tracking-[0.15em]">MVP Preview</span>
+              <span className="text-amber-200/70 text-[11px]">Rewards/claim are not yet on-chain — data shown is simulated for demo.</span>
+            </div>
           </div>
 
           <Button

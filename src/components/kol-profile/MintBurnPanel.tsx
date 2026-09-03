@@ -74,6 +74,8 @@ export function MintBurnPanel({
   const [qty, setQty] = useState<string>('1');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  // 链上 burn：tokenId 多选集合（联合曲线核心需求 — 按曲线价回购，多人套利是设计模型）
+  const [burnSelected, setBurnSelected] = useState<Set<string>>(new Set());
 
   /* ---------- 派生计算（链上路径取链上数据，mock 路径取 bondingCurve + 页面基线） ---------- */
 
@@ -96,8 +98,22 @@ export function MintBurnPanel({
 
   const isMint = tab === 'mint';
 
-  /** 链上 Burn 需 tokenId 枚举（MVP 未实现）→ 链上路径禁用 Burn，保留「待扩展」提示 */
-  const burnUnsupported = isChainPath && !isMint;
+  /**
+   * 链上数据就绪判定：曲线参数 + 总供应量 + 曲线价均加载完成才允许 mint。
+   * 任一项缺失（加载中/失败）时禁用 mint，避免 estimateMintCost 回退单币近似
+   * 在高供应量下给出不足的 value 导致交易失败。
+   */
+  const chainDataReady =
+    !isChainPath ||
+    (chain.curveConfig !== undefined &&
+      chain.totalSupply !== undefined &&
+      chain.curvePrice !== undefined);
+
+  /** 链上 burn：当前用户可烧的 tokenId 列表（ERC721Enumerable 枚举，上限 20） */
+  const chainBurnable =
+    isChainPath && account !== undefined ? (chain.userTokenIds ?? []) : [];
+  /** burn 是否就绪：mock 路径用数量输入；链上路径需已持有 token */
+  const chainBurnReady = isChainPath && chainBurnable.length > 0;
 
   /** 解析并钳制数量为合法整数；空 / 非法输入视为 0 */
   const qtyNum = useMemo(() => {
@@ -109,29 +125,56 @@ export function MintBurnPanel({
   /** 总成本 / 总返还 = 数量 × 当前单位价格（债券曲线模型，见 usePassMintBurn） */
   const totalAmount = qtyNum * effectivePrice;
 
+  /** Burn 数量：mock 路径用数量输入；链上路径用选中 token 数 */
+  const burnQty = isChainPath ? burnSelected.size : qtyNum;
+  /** Burn 数量超过当前可烧持仓 */
+  const burnExceedsHolding =
+    !isMint &&
+    (isChainPath ? burnQty > chainBurnable.length : qtyNum > effectiveHolding);
+
   /**
    * 链上路径的精确成本（wei，含 8% 手续费缓冲）：与链上 mint 实际扣款一致，
    * 修复"显示 单枚价×qty 与实际逐枚累加扣款不一致"的问题。曲线参数未加载时 undefined。
+   * burn 路径：按当前曲线价×选中数估算返还（逐枚递减为二级效应，MVP 单币近似）。
    */
-  const chainCostWei = isChainPath && isQtyValid ? chain.estimateMintCost(BigInt(qtyNum)) : undefined;
+  const chainCostWei = isChainPath && isQtyValid
+    ? isMint
+      ? chain.estimateMintCost(BigInt(qtyNum))
+      : chainPrice !== undefined
+        ? BigInt(Math.floor(chainPrice * burnQty * 1e18))
+        : undefined
+    : undefined;
   /** 链上精确成本 → MON（显示用） */
   const chainCostMon = chainCostWei !== undefined ? Number(chainCostWei) / 1e18 : undefined;
   /** 确认弹窗使用的 Unit Price / Total Cost：链上路径取精确成本口径，mock 路径保持原逻辑 */
   const displayUnitPrice =
-    isChainPath && chainCostMon !== undefined ? chainCostMon / qtyNum : effectivePrice;
+    isChainPath && chainCostMon !== undefined
+      ? chainCostMon / (isMint ? qtyNum : burnQty || 1)
+      : effectivePrice;
   const displayTotalAmount =
     isChainPath && chainCostMon !== undefined ? chainCostMon : totalAmount;
-  /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌） */
+  /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌）。
+   *  链上路径按真实曲线锚点推导：newPrice = chainPrice × (newSupply/currentSupply)²，
+   *  修复"以当前点为锚的曲线预估与链上实际不符"的偏差。 */
   const newSupply = isMint ? supplyAfterMint(effectiveSupply, qtyNum) : supplyAfterBurn(effectiveSupply, qtyNum);
-  const newPrice = curvePriceAt(newSupply, effectiveSupply, effectivePrice);
+  const newPrice =
+    isChainPath && chainPrice !== undefined && effectiveSupply > 0
+      ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+      : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
 
-  /** Burn 数量超过当前可烧持仓 */
-  const burnExceedsHolding = !isMint && isQtyValid && qtyNum > effectiveHolding;
   /** 余额内可 mint 的最大数量 */
   const maxMintQty = Math.max(0, Math.floor((wallet.balanceMon || 0) / (effectivePrice > 0 ? effectivePrice : 1)));
 
-  /** CTA 是否可点：数量合法且不在交易中（持仓不足走错误提示而非禁用） */
-  const canSubmit = isQtyValid && !isSubmitting && !burnUnsupported;
+  /**
+   * CTA 是否可点：
+   *  - mint：数量合法、链上数据就绪（时序保护）、不在交易中
+   *  - burn：mock 走数量、链上需已选 token 且持有
+   */
+  const canSubmit =
+    isQtyValid &&
+    !isSubmitting &&
+    chainDataReady &&
+    (isMint ? true : isChainPath ? burnQty > 0 && chainBurnReady : true);
 
   const handleSetMax = () => {
     setQty(String(isMint ? maxMintQty : effectiveHolding));
@@ -142,7 +185,7 @@ export function MintBurnPanel({
     if (!canSubmit) return;
     // Burn 持仓不足：立即给出错误提示（不进入弹窗）
     if (burnExceedsHolding) {
-      toastError(`Insufficient PASS holdings. You hold ${effectiveHolding} PASS, tried to burn ${qtyNum}.`);
+      toastError(`Insufficient PASS holdings. You hold ${isChainPath ? chainBurnable.length : effectiveHolding} PASS, tried to burn ${burnQty}.`);
       return;
     }
     if (!wallet.isConnected) {
@@ -161,23 +204,58 @@ export function MintBurnPanel({
     setConfirmOpen(true);
   };
 
-  /** 确认交易：链上路径 mint 走真实交易 / burn 待扩展；mock 路径保留 usePassMintBurn */
+  /** 确认交易：链上路径 mint / burn 走真实交易；mock 路径保留 usePassMintBurn */
   const handleConfirm = async () => {
     if (isChainPath) {
-      if (!isMint) return; // burnUnsupported 已禁用 CTA，此处兜底
-      // 链上 mint：value 默认 curvePrice × qty（useKolPass 兜底，MVP 单币计价）
-      const txHash = await chain.mint(BigInt(qtyNum));
-      if (!txHash) return; // 用户拒绝 / 失败 → 状态由 TradeConfirmationModal 展示
+      // 链上 mint：value 默认按曲线逐枚累加（useKolPass 精确计价，含 8% 手续费缓冲）
+      if (isMint) {
+        const txHash = await chain.mint(BigInt(qtyNum));
+        if (!txHash) return; // 用户拒绝 / 失败 → 状态由 TradeConfirmationModal 展示
 
-      const newSupply = supplyAfterMint(effectiveSupply, qtyNum);
-      const newPrice = curvePriceAt(newSupply, effectiveSupply, effectivePrice);
-      await wallet.refreshBalance(qtyNum * effectivePrice);
-      onTradeSuccess?.({ action: 'mint', amount: qtyNum, newSupply, newPrice });
+        const newSupply = supplyAfterMint(effectiveSupply, qtyNum);
+        const newPrice =
+          chainPrice !== undefined && effectiveSupply > 0
+            ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+            : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
+        // 余额刷新：按链上精确成本（含手续费）扣减，而非单枚价×qty
+        const costMon = chainCostMon !== undefined ? chainCostMon : qtyNum * effectivePrice;
+        await wallet.refreshBalance(costMon);
+        onTradeSuccess?.({ action: 'mint', amount: qtyNum, newSupply, newPrice });
 
-      // 展示成功态后自动关闭并重置
+        // 展示成功态后自动关闭并重置
+        setTimeout(() => {
+          setConfirmOpen(false);
+          chain.reset();
+          setBurnSelected(new Set());
+        }, 1400);
+        return;
+      }
+
+      // 链上 burn：联合曲线按曲线价回购，选中 token 全部销毁（多人套利是设计模型）
+      const tokenIds = chainBurnable
+        .filter((t) => burnSelected.has(t.toString()))
+        .map((t) => BigInt(t));
+      if (tokenIds.length === 0) {
+        toastError('No PASS tokens selected to burn.');
+        return;
+      }
+      const txHash = await chain.burn(tokenIds);
+      if (!txHash) return;
+
+      const burnAmt = tokenIds.length;
+      const newSupply = supplyAfterBurn(effectiveSupply, burnAmt);
+      const newPrice =
+        chainPrice !== undefined && effectiveSupply > 0
+          ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+          : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
+      // burn 返还按曲线价（链上实际到账额），用于刷新余额
+      await wallet.refreshBalance(burnAmt * (chainPrice ?? 0));
+      onTradeSuccess?.({ action: 'burn', amount: burnAmt, newSupply, newPrice });
+
       setTimeout(() => {
         setConfirmOpen(false);
         chain.reset();
+        setBurnSelected(new Set());
       }, 1400);
       return;
     }
@@ -205,7 +283,10 @@ export function MintBurnPanel({
   const confirmDetails: TradeDetailItem[] = [
     { label: 'KOL', value: `${kolName} (${kolHandle})` },
     { label: 'Action', value: isMint ? 'Mint PASS' : 'Burn PASS' },
-    { label: 'Quantity', value: `${qtyNum} PASS` },
+    {
+      label: 'Quantity',
+      value: isChainPath && !isMint ? `${burnQty} PASS` : `${qtyNum} PASS`,
+    },
     { label: 'Unit Price', value: `${displayUnitPrice.toFixed(6)} MON` },
     {
       label: isMint ? 'Total Cost' : 'Est. Return',
@@ -263,7 +344,7 @@ export function MintBurnPanel({
         </button>
       </div>
 
-      {/* 数量输入 */}
+      {/* 数量输入（mock 路径 / mint） */}
       <div className="mb-5">
         <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-2">Quantity</div>
         <div className="flex bg-[#0a0a0a] border border-white/[0.06] rounded p-1">
@@ -286,13 +367,57 @@ export function MintBurnPanel({
         {/* Burn 持仓不足的即时提示 */}
         {burnExceedsHolding && (
           <div className="text-red-400 text-[10px] font-mono mt-2">
-            Only {effectiveHolding} PASS available to burn.
+            Only {isChainPath ? chainBurnable.length : effectiveHolding} PASS available to burn.
           </div>
         )}
-        {/* 链上 Burn 待扩展提示（需 tokenId 枚举） */}
-        {burnUnsupported && (
-          <div className="text-amber-400/80 text-[10px] font-mono mt-2 border border-amber-400/20 bg-amber-400/5 rounded p-2 leading-relaxed">
-            On-chain burn requires token ID enumeration — MVP limitation, coming soon.
+        {/* 链上 burn：token 选择列表（联合曲线回购，ERC721Enumerable 枚举） */}
+        {isChainPath && !isMint && (
+          <div className="mt-3 border border-white/[0.06] rounded-lg p-3 bg-[#0a0a0a]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">
+                Your PASS Tokens
+              </span>
+              <span className="text-white/50 text-[9px] font-mono">
+                {burnSelected.size}/{chainBurnable.length} selected
+              </span>
+            </div>
+            {chainBurnable.length === 0 ? (
+              <div className="text-amber-400/80 text-[10px] font-mono leading-relaxed">
+                No PASS tokens to burn. Mint PASS first to participate in the bonding curve.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+                {chainBurnable.map((tid) => {
+                  const key = tid.toString();
+                  const checked = burnSelected.has(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setBurnSelected((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        'flex items-center justify-between px-3 py-2 rounded text-[11px] font-mono transition-colors border',
+                        checked
+                          ? 'bg-red-500/15 border-red-500/40 text-red-300'
+                          : 'bg-white/[0.03] border-white/[0.04] text-white/70 hover:bg-white/[0.06]',
+                      )}
+                    >
+                      <span>Token #{tid.toString()}</span>
+                      <span className={cn('text-[9px] font-bold', checked ? 'text-red-300' : 'text-white/30')}>
+                        {checked ? 'SELECTED' : '—'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -320,35 +445,39 @@ export function MintBurnPanel({
         </div>
       </div>
 
-      {/* CTA — 未连接钱包也可点击（点击引导连接）；仅数量非法/交易中禁用 */}
+      {/* CTA — 未连接钱包也可点击（点击引导连接）；仅数量非法/数据未就绪/交易中禁用 */}
       <Button
         fullWidth
         size="lg"
         variant={isMint ? 'default' : 'danger'}
         onClick={handleTradeClick}
-        disabled={!isQtyValid || isSubmitting || burnUnsupported}
+        disabled={!canSubmit}
         className={cn(
           'cursor-pointer',
-          !wallet.isConnected && isQtyValid && !isSubmitting && !burnUnsupported && 'animate-pulse',
+          !wallet.isConnected && canSubmit && 'animate-pulse',
         )}
       >
         {isSubmitting
           ? (isMint ? 'Minting...' : 'Burning...')
           : !wallet.isConnected
-            ? 'Connect Wallet to Mint'
-            : isMint
-              ? 'Mint PASS'
-              : burnUnsupported
-                ? 'Burn Unavailable'
-                : 'Burn PASS'}
+            ? 'Connect Wallet to Trade'
+            : !chainDataReady && isChainPath
+              ? 'Loading Curve...'
+              : isMint
+                ? 'Mint PASS'
+                : isChainPath
+                  ? burnQty > 0
+                    ? `Burn ${burnQty} PASS`
+                    : 'Select PASS to Burn'
+                  : 'Burn PASS'}
       </Button>
       {!wallet.isConnected && isQtyValid && (
         <div className="text-[#3ec470]/70 text-[9px] text-center mt-2 font-bold tracking-wider">
-          Connect your wallet to mint {kolName}'s PASS
+          Connect your wallet to {isMint ? `mint ${kolName}'s PASS` : `burn ${kolName}'s PASS`}
         </div>
       )}
       <div className="text-white/30 text-[9px] italic text-center mt-4">
-        Prices follow a bonding curve. Slippage may apply.
+        PASS follows a bonding curve — burning refunds at curve price. Prices may slip.
       </div>
 
       {/* 交易确认弹窗 */}

@@ -97,7 +97,7 @@ function AuctionCard({ auction }: { auction: typeof mockAuctions[0] }) {
       {/* Data Blocks */}
       <div className="flex flex-col gap-2 mb-6 relative z-10">
         <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-xl p-4 flex items-center justify-between">
-          <span className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em]">{isLive ? 'Fixed Bid' : 'Starting Price'}</span>
+          <span className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em]">{isLive ? 'Fixed Bid' : 'Fixed Bid'}</span>
           <span className="text-[#3ec470] font-mono text-lg font-bold">
             {isLive ? auction.currentBid.toFixed(1) : auction.minBid.toFixed(1)} <span className="text-[10px] text-[#3ec470]/50">MON</span>
           </span>
@@ -187,7 +187,7 @@ function ChainAuctionCard({
     ? isLive
       ? Number(auctionData.endTime) * 1000
       : Number(auctionData.startTime) * 1000
-    : Date.now();
+    : 0; // 数据未加载时不渲染倒计时（组件会在 !auctionData 时 return null，0 无害）
   const { timeString, totalSeconds } = useCountdown(targetTime);
 
   // 过滤 / 搜索：数据未加载（auctionData undefined）时不展示，避免空数据闪卡
@@ -262,7 +262,7 @@ function ChainAuctionCard({
       {/* Data Blocks */}
       <div className="flex flex-col gap-2 mb-6 relative z-10">
         <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-xl p-4 flex items-center justify-between">
-          <span className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em]">{isLive ? 'Fixed Bid' : 'Starting Price'}</span>
+          <span className="text-white/40 text-[10px] font-bold uppercase tracking-[0.15em]">{isLive ? 'Fixed Bid' : 'Fixed Bid'}</span>
           <span className="text-[#3ec470] font-mono text-lg font-bold">
             {fixedBid.toFixed(1)} <span className="text-[10px] text-[#3ec470]/50">MON</span>
           </span>

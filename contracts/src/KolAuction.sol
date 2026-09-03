@@ -31,6 +31,12 @@ contract KolAuction {
     uint256 public lastBidderCumulative;
     uint256 public lastBidderBidCount;
 
+    // Pull 结算：settle 只记录待领金额，platformTreasury / kol 分别 claim。
+    // 避免 settle 依赖外部转账成功——若某一方是拒收合约，另一方仍可正常领取，
+    // 拍卖结算状态也不被阻塞（Registry 的担保赎回检查依赖 settled()）。
+    uint256 public pendingPlatform;
+    uint256 public pendingKol;
+
     address public platformTreasury;
     address public registry;  // 供 banned 检查
     uint256 public constant BID_EXTEND_SECONDS = 40;  // 对 SPEC §6.4 原 60s 的裁剪
@@ -94,13 +100,30 @@ contract KolAuction {
         a.settled = true;
         uint256 platformFee = a.totalVolume * PLATFORM_SETTLE_PCT / PCT_DENOM;
         uint256 guaranteePool = a.totalVolume - platformFee;
-        // 20% 平台
-        (bool ok1, ) = payable(platformTreasury).call{value: platformFee}("");
-        require(ok1, "PLATFORM_FAIL");
-        // 80% KOL（MVP 结算即解锁）
-        (bool ok2, ) = payable(a.kol).call{value: guaranteePool}("");
-        require(ok2, "KOL_FAIL");
+        // Pull 模式：仅记录待领金额，不直接转账（拒收地址不再阻塞结算/担保赎回）
+        pendingPlatform += platformFee;
+        pendingKol += guaranteePool;
         emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, platformFee, guaranteePool, block.number);
+    }
+
+    /// 平台方领取 20% 结算手续费（settle 后由 platformTreasury 调用）
+    function claimPlatform() external {
+        require(msg.sender == platformTreasury, "!TREASURY");
+        uint256 amount = pendingPlatform;
+        require(amount > 0, "NO_BALANCE");
+        pendingPlatform = 0;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "CLAIM_FAIL");
+    }
+
+    /// KOL 领取 80% 拍卖收入（settle 后由 kol 调用）
+    function claimKol() external {
+        require(msg.sender == auction.kol, "!KOL");
+        uint256 amount = pendingKol;
+        require(amount > 0, "NO_BALANCE");
+        pendingKol = 0;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "CLAIM_FAIL");
     }
 
     function getAuction() external view returns (Auction memory) { return auction; }

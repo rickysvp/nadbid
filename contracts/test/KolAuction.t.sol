@@ -95,4 +95,63 @@ contract KolAuctionTest is Test {
         vm.expectRevert();
         auction.settle();  // 还没到 endTime
     }
+
+    // Pull 模式：settle 后平台/KOL 分别 claim 各自份额（20% / 80%）
+    function test_Settle_PullMode_ClaimWorks() public {
+        vm.prank(bidder);
+        auction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+
+        uint256 platformFee = fixedBid * 20 / 100;
+        uint256 kolShare = fixedBid - platformFee;
+
+        // 平台领取 20%（platform 在 setUp mint 时已收到 3% 手续费，按增量断言）
+        uint256 platformBefore = platform.balance;
+        vm.prank(platform);
+        auction.claimPlatform();
+        assertEq(auction.pendingPlatform(), 0);
+        assertEq(platform.balance - platformBefore, platformFee);
+
+        // KOL 领取 80%（kol 在 setUp mint 时已收到 5% 手续费，按增量断言）
+        uint256 kolBefore = kol.balance;
+        vm.prank(kol);
+        auction.claimKol();
+        assertEq(auction.pendingKol(), 0);
+        assertEq(kol.balance - kolBefore, kolShare);
+    }
+
+    // Pull 模式：KOL 为拒收合约时 settle 不阻塞，平台仍可领取（资金不卡死）
+    function test_Settle_RejectingKol_DoesNotBlock() public {
+        RejectingKol rejectKol = new RejectingKol();
+        NadbidRegistry reg = new NadbidRegistry(1000);
+        // 用拒收 KOL 重建拍卖（复用同一 pass，bidder 已持有）
+        KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg));
+        vm.prank(bidder);
+        rejAuction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+
+        // settle 不因 KOL 拒收而 revert
+        vm.prank(address(rejectKol));
+        rejAuction.settle();
+        assertTrue(rejAuction.settled());
+
+        // 平台仍可领取 20%（platform 在 setUp mint 时已收到 3% 手续费，按增量断言）
+        uint256 platformFee = fixedBid * 20 / 100;
+        uint256 platformBefore = platform.balance;
+        vm.prank(platform);
+        rejAuction.claimPlatform();
+        assertEq(rejAuction.pendingPlatform(), 0);
+        assertEq(platform.balance - platformBefore, platformFee);
+
+        // KOL 份额留存合约（拒收地址无法领取，但结算与担保赎回不受影响）
+        assertEq(rejAuction.pendingKol(), fixedBid - platformFee);
+    }
+}
+
+// 拒收原生代币的合约（无 receive/fallback 收款路径 → call 失败）
+contract RejectingKol {
+    fallback() external payable { revert("REJECT"); }
+    receive() external payable { revert("REJECT"); }
 }

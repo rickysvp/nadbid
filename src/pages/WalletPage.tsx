@@ -1,25 +1,36 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Wallet, Coins, Layers, Trophy, Users, ArrowRight, Copy, ExternalLink, TrendingUp, Clock } from 'lucide-react';
+import { useDisconnect } from 'wagmi';
+import { Wallet, Coins, Layers, Trophy, Users, ArrowRight, Copy, ExternalLink, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { StatCard } from '../components/ui/StatCard';
+import { ConnectModal } from '../components/wallet/ConnectModal';
 import { useWalletStore } from '../stores/walletStore';
 import { useToast } from '../hooks/useToast';
 import { shortenAddress, formatRelativeTime } from '../utils/format';
 import { mockStakedPositions, mockClaimHistory, mockPointsBalance } from '../data/mockStaking';
 import { kolProfilePath } from '../config/routes';
+import { useState } from 'react';
 
 export default function WalletPage() {
-  const { isConnected, address, balanceMon, connect, disconnect } = useWalletStore();
+  const { isConnected, address, balanceMon, disconnect: storeDisconnect } = useWalletStore();
+  const { disconnect } = useDisconnect();
   const { success, info } = useToast();
+  const [connectOpen, setConnectOpen] = useState(false);
 
   const handleCopyAddress = () => {
     if (address) {
       navigator.clipboard.writeText(address);
       success('Address copied to clipboard!');
     }
+  };
+
+  const handleDisconnect = () => {
+    storeDisconnect();
+    disconnect();
+    info('Wallet disconnected');
   };
 
   const totalStaked = mockStakedPositions.reduce((sum, p) => sum + p.passQuantity, 0);
@@ -38,11 +49,12 @@ export default function WalletPage() {
             <p className="text-white/50 text-[15px] max-w-md mx-auto mb-10 leading-relaxed">
               Connect your wallet to view your PASS holdings, staking positions, rewards, and auction history.
             </p>
-            <Button size="lg" onClick={connect}>
+            <Button size="lg" onClick={() => setConnectOpen(true)}>
               <Wallet className="w-5 h-5" />
               Connect Wallet
             </Button>
           </div>
+          <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
         </div>
       </div>
     );
@@ -52,6 +64,14 @@ export default function WalletPage() {
     <div className="min-h-screen bg-transparent pt-32 pb-24">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Wallet Header */}
+        <div className="mb-6 flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-white/60 leading-relaxed">
+            <span className="font-bold text-amber-400">MVP Preview：</span>
+            Staking / Points / Activity 数据尚未上链，以下内容为预览展示。质押与领取功能将在后续版本接入合约。
+          </div>
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -80,7 +100,7 @@ export default function WalletPage() {
               <Button variant="secondary" size="sm" onClick={() => info('Opening explorer...')}>
                 <ExternalLink className="w-3.5 h-3.5" /> Explorer
               </Button>
-              <Button variant="danger" size="sm" onClick={disconnect}>
+              <Button variant="danger" size="sm" onClick={handleDisconnect}>
                 Disconnect
               </Button>
             </div>
