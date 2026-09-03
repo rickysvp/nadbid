@@ -126,6 +126,8 @@ export default function KolOnboardingPage() {
   // address 的 effect 中执行；用户未连接钱包时提示先连接，连接后自动补验证。
   const pendingTicketRef = useRef<string | null>(null);
   const warnedNoWalletRef = useRef(false);
+  // autoConnect 宽限期定时器：地址恢复时或卸载时清除，避免宽限期内误报
+  const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -152,19 +154,37 @@ export default function KolOnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 等钱包地址可用后执行票据验证（autoConnect 恢复 address 后自动触发；
-  // 未连接钱包时给出明确提示，连接后仍可自动补验证）
+  // 等钱包地址可用后执行票据验证（autoConnect 恢复 address 后自动触发）。
+  // 关键体验：X 授权整页跳转返回时，wagmi autoConnect 是异步恢复地址的，
+  // address 初始为 null。若此时立即报"未连接钱包"会误伤（用户先看到一条错误，
+  // 紧接着又看到验证成功）。因此给 autoConnect 2s 宽限期：宽限期内地址恢复则
+  // 静默执行验证；超时仍未恢复（确实未连接 / autoConnect 失败）才提示连接钱包。
+  // 卸载时清理宽限定时器
+  useEffect(() => {
+    return () => {
+      if (graceTimerRef.current) {
+        clearTimeout(graceTimerRef.current);
+        graceTimerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const ticket = pendingTicketRef.current;
     if (!ticket) return;
     if (!address) {
-      if (!warnedNoWalletRef.current) {
-        warnedNoWalletRef.current = true;
+      if (warnedNoWalletRef.current) return;
+      warnedNoWalletRef.current = true;
+      graceTimerRef.current = setTimeout(() => {
         toastError('Wallet not connected — please connect your wallet to complete X verification.');
-      }
+      }, 2000);
       return;
     }
-    // 地址已就绪，执行验证并清除待处理票据
+    // 地址已就绪：清除可能残留的宽限定时器，然后执行验证
+    if (graceTimerRef.current) {
+      clearTimeout(graceTimerRef.current);
+      graceTimerRef.current = null;
+    }
     pendingTicketRef.current = null;
     (async () => {
       try {
@@ -215,6 +235,11 @@ export default function KolOnboardingPage() {
     return 'locked';
   };
 
+  /** 链上签名前置提示：点击交易按钮后立即告知用户"即将弹出钱包签名"，
+   *  避免钱包扩展把页面压暗/弹出签名窗时被误认为出错。 */
+  const promptWalletConfirm = () =>
+    info('Please confirm the transaction in your wallet — signing is in progress…');
+
   // ==========================================================================
   // Step 1: 验证推特 + 注册 KOL
   // ==========================================================================
@@ -260,6 +285,7 @@ export default function KolOnboardingPage() {
       return;
     }
     const handle = twitterHandle.trim().replace(/^@/, '');
+    promptWalletConfirm();
     await registry.registerKol(handle, BigInt(twitterFollowers), {      onSuccess: () => {
         success('KOL registered on-chain!');
         invalidateAll();
@@ -276,6 +302,7 @@ export default function KolOnboardingPage() {
       toastError('Registry contract not deployed.');
       return;
     }
+    promptWalletConfirm();
     await registry.depositBond({
       onSuccess: () => {
         success('Bond deposited — you are now a verified KOL!');
@@ -294,6 +321,7 @@ export default function KolOnboardingPage() {
       return;
     }
     const price = parseEther(mintPrice || '0');
+    promptWalletConfirm();
     await factory.createKolPass(price, {
       onSuccess: () => {
         success('PASS contract deployed successfully!');
