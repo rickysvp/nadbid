@@ -3,7 +3,6 @@
 import 'dotenv/config';
 import express from 'express';
 
-import verifyTwitterRouter from './verify-twitter.js';
 import xOAuthRouter from './x-oauth.js';
 
 // 允许跨域的来源白名单（生产用 X_FRONTEND_URL，本地开发允许 localhost）
@@ -37,7 +36,6 @@ export function createApp() {
     next();
   });
 
-  app.use('/api/kol', verifyTwitterRouter);
   app.use('/api/kol', xOAuthRouter);
 
   app.get('/health', (_req, res) => {

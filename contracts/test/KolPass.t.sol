@@ -13,11 +13,14 @@ contract KolPassTest is Test {
     uint256 baseSupply = 1000;
 
     function setUp() public {
-        pass = new KolPass(kol, mintPrice, platform);
+        pass = new KolPass(kol, mintPrice, platform, address(0xAAAA));
     }
 
     function test_CurvePrice_AtBaseSupply() public view {
-        assertEq(pass.curvePrice(), mintPrice);  // supply=1000 → price=basePrice
+        // supply=0 时 curvePrice() 返回首枚实际成本 curvePriceAt(1)（非满额锚点 basePrice）
+        assertEq(pass.curvePrice(), pass.curvePriceAt(1));
+        // curvePriceAt(0) 返回 0（无供应时无成本，杜绝 basePrice 套利面）
+        assertEq(pass.curvePriceAt(0), 0);
     }
 
     function test_Mint_CostsWithFee() public {
@@ -152,7 +155,7 @@ contract KolPassReentrancyTest is Test {
     address platform = address(0xCAFE);
 
     function setUp() public {
-        pass = new KolPass(kol, 13.39 ether, platform);
+        pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
     }
 
     function test_Burn_Reentrancy_BlockedByCEI() public {

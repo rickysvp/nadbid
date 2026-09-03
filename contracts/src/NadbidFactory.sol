@@ -20,7 +20,7 @@ contract NadbidFactory {
     function createKolPass(uint256 mintPrice) external returns (address) {
         require(registry.canCreate(msg.sender), "!CAN_CREATE");
         require(mintPrice > 0, "ZERO_PRICE");
-        KolPass pass = new KolPass(msg.sender, mintPrice, platformTreasury);
+        KolPass pass = new KolPass(msg.sender, mintPrice, platformTreasury, address(this));
         registry.addPassContract(msg.sender, address(pass));
         emit KolPassCreated(msg.sender, address(pass), mintPrice);
         return address(pass);
@@ -33,6 +33,8 @@ contract NadbidFactory {
         string calldata content
     ) external returns (address) {
         require(registry.canCreate(msg.sender), "!CAN_CREATE");
+        // 只允许使用本 Factory 签发的 PASS 合约（防伪造 passContract 绕过持 PASS 门槛）
+        require(KolPass(passContract).factory() == address(this), "NOT_FACTORY_PASS");
         require(KolPass(passContract).kol() == msg.sender, "NOT_OWN_PASS");
         require(fixedBidAmount > 0, "ZERO_BID");
         require(duration > 0, "ZERO_DURATION");

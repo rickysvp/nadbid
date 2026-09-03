@@ -6,6 +6,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 contract KolPass is ERC721 {
     address public kol;
     address public platformTreasury;
+    address public factory;          // 签发本 PASS 的 NadbidFactory（createKolAuction 校验合法 passContract）
     uint256 public baseSupply = 1000;
     uint256 public exponent = 2;
     uint256 public basePrice;
@@ -18,23 +19,25 @@ contract KolPass is ERC721 {
 
     mapping(uint256 => uint256) public curveSupplyCache; // 预留（如需要）
 
-    constructor(address _kol, uint256 _basePrice, address _platformTreasury)
+    constructor(address _kol, uint256 _basePrice, address _platformTreasury, address _factory)
         ERC721(string.concat("Nadbid-", _toString(address(this))), "NPASS")
     {
         kol = _kol;
         basePrice = _basePrice;
         platformTreasury = _platformTreasury;
+        factory = _factory;
     }
 
     // price(supply) = basePrice * (supply / baseSupply)^2
+    // curvePrice() 返回「下一枚的实际成本」，即 curvePriceAt(totalMinted + 1)。
+    // 修复前 supply==0 时返回 basePrice（满额锚点价），与首枚实际成本 curvePriceAt(1)
+    // 相差 baseSupply^2 倍（100 万倍），误导前端显示并阻断余额充足用户 mint。
     function curvePrice() public view returns (uint256) {
-        uint256 supply = totalMinted;
-        if (supply == 0) return basePrice;
-        return basePrice * supply * supply / (baseSupply * baseSupply);
+        return curvePriceAt(totalMinted + 1);
     }
 
     function curvePriceAt(uint256 nextSupply) public view returns (uint256) {
-        if (nextSupply == 0) return basePrice;
+        if (nextSupply == 0) return 0;
         return basePrice * nextSupply * nextSupply / (baseSupply * baseSupply);
     }
 

@@ -16,7 +16,7 @@ contract KolAuctionTest is Test {
     uint256 duration = 120;
 
     function setUp() public {
-        pass = new KolPass(kol, 13.39 ether, platform);
+        pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
         // KolAuction 需传 registry（供 banned 检查）；测试用独立 registry 实例
         NadbidRegistry reg = new NadbidRegistry(1000);
         auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg));

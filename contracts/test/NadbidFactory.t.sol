@@ -47,4 +47,23 @@ contract NadbidFactoryTest is Test {
         assertEq(registry.getKol(kol).auctionContracts.length, 1);
         vm.stopPrank();
     }
+
+    // 回归测试：伪造 passContract（kol() 返回攻击者但非本 Factory 签发）必须被拒
+    function test_CreateKolAuction_RejectsFakePass() public {
+        FakePass fake = new FakePass(kol);
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000);
+        vm.deal(kol, 10 ether);
+        registry.depositBond{value: 10 ether}();
+        vm.expectRevert("NOT_FACTORY_PASS");
+        factory.createKolAuction(address(fake), 99 ether, 120, "fake content");
+        vm.stopPrank();
+    }
+}
+
+// 模拟攻击者伪造的 PASS：kol() 返回攻击者，但 factory() 不是本 NadbidFactory
+contract FakePass {
+    address public kol;
+    address public factory = address(0xDEAD);
+    constructor(address _kol) { kol = _kol; }
 }
