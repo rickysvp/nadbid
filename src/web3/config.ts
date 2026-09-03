@@ -37,7 +37,7 @@ export const wagmiConfig = createConfig({
   connectors: [
     injected({ target: 'metaMask' }),
     walletConnect({
-      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'c111313e8062592e9151a86a383f2994',
       showQrModal: true,
     }),
   ],
