@@ -122,11 +122,17 @@ function InteractiveBondingCurve({ maxPass, currentPrice }: { maxPass: number; c
 }
 
 // Countdown hook for circular progress
-function useCountdownDetail(targetDate: number) {
-  const [timeLeft, setTimeLeft] = useState(Math.max(0, targetDate - Date.now()));
+function useCountdownDetail(targetDate: number | undefined) {
+  const [timeLeft, setTimeLeft] = useState(targetDate === undefined ? undefined : Math.max(0, targetDate - Date.now()));
   const [progress, setProgress] = useState(100);
 
   useEffect(() => {
+    if (targetDate === undefined) {
+      // 数据加载期：目标时间未知，不启动倒计时，也不呈现已结束
+      setTimeLeft(undefined);
+      setProgress(100);
+      return;
+    }
     const interval = setInterval(() => {
       const remaining = targetDate - Date.now();
       if (remaining > 0) {
@@ -141,13 +147,16 @@ function useCountdownDetail(targetDate: number) {
     return () => clearInterval(interval);
   }, [targetDate]);
 
-  const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
-  const seconds = Math.floor((timeLeft / 1000) % 60);
-  const totalSeconds = Math.floor(timeLeft / 1000);
-  const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const hours = Math.floor(((timeLeft ?? 0) / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor(((timeLeft ?? 0) / 1000 / 60) % 60);
+  const seconds = Math.floor(((timeLeft ?? 0) / 1000) % 60);
+  const totalSeconds = Math.floor((timeLeft ?? 0) / 1000);
+  const timeString =
+    timeLeft === undefined
+      ? '--:--:--'
+      : `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-  return { timeString, progress, isOver: timeLeft <= 0, totalSeconds };
+  return { timeString, progress, isOver: timeLeft !== undefined && timeLeft <= 0, totalSeconds, isPending: timeLeft === undefined };
 }
 
 // 便士拍卖固定出价 99 MON/次：leaderboard 初始 tvl = bids × 99（与 lastBidder 长条口径一致）
@@ -636,6 +645,8 @@ function ChainAuctionDetail({ address }: { address: string }) {
     auctionData,
     cumulativeBid,
     bidCount,
+    lastBidderCumulative,
+    lastBidderBidCount,
     placeBid,
     settle,
     isLoading: txLoading,
@@ -649,10 +660,12 @@ function ChainAuctionDetail({ address }: { address: string }) {
   // KOL 展示信息：链上仅 kol 地址 → 从 mock 回退推断；找不到用 shortenAddress
   const kolMeta = useMemo(() => inferKolMeta(auctionData?.kol), [auctionData?.kol]);
 
-  // 倒计时：从链上 endTime（秒级 Unix 时间戳）推算，沿用现有 CircularProgress 逻辑
-  const endTimeMs = auctionData ? Number(auctionData.endTime) * 1000 : Date.now();
+  // 倒计时：从链上 endTime（秒级 Unix 时间戳）推算，沿用现有 CircularProgress 逻辑。
+  // 数据加载期（auctionData 未就绪）不传入时间 → useCountdownDetail 返回 isPending，
+  // 避免加载期倒计时被置为 now 而误显示 "AUCTION ENDED"。
+  const endTimeMs = auctionData ? Number(auctionData.endTime) * 1000 : undefined;
   const countdown = useCountdownDetail(endTimeMs);
-  const { timeString, progress, totalSeconds, isOver } = countdown;
+  const { timeString, progress, totalSeconds, isOver, isPending } = countdown;
 
   const fixedBid = auctionData ? Number(auctionData.fixedBidAmount) / 1e18 : DEFAULT_BID_AMOUNT;
   const totalBids = auctionData ? Number(auctionData.totalBids) : 0;
@@ -661,7 +674,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
     auctionData && auctionData.lastBidder !== '0x0000000000000000000000000000000000000000'
       ? auctionData.lastBidder
       : null;
-  const isEnded = isOver;
+  const isEnded = !isPending && isOver;
   const isSettled = auctionData?.settled ?? false;
   const isLive = !!auctionData && !isEnded && !isSettled;
   const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
@@ -818,15 +831,23 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   <span className="text-right">
                     <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Bids</span>
                     <span className="font-mono text-[13px] font-bold text-white">
-                      {isLastBidderYou ? Number(bidCount ?? 0n).toLocaleString() : '-'}
+                      {lastBidderBidCount !== undefined
+                        ? Number(lastBidderBidCount).toLocaleString()
+                        : lastBidder
+                          ? (isLastBidderYou ? Number(bidCount ?? 0n).toLocaleString() : '-')
+                          : '-'}
                     </span>
                   </span>
                   <span className="text-right">
                     <span className="block text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">Total Spent</span>
                     <span className="font-mono text-[13px] font-bold text-white">
-                      {isLastBidderYou
-                        ? `${round2(Number(cumulativeBid ?? 0n) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
-                        : '-'}
+                      {lastBidderCumulative !== undefined
+                        ? `${round2(Number(lastBidderCumulative) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
+                        : lastBidder
+                          ? (isLastBidderYou
+                              ? `${round2(Number(cumulativeBid ?? 0n) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2 })} MON`
+                              : '-')
+                          : '-'}
                     </span>
                   </span>
                 </span>

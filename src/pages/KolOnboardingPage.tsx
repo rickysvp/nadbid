@@ -67,7 +67,7 @@ const STEPS: StepDef[] = [
 export default function KolOnboardingPage() {
   const { isConnected, address, isConnecting, connect, disconnect } =
     useWalletStore();
-  const { success, error: toastError, info, warning } = useToast();
+  const { success, error: toastError, info } = useToast();
   const queryClient = useQueryClient();
 
   const registry = useRegistry(
@@ -207,11 +207,11 @@ export default function KolOnboardingPage() {
         setIsVerifyingTwitter(false);
       }
     } catch {
-      warning(
-        'Verification server unreachable (port 3001). Continuing with mock data — start the server for real verification.',
+      // 安全策略：server 不可达时不得静默视为验证通过（否则可绕过粉丝门槛注册）。
+      // 明确报错并停留在未验证状态；用户偏好真实数据，不提供 mock 降级路径。
+      toastError(
+        'Verification server unreachable. X OAuth is required to verify your account — please try again.',
       );
-      setTwitterVerified(true);
-      setTwitterFollowers(1000);
       setIsVerifyingTwitter(false);
     }
   };

@@ -40,6 +40,10 @@ export interface UseAuctionResult {
   cumulativeBid: bigint | undefined;
   /** 指定账户出价次数 */
   bidCount: bigint | undefined;
+  /** 最后出价人（当前领先者）的累计出价金额 */
+  lastBidderCumulative: bigint | undefined;
+  /** 最后出价人（当前领先者）的出价次数 */
+  lastBidderBidCount: bigint | undefined;
   // ---- 链上写入 ----
   /**
    * placeBid(opts)：以固定价出价。
@@ -95,10 +99,21 @@ export function useAuction(
     args: [account ?? '0x0000000000000000000000000000000000000000'],
     query: { enabled: account !== undefined },
   });
+  // 最后出价人（当前领先者）的累计数据：无论是否本人，前端都可展示高价值信息
+  const lastBidderCumulativeRes = useReadContract({
+    address: auctionAddress,
+    abi: kolAuctionAbi,
+    functionName: 'lastBidderCumulative',
+  });
+  const lastBidderBidCountRes = useReadContract({
+    address: auctionAddress,
+    abi: kolAuctionAbi,
+    functionName: 'lastBidderBidCount',
+  });
 
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
 
-  // 事件驱动：任何 BidPlaced 都会刷新拍卖状态 / 累计出价 / 出价次数
+  // 事件驱动：任何 BidPlaced 都会刷新拍卖状态 / 累计出价 / 出价次数 / lastBidder 累计
   useWatchContractEvent({
     address: auctionAddress,
     abi: kolAuctionAbi,
@@ -108,6 +123,8 @@ export function useAuction(
       auctionRes.refetch();
       cumulativeRes.refetch();
       bidCountRes.refetch();
+      lastBidderCumulativeRes.refetch();
+      lastBidderBidCountRes.refetch();
     },
   });
 
@@ -149,6 +166,8 @@ export function useAuction(
     auctionData: auctionRes.data as AuctionData | undefined,
     cumulativeBid: cumulativeRes.data as bigint | undefined,
     bidCount: bidCountRes.data as bigint | undefined,
+    lastBidderCumulative: lastBidderCumulativeRes.data as bigint | undefined,
+    lastBidderBidCount: lastBidderBidCountRes.data as bigint | undefined,
     placeBid,
     settle,
     status,

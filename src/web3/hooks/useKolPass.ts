@@ -34,12 +34,17 @@ export interface UseKolPassResult {
   // ---- 链上写入 ----
   /**
    * mint(quantity, opts)：铸造 quantity 个 PASS。
-   * value 默认按 curvePrice × quantity 兜底（单币精确）；多币 mint 请调用方通过 opts.value
-   * 传入精确累计成本（可逐 supply 累加 curvePriceAt）。
+   * value 默认按曲线逐枚累加（与链上 mint 完全一致），可自行传入 opts.value 覆盖。
    */
   mint: (quantity: bigint, opts?: { value?: bigint } & KolPassTxOptions) => Promise<Hash | null>;
   /** burn(tokenIds)：销毁指定 tokenId 的 PASS */
   burn: (tokenIds: readonly bigint[], opts?: KolPassTxOptions) => Promise<Hash | null>;
+  /**
+   * estimateMintCost(quantity)：估算 mint quantity 个 PASS 的精确链上成本（wei，含 8% 手续费缓冲），
+   * 与 mint 默认 value 完全一致。供 UI 在确认弹窗展示与实际扣款一致的金额。
+   * 曲线参数未加载（curveConfig 为 undefined）时返回 undefined。
+   */
+  estimateMintCost: (quantity: bigint) => bigint | undefined;
   // ---- 交易状态（mint / burn 共享同一状态机） ----
   status: TxStatus;
   txHash: Hash | null;
@@ -52,14 +57,35 @@ export interface UseKolPassResult {
 }
 
 /**
+ * 计算 mint quantity 个 PASS 的精确成本（wei，含 8% 手续费缓冲）。
+ * 与链上 KolPass.mint 计价完全一致：第 k 枚成本 = curvePriceAt(totalMinted + k)，再乘 108/100。
+ * 曲线参数缺失时返回 undefined。
+ */
+export function estimateMintCostWei(
+  curveConfig: CurveConfig | undefined,
+  currentSupply: bigint | undefined,
+  quantity: bigint,
+): bigint | undefined {
+  if (!curveConfig || currentSupply === undefined || quantity <= 0n) return undefined;
+  const { basePrice, baseSupply } = curveConfig;
+  const start = currentSupply;
+  let acc = 0n;
+  for (let k = 0n; k < quantity; k++) {
+    const ns = start + k + 1n;
+    acc += (basePrice * ns * ns) / (baseSupply * baseSupply);
+  }
+  return (acc * 108n) / 100n;
+}
+
+/**
  * useKolPass — 单个 KOL 的 PASS NFT 合约读写封装。
  *
  * @param passAddress KolPass 合约地址（来自 Registry.getKol().passContracts，动态获取）
  * @param account 可选，用于查询持仓 balanceOf
  *
  * @example
- * const { curvePrice, totalSupply, balanceOf, mint, burn, isLoading } = useKolPass(passAddress, address);
- * await mint(1n, { value: curvePrice });
+ * const { curvePrice, totalSupply, balanceOf, mint, estimateMintCost, isLoading } = useKolPass(passAddress, address);
+ * await mint(1n, { value: estimateMintCost(1n) });
  */
 export function useKolPass(
   passAddress: `0x${string}` | undefined,
@@ -95,28 +121,14 @@ export function useKolPass(
     (quantity: bigint, opts: { value?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
       if (!passAddress) return Promise.resolve(null);
       const { value, onSuccess, toast } = opts;
-      const curvePrice = curvePriceRes.data as bigint | undefined;
-      const supply = totalSupplyRes.data as bigint | undefined;
       // 精确 value 优先；否则按曲线公式逐枚累加估算（与链上 mint 完全一致），
       // 覆盖 curvePrice × quantity 单币近似在高供应量下不足的问题。
       let cost = value;
-      if (cost === undefined && curveConfig && curvePrice !== undefined) {
-        const basePrice = curveConfig.basePrice;
-        const baseSupply = curveConfig.baseSupply;
-        const start = supply ?? 0n;
-        let acc = 0n;
-        for (let k = 0n; k < quantity; k++) {
-          const ns = start + k + 1n;
-          if (ns === 0n) {
-            acc += basePrice;
-          } else {
-            acc += (basePrice * ns * ns) / (baseSupply * baseSupply);
-          }
-        }
-        // 8% 手续费缓冲
-        cost = (acc * 108n) / 100n;
-      } else if (cost === undefined) {
-        cost = (curvePrice ?? 0n) * quantity;
+      if (cost === undefined) {
+        cost = estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity);
+      }
+      if (cost === undefined) {
+        cost = (curvePriceRes.data as bigint | undefined ?? 0n) * quantity;
       }
       return write({
         address: passAddress,
@@ -129,6 +141,17 @@ export function useKolPass(
       });
     },
     [write, passAddress, curvePriceRes.data, totalSupplyRes.data, curveConfig],
+  );
+
+  const estimateMintCost = useCallback(
+    (quantity: bigint): bigint | undefined => {
+      if (!passAddress) return undefined;
+      return (
+        estimateMintCostWei(curveConfig, totalSupplyRes.data as bigint | undefined, quantity) ??
+        ((curvePriceRes.data as bigint | undefined ?? 0n) * quantity)
+      );
+    },
+    [passAddress, curveConfig, totalSupplyRes.data, curvePriceRes.data],
   );
 
   const burn = useCallback(
@@ -153,6 +176,7 @@ export function useKolPass(
     curveConfig: curveConfigRes.data as CurveConfig | undefined,
     mint,
     burn,
+    estimateMintCost,
     status,
     txHash,
     error,

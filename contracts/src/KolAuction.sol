@@ -26,6 +26,11 @@ contract KolAuction {
     mapping(address => uint256) public cumulativeBid;
     mapping(address => uint256) public bidCount;
 
+    // 最后出价人（当前领先者）的累计出价数据——便于前端无论是否本人都能展示
+    // "最后出价人出价次数 / 累计金额"等高价值信息（placeBid 时同步更新）。
+    uint256 public lastBidderCumulative;
+    uint256 public lastBidderBidCount;
+
     address public platformTreasury;
     address public registry;  // 供 banned 检查
     uint256 public constant BID_EXTEND_SECONDS = 40;  // 对 SPEC §6.4 原 60s 的裁剪
@@ -71,6 +76,9 @@ contract KolAuction {
         a.lastBidder = msg.sender;
         a.totalBids++;
         a.totalVolume += msg.value;
+        // 同步最后出价人（= 当前出价者）的累计数据，供前端展示高价值信息
+        lastBidderCumulative = cumulativeBid[msg.sender];
+        lastBidderBidCount = bidCount[msg.sender];
         // 倒计时重置 40s
         a.endTime = block.timestamp + BID_EXTEND_SECONDS;
         emit BidPlaced(a.id, seq, msg.sender, msg.value, block.timestamp);

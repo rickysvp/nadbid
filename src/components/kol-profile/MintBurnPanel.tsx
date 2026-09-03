@@ -108,6 +108,19 @@ export function MintBurnPanel({
 
   /** 总成本 / 总返还 = 数量 × 当前单位价格（债券曲线模型，见 usePassMintBurn） */
   const totalAmount = qtyNum * effectivePrice;
+
+  /**
+   * 链上路径的精确成本（wei，含 8% 手续费缓冲）：与链上 mint 实际扣款一致，
+   * 修复"显示 单枚价×qty 与实际逐枚累加扣款不一致"的问题。曲线参数未加载时 undefined。
+   */
+  const chainCostWei = isChainPath && isQtyValid ? chain.estimateMintCost(BigInt(qtyNum)) : undefined;
+  /** 链上精确成本 → MON（显示用） */
+  const chainCostMon = chainCostWei !== undefined ? Number(chainCostWei) / 1e18 : undefined;
+  /** 确认弹窗使用的 Unit Price / Total Cost：链上路径取精确成本口径，mock 路径保持原逻辑 */
+  const displayUnitPrice =
+    isChainPath && chainCostMon !== undefined ? chainCostMon / qtyNum : effectivePrice;
+  const displayTotalAmount =
+    isChainPath && chainCostMon !== undefined ? chainCostMon : totalAmount;
   /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌） */
   const newSupply = isMint ? supplyAfterMint(effectiveSupply, qtyNum) : supplyAfterBurn(effectiveSupply, qtyNum);
   const newPrice = curvePriceAt(newSupply, effectiveSupply, effectivePrice);
@@ -193,13 +206,13 @@ export function MintBurnPanel({
     { label: 'KOL', value: `${kolName} (${kolHandle})` },
     { label: 'Action', value: isMint ? 'Mint PASS' : 'Burn PASS' },
     { label: 'Quantity', value: `${qtyNum} PASS` },
-    { label: 'Unit Price', value: `${effectivePrice.toFixed(2)} MON` },
+    { label: 'Unit Price', value: `${displayUnitPrice.toFixed(6)} MON` },
     {
       label: isMint ? 'Total Cost' : 'Est. Return',
-      value: `${totalAmount.toFixed(2)} MON`,
+      value: `${displayTotalAmount.toFixed(6)} MON`,
       highlight: true,
     },
-    { label: 'Est. New Price', value: `${newPrice.toFixed(2)} MON` },
+    { label: 'Est. New Price', value: `${newPrice.toFixed(6)} MON` },
   ];
 
   return (
@@ -294,16 +307,16 @@ export function MintBurnPanel({
           <span>{isMint ? 'Est. Cost' : 'Est. Return'}</span>
           <span className={isMint ? 'text-white' : 'text-[#3ec470]'}>
             {isMint ? '−' : '+'}
-            {totalAmount.toFixed(2)} MON
+            {displayTotalAmount.toFixed(6)} MON
           </span>
         </div>
         <div className="flex justify-between text-white/50">
           <span>Est. New Price</span>
-          <span className="text-white">{newPrice.toFixed(2)} MON</span>
+          <span className="text-white">{newPrice.toFixed(6)} MON</span>
         </div>
         <div className="flex justify-between font-bold text-white pt-3 border-t border-white/[0.04]">
           <span>{isMint ? 'Total' : 'Net Receive'}</span>
-          <span className="text-white">{totalAmount.toFixed(2)} MON</span>
+          <span className="text-white">{displayTotalAmount.toFixed(6)} MON</span>
         </div>
       </div>
 

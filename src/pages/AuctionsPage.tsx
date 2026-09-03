@@ -173,7 +173,9 @@ function ChainAuctionCard({
   const hasHandle = !!kolData?.twitterHandle && kolData.twitterHandle.trim() !== '';
   const kolName = hasHandle ? kolData!.twitterHandle.replace(/^@/, '') : shortenAddress(kolAddress);
   const kolHandle = hasHandle ? kolData!.twitterHandle : shortenAddress(kolAddress);
-  const profileTo = hasHandle ? kolProfilePath(kolName) : undefined;
+  // KOL 头像/名称链接：链上 KOL 以钱包地址为唯一身份（KolProfilePage 对 0x 开头的 handle
+  // 直接解析 Registry.getKol(wallet).passContracts[0]），不再用 handle 查找 mock 数据
+  const profileTo = kolAddress !== ZERO_ADDRESS ? kolProfilePath(kolAddress) : undefined;
 
   const status = auctionData ? deriveChainStatus(auctionData) : undefined;
   const isLive = status === 'LIVE';

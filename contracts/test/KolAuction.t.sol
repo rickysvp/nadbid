@@ -34,6 +34,28 @@ contract KolAuctionTest is Test {
         assertEq(auction.cumulativeBid(bidder), fixedBid);
     }
 
+    function test_LastBidder_CumulativeTracksLeader() public {
+        // bidder 出价 2 次 → lastBidder 累计 = 2×99
+        vm.startPrank(bidder);
+        auction.placeBid{value: fixedBid}();
+        auction.placeBid{value: fixedBid}();
+        vm.stopPrank();
+        assertEq(auction.lastBidder(), bidder);
+        assertEq(auction.lastBidderBidCount(), 2);
+        assertEq(auction.lastBidderCumulative(), fixedBid * 2);
+
+        // 新 bidder2 出价 1 次 → 领先者切换，lastBidder 累计反映新领先者
+        address bidder2 = address(0x5678);
+        vm.deal(bidder2, 1000 ether);
+        vm.prank(bidder2);
+        pass.mint{value: 13.39 ether * 108 / 100}(1);
+        vm.prank(bidder2);
+        auction.placeBid{value: fixedBid}();
+        assertEq(auction.lastBidder(), bidder2);
+        assertEq(auction.lastBidderBidCount(), 1);
+        assertEq(auction.lastBidderCumulative(), fixedBid);
+    }
+
     function test_PlaceBid_WrongAmount() public {
         vm.prank(bidder);
         vm.expectRevert();

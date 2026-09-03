@@ -11,7 +11,8 @@ import { getKolByHandle, mockKolStats } from '../data/mockKols';
 import { CURVE_DEFAULTS } from '../utils/constants';
 import { useWalletStore } from '../stores/walletStore';
 import { useKolPass } from '../web3/hooks/useKolPass';
-import type { Kol } from '../types';
+import { useRegistry, type KolData } from '../web3/hooks/useRegistry';
+import { shortenAddress } from '../utils/format';
 import { cn } from '../utils/cn';
 
 // Interactive Bonding Curve with zoom and tooltip
@@ -210,16 +211,26 @@ const historicalAuctions = [
 /**
  * 推断 KOL 的 KolPass 合约地址（Task 12 链上接入）。
  *
- * 链上 KOL 是地址（Registry.getKol(钱包).passContracts[0]），而页面路由 handle 是字符串
- * （如 0xchine），需 handle → 地址映射。当前 mock 数据无地址字段，无法可靠推断 →
- * 返回 undefined，页面保留 mock 展示（标注待部署后接入）。
- * 预留：mockKols 增加可选 address / passAddress 字段，或合约部署后由链上索引补充时，
- * 本函数无需改动即可命中。
+ * 路由 handle 有两种形态：
+ *  1. 0x 钱包地址（链上 KOL 唯一身份，从链上拍卖卡片 /kol/0x... 进入）→
+ *     直接视为 KOL 钱包地址，passAddress = getKol(wallet).passContracts[0]。
+ *  2. 字符串 handle（mock KOL，如 @0xchine）→ 链上无法解析，保留 mock 展示。
+ *
+ * 返回 { kolAddress, passAddress, chainKolData }：
+ *  - kolAddress：链上 KOL 钱包地址（handle 为 0x 时等于 handle，否则 undefined）
+ *  - passAddress：该 KOL 最近部署的 PASS 合约地址（getKol(wallet).passContracts 最后一项）
+ *  - chainKolData：链上 KOL 信息（twitterHandle / followers 等），供展示
  */
-function inferPassAddress(kol: Kol | undefined): `0x${string}` | undefined {
-  const addr = (kol as (Kol & { passAddress?: string }) | undefined)?.passAddress;
-  if (addr && addr.startsWith('0x')) return addr as `0x${string}`;
-  return undefined;
+function resolveChainKol(handle: string | undefined): {
+  kolAddress: `0x${string}` | undefined;
+  passAddress: `0x${string}` | undefined;
+  chainKolData: KolData | undefined;
+} {
+  if (!handle) return { kolAddress: undefined, passAddress: undefined, chainKolData: undefined };
+  if (handle.startsWith('0x')) {
+    return { kolAddress: handle as `0x${string}`, passAddress: undefined, chainKolData: undefined };
+  }
+  return { kolAddress: undefined, passAddress: undefined, chainKolData: undefined };
 }
 
 export default function KolProfilePage() {
@@ -235,11 +246,26 @@ export default function KolProfilePage() {
   const [curveSupply, setCurveSupply] = useState<number>(CURVE_DEFAULTS.REFERENCE_SUPPLY);
   const [curvePrice, setCurvePrice] = useState<number>(CURVE_DEFAULTS.BASE_PRICE);
 
-  // ---- Task 12 链上接入：推断 passAddress（当前 mock 无地址映射 → undefined，保留 mock）----
+  // ---- 链上接入：handle 为 0x 钱包地址 → 走链上真实数据；否则 mock 双路径回退 ----
   const wallet = useWalletStore();
   const account =
     wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
-  const passAddress = useMemo(() => inferPassAddress(kol), [kol]);
+
+  // 解析链上 KOL 身份：0x handle → 钱包地址 + Registry 数据
+  const { kolAddress } = useMemo(() => {
+    const resolved = resolveChainKol(handle);
+    return { kolAddress: resolved.kolAddress, chainKolData: resolved.chainKolData };
+  }, [handle]);
+
+  // 查询链上 KOL（钱包地址）信息 → passContracts[0] 即其 PASS 合约
+  const chainRegistry = useRegistry(kolAddress);
+  const chainKolInfo = chainRegistry.kolData;
+  const passAddress = useMemo(() => {
+    const passContracts = chainKolInfo?.passContracts ?? [];
+    if (passContracts.length > 0) return passContracts[passContracts.length - 1] as `0x${string}`;
+    return undefined;
+  }, [chainKolInfo]);
+
   const chainPass = useKolPass(passAddress, account);
 
   // 链上数据（wei → MON / 供应量整数）；undefined 时回退 mock 基线
@@ -250,6 +276,14 @@ export default function KolProfilePage() {
   // 展示值：链上路径优先链上 curvePrice / totalSupply；mock 路径维持页面 useState 联动逻辑
   const actualSupply = chainSupply ?? curveSupply;
   const actualMintPrice = chainPrice ?? curvePrice;
+
+  // 链上 KOL 展示信息（handle 为 0x 且链上已注册时，用链上 twitterHandle / followers 覆盖 mock 字段）
+  const chainKolName =
+    kolAddress && chainKolInfo?.registered && chainKolInfo.twitterHandle
+      ? chainKolInfo.twitterHandle.replace(/^@/, '')
+      : undefined;
+  const chainKolFollowers =
+    kolAddress && chainKolInfo?.registered ? Number(chainKolInfo.followers) : undefined;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -271,7 +305,17 @@ export default function KolProfilePage() {
     setCurvePrice(result.newPrice);
   };
 
-  if (!kol) {
+  // 展示用的 KOL 信息：链上优先，mock 回退
+  const displayName = chainKolName ?? kol?.name ?? (kolAddress ? shortenAddress(kolAddress) : '');
+  const displayHandle = chainKolName
+    ? `@${chainKolName}`
+    : kol?.handle ?? (kolAddress ? shortenAddress(kolAddress) : '');
+  const displayFollowers = chainKolFollowers ?? kol?.followers ?? 0;
+  const displayBio = kol?.bio;
+  const displayRank = kol?.rank;
+  const displayAvatarHandle = chainKolName ?? kol?.handle ?? (kolAddress ?? '');
+
+  if (!kol && !kolAddress) {
     return (
       <div className="min-h-screen bg-transparent pt-32 pb-24">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
@@ -313,10 +357,10 @@ export default function KolProfilePage() {
           <div className="lg:col-span-3 bg-[#161616] border border-white/[0.04] rounded-lg p-6 flex flex-col items-center text-center">
             <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }} className="relative w-24 h-24 mb-4 cursor-pointer">
               <div className="absolute inset-0 bg-white/5 rounded-full animate-pulse"></div>
-              <KolAvatar handle={kol.handle} size="xl" name={kol.name} className="w-24 h-24 rounded-full object-cover border-2 border-[#161616] relative z-10 bg-[#0a0a0a] shadow-xl" />
+              <KolAvatar handle={displayAvatarHandle} size="xl" name={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[#161616] relative z-10 bg-[#0a0a0a] shadow-xl" />
             </motion.div>
-            <h1 className="text-2xl font-black tracking-tight mb-1">{kol.name}</h1>
-            <div className="text-white/40 text-sm font-mono mb-6">{kol.handle}</div>
+            <h1 className="text-2xl font-black tracking-tight mb-1">{displayName}</h1>
+            <div className="text-white/40 text-sm font-mono mb-6">{displayHandle}</div>
             <button onClick={() => info('Opening X profile...')} className="w-full bg-[#3ec470] text-black font-bold text-[11px] uppercase tracking-[0.15em] py-3 rounded hover:bg-[#4ade80] transition-all">
               Follow on X
             </button>
@@ -327,14 +371,14 @@ export default function KolProfilePage() {
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-4">Overview</h2>
               <p className="text-white/60 text-[13px] leading-relaxed max-w-3xl">
-                {kol.bio || 'High-frequency trading analyst focused on emerging L1 ecosystems. Primary proponent of Monad yield strategies and automated liquidity provision. Author of the definitive guide to MEV protection for retail traders.'}
+                {displayBio || 'High-frequency trading analyst focused on emerging L1 ecosystems. Primary proponent of Monad yield strategies and automated liquidity provision. Author of the definitive guide to MEV protection for retail traders.'}
               </p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Followers</div>
-                <div className="font-mono text-sm font-bold">{kol.followers.toLocaleString()}</div>
+                <div className="font-mono text-sm font-bold">{displayFollowers.toLocaleString()}</div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Supply</div>
@@ -350,7 +394,7 @@ export default function KolProfilePage() {
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">KOL Rank</div>
-                <div className="font-mono text-sm font-bold text-[#3ec470]">#{kol.rank}</div>
+                <div className="font-mono text-sm font-bold text-[#3ec470]">#{displayRank ?? '-'}</div>
               </div>
             </div>
           </div>
@@ -414,8 +458,8 @@ export default function KolProfilePage() {
           {/* Trade Pass — Mint / Burn 交易面板 */}
           <div className="lg:col-span-4">
             <MintBurnPanel
-              kolHandle={kol.handle.replace(/^@/, '').toLowerCase()}
-              kolName={kol.name}
+              kolHandle={displayHandle.replace(/^@/, '').toLowerCase()}
+              kolName={displayName}
               supply={actualSupply}
               price={actualMintPrice}
               passAddress={passAddress}
@@ -454,7 +498,7 @@ export default function KolProfilePage() {
           <div className="lg:col-span-6 bg-[#161616] border border-white/[0.04] rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                <KolAvatar handle={kol.handle} size="sm" name={kol.name} className="w-4 h-4 rounded-full" />
+                <KolAvatar handle={displayAvatarHandle} size="sm" name={displayName} className="w-4 h-4 rounded-full" />
               </div>
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em]">Staking</h3>
               <Info className="w-3.5 h-3.5 text-white/30 ml-1" />
