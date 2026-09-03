@@ -87,6 +87,7 @@ export function useKolPass(
     abi: kolPassAbi,
     functionName: 'getCurveConfig',
   });
+  const curveConfig = curveConfigRes.data as CurveConfig | undefined;
 
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
 
@@ -95,7 +96,28 @@ export function useKolPass(
       if (!passAddress) return Promise.resolve(null);
       const { value, onSuccess, toast } = opts;
       const curvePrice = curvePriceRes.data as bigint | undefined;
-      const cost = value ?? (curvePrice ?? 0n) * quantity;
+      const supply = totalSupplyRes.data as bigint | undefined;
+      // 精确 value 优先；否则按曲线公式逐枚累加估算（与链上 mint 完全一致），
+      // 覆盖 curvePrice × quantity 单币近似在高供应量下不足的问题。
+      let cost = value;
+      if (cost === undefined && curveConfig && curvePrice !== undefined) {
+        const basePrice = curveConfig.basePrice;
+        const baseSupply = curveConfig.baseSupply;
+        const start = supply ?? 0n;
+        let acc = 0n;
+        for (let k = 0n; k < quantity; k++) {
+          const ns = start + k + 1n;
+          if (ns === 0n) {
+            acc += basePrice;
+          } else {
+            acc += (basePrice * ns * ns) / (baseSupply * baseSupply);
+          }
+        }
+        // 8% 手续费缓冲
+        cost = (acc * 108n) / 100n;
+      } else if (cost === undefined) {
+        cost = (curvePrice ?? 0n) * quantity;
+      }
       return write({
         address: passAddress,
         abi: kolPassAbi,
@@ -106,7 +128,7 @@ export function useKolPass(
         toast,
       });
     },
-    [write, passAddress, curvePriceRes.data],
+    [write, passAddress, curvePriceRes.data, totalSupplyRes.data, curveConfig],
   );
 
   const burn = useCallback(
