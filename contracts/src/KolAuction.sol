@@ -48,7 +48,9 @@ contract KolAuction {
     event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp);
     event AuctionSettled(uint256 auctionId, address lastBidder, uint256 totalVolume, uint256 platformFee, uint256 guaranteePool, uint256 blockNumber);
 
-    constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury, address _registry) {
+    /// @param _startTime 拍卖开始时间（秒级 Unix 时间戳；= block.timestamp 立即开始）
+    constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury, address _registry, uint256 _startTime) {
+        require(_startTime >= block.timestamp, "START_PAST");
         auction = Auction({
             id: 1,
             kol: _kol,
@@ -56,8 +58,8 @@ contract KolAuction {
             fixedBidAmount: _fixedBidAmount,
             content: _content,
             itemCategory: 1,
-            startTime: block.timestamp,
-            endTime: block.timestamp + _duration,
+            startTime: _startTime,
+            endTime: _startTime + _duration,
             lastBidder: address(0),
             totalBids: 0,
             totalVolume: 0,
@@ -72,6 +74,7 @@ contract KolAuction {
         Auction storage a = auction;
         require(a.status == AuctionStatus.ACTIVE, "!ACTIVE");
         require(msg.value == a.fixedBidAmount, "!FIXED");     // 固定价
+        require(block.timestamp >= a.startTime, "NOT_STARTED"); // 预约拍卖未到开始时间不可出价
         require(block.timestamp < a.endTime, "ENDED");
         require(KolPass(a.passContract).balanceOf(msg.sender) > 0, "!HOLDER");
         require(!IRegistry(registry).isKolBanned(msg.sender), "BANNED");

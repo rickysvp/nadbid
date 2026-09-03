@@ -19,7 +19,7 @@ contract KolAuctionTest is Test {
         pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
         // KolAuction 需传 registry（供 banned 检查）；测试用独立 registry 实例
         NadbidRegistry reg = new NadbidRegistry(1000);
-        auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg));
+        auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg), block.timestamp);
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);
         vm.prank(bidder);
@@ -80,6 +80,26 @@ contract KolAuctionTest is Test {
         assertGt(auction.endTime(), before);                 // now+40 > T+20
     }
 
+    // 预约拍卖：开始时间未到不可出价，到点后正常出价
+    function test_PlaceBid_NotStartedBeforeStartTime() public {
+        NadbidRegistry reg = new NadbidRegistry(1000);
+        uint256 start = block.timestamp + 1000;
+        KolAuction sched = new KolAuction(kol, address(pass), fixedBid, duration, "scheduled", platform, address(reg), start);
+        // 未到开始时间：出价必须 revert
+        vm.prank(bidder);
+        vm.expectRevert();
+        sched.placeBid{value: fixedBid}();
+        // 初始 endTime = start + duration（预约开始推迟了结束时间）
+        assertEq(sched.endTime(), start + duration);
+        // 到开始时间后：正常出价
+        vm.warp(start);
+        vm.prank(bidder);
+        sched.placeBid{value: fixedBid}();
+        assertEq(sched.totalBids(), 1);
+        // 出价触发 40s 倒计时重置
+        assertEq(sched.endTime(), block.timestamp + 40);
+    }
+
     function test_Settle_AfterEnd() public {
         vm.prank(bidder);
         auction.placeBid{value: fixedBid}();
@@ -127,7 +147,7 @@ contract KolAuctionTest is Test {
         RejectingKol rejectKol = new RejectingKol();
         NadbidRegistry reg = new NadbidRegistry(1000);
         // 用拒收 KOL 重建拍卖（复用同一 pass，bidder 已持有）
-        KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg));
+        KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg), block.timestamp);
         vm.prank(bidder);
         rejAuction.placeBid{value: fixedBid}();
         vm.warp(block.timestamp + 1000);

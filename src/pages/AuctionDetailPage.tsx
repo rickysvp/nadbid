@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown } from 'lucide-react';
+import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown, Sparkles } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -16,6 +16,7 @@ import { useAuction } from '../web3/hooks/useAuction';
 import { useKolPass } from '../web3/hooks/useKolPass';
 import { contractAddresses, registryAbi } from '../web3/contracts';
 import { useReadContract } from '../web3/hooks/useReadContract';
+import { kolProfilePath } from '../config/routes';
 import type { KolData } from '../web3/hooks/useRegistry';
 
 /** 便士拍卖：单次出价固定金额（MON），兜底取 auction.bidIncrement */
@@ -76,6 +77,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
 
   const [connectOpen, setConnectOpen] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const [mintQty, setMintQty] = useState(1); // PASS mint 数量（详情页快速 mint）
 
   // 链上拍卖状态：placeBid 默认取链上 fixedBidAmount；BidPlaced 事件自动 refetch
   const {
@@ -90,9 +92,21 @@ function ChainAuctionDetail({ address }: { address: string }) {
     refetchAuction,
   } = useAuction(auctionAddress, account);
 
-  // PASS 持仓检查（出价前置条件：balanceOf > 0 才可出价）
-  const { balanceOf, totalSupply } = useKolPass(auctionData?.passContract, account);
+  // PASS 持仓检查（出价前置条件：balanceOf > 0 才可出价）+ 详情页快速 mint
+  const {
+    balanceOf,
+    totalSupply,
+    curvePrice: passCurvePrice,
+    estimateMintCost,
+    mint,
+    isLoading: mintLoading,
+  } = useKolPass(auctionData?.passContract, account);
   const holdPass = balanceOf !== undefined && balanceOf > 0n;
+  // 当前 mint 成本（wei → MON，含手续费缓冲）
+  const mintCostWei = auctionData && mintQty > 0 ? estimateMintCost(BigInt(mintQty)) : undefined;
+  const mintCostMon = mintCostWei !== undefined ? Number(mintCostWei) / 1e18 : undefined;
+  const mintUnitMon =
+    passCurvePrice !== undefined ? Number(passCurvePrice) / 1e18 : undefined;
 
   // KOL 展示信息：链上 Registry.getKol(kol) 读取真实 twitterHandle（KOL 入驻时链上登记）
   const kolRes = useReadContract({
@@ -112,8 +126,14 @@ function ChainAuctionDetail({ address }: { address: string }) {
   // 倒计时：从链上 endTime（秒级 Unix 时间戳）推算，沿用现有 CircularProgress 逻辑。
   // 数据加载期（auctionData 未就绪）不传入时间 → useCountdownDetail 返回 isPending，
   // 避免加载期倒计时被置为 now 而误显示 "AUCTION ENDED"。
+  // UPCOMING（预约未开始）时倒计时显示距 startTime 的剩余时间。
+  const startTimeMs = auctionData ? Number(auctionData.startTime) * 1000 : undefined;
   const endTimeMs = auctionData ? Number(auctionData.endTime) * 1000 : undefined;
-  const countdown = useCountdownDetail(endTimeMs);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const isUpcoming =
+    !!auctionData && Number(auctionData.startTime) > nowSec;
+  const countdownTarget = isUpcoming ? startTimeMs : endTimeMs;
+  const countdown = useCountdownDetail(countdownTarget);
   const { timeString, progress, totalSeconds, isOver, isPending } = countdown;
 
   const fixedBid = auctionData ? Number(auctionData.fixedBidAmount) / 1e18 : DEFAULT_BID_AMOUNT;
@@ -125,7 +145,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
       : null;
   const isEnded = !isPending && isOver;
   const isSettled = auctionData?.settled ?? false;
-  const isLive = !!auctionData && !isEnded && !isSettled;
+  const isLive = !!auctionData && !isEnded && !isSettled && !isUpcoming;
   const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
 
   const handleCopyLink = () => {
@@ -172,6 +192,30 @@ function ChainAuctionDetail({ address }: { address: string }) {
     });
   };
 
+  /** 详情页快速 mint PASS：未连接 → ConnectModal；已连接 → mint(mintQty) */
+  const handleMintPass = async () => {
+    if (!auctionData || mintQty <= 0 || mintLoading) return;
+    if (!wallet.isConnected) {
+      setConnectOpen(true);
+      return;
+    }
+    await mint(BigInt(mintQty), {
+      onSuccess: () => {
+        success(`Minted ${mintQty} ${kolName} PASS!`);
+        refetchAuction();
+      },
+    });
+  };
+
+  /** FOLLOW ON X：有链上 twitterHandle → 跳转真实推特；无 → 提示 */
+  const followOnX = () => {
+    if (hasKolHandle) {
+      window.open(`https://x.com/${kolTwitterHandle.replace(/^@/, '')}`, '_blank', 'noopener,noreferrer');
+    } else {
+      info('No X handle registered on-chain yet');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-transparent pt-32 pb-24 font-sans text-white relative">
       <div className="max-w-[1200px] mx-auto px-6 relative z-10">
@@ -203,6 +247,8 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 </h1>
                 {!auctionData ? (
                   <Badge variant="neutral">Loading</Badge>
+                ) : isUpcoming ? (
+                  <Badge variant="upcoming">Upcoming</Badge>
                 ) : isLive ? (
                   <Badge variant="live" pulse>Live</Badge>
                 ) : isSettled ? (
@@ -212,12 +258,15 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 )}
               </div>
 
-              {/* KOL 紧凑信息条（弱化展示） */}
-              <div className="flex items-center gap-3 bg-[#0f0f0f] border border-white/5 rounded-lg px-4 py-3 mb-5 relative z-10">
+              {/* KOL 紧凑信息条（弱化展示；可点击进入 KOL Profile） */}
+              <Link
+                to={auctionData?.kol ? kolProfilePath(auctionData.kol) : '#'}
+                className="flex items-center gap-3 bg-[#0f0f0f] border border-white/5 rounded-lg px-4 py-3 mb-5 relative z-10 group transition-colors hover:border-[#3ec470]/30 hover:bg-[#111]"
+              >
                 <KolAvatar handle={kolHandle} size="md" name={kolName} className="!w-9 !h-9 !rounded-full border border-white/10" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-white/90">{kolName}</span>
+                    <span className="font-bold text-white/90 group-hover:text-[#3ec470] transition-colors">{kolName}</span>
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#3ec470]/70" />
                     <span className="font-mono text-white/40 text-[11px]">{kolHandle}</span>
                   </div>
@@ -231,12 +280,12 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   </div>
                 </div>
                 <button
-                  onClick={() => info(`Follow ${kolHandle} on X`)}
+                  onClick={(e) => { e.preventDefault(); followOnX(); }}
                   className="shrink-0 bg-[#0a0a0a] border border-white/[0.06] text-white/60 hover:text-[#3ec470] text-[10px] font-bold uppercase tracking-[0.15em] py-1.5 px-3 rounded-lg hover:bg-white/[0.02] hover:border-[#3ec470]/30 transition-all text-center"
                 >
                   Follow on X
                 </button>
-              </div>
+              </Link>
 
               {/* 拍卖描述 */}
               <div className="text-white/50 text-[13px] leading-relaxed relative z-10">
@@ -345,7 +394,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 size={160}
                 strokeWidth={4}
                 label={isLive ? `${totalSeconds}s` : timeString}
-                sublabel={isSettled ? 'Settled' : isEnded ? 'Ended' : isLive ? 'In Progress' : 'Loading'}
+                sublabel={isSettled ? 'Settled' : isEnded ? 'Ended' : isUpcoming ? 'Starts In' : isLive ? 'In Progress' : 'Loading'}
               />
 
               <div className="w-full grid grid-cols-3 gap-2 border-y border-white/[0.04] py-5 my-6 text-center">
@@ -389,11 +438,13 @@ function ChainAuctionDetail({ address }: { address: string }) {
                       ? 'AUCTION SETTLED'
                       : isEnded
                         ? 'AUCTION ENDED'
-                        : txLoading
-                          ? 'BIDDING...'
-                          : wallet.isConnected
-                            ? 'PLACE BID'
-                            : 'ENTER AUCTION'}
+                        : isUpcoming
+                          ? 'STARTS SOON'
+                          : txLoading
+                            ? 'BIDDING...'
+                            : wallet.isConnected
+                              ? 'PLACE BID'
+                              : 'ENTER AUCTION'}
                 </button>
 
                 {/* 结束且未结算 → 结算按钮（加分项） */}
@@ -412,7 +463,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
               </div>
             </div>
 
-            {/* Pass Info（链上简化：真实 balance / supply，Mint/Burn 走 KOL Profile 页面 Task 12） */}
+            {/* Pass Info（链上真实：balance / supply）+ 快速 Mint PASS 入口 */}
             <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
               <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-5">{kolName} PASS</h3>
 
@@ -427,12 +478,70 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 </div>
               </div>
 
-              <div className="text-center mt-5">
-                <div className="text-white/30 text-[8px] font-bold tracking-[0.15em] uppercase mb-1.5">
-                  Your Pass Holdings: <span className="text-white/60">{account ? (balanceOf ?? 0n).toString() : '0'}</span>
+              {/* 快速 Mint：数量 + 成本 + CTA（曲线价计价，与 KOL Profile 面板一致） */}
+              {auctionData ? (
+                <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Mint Price</span>
+                    <span className="font-mono text-[12px] font-bold text-[#3ec470]">
+                      {mintUnitMon !== undefined ? `${mintUnitMon.toFixed(4)} MON` : '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Quantity</span>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setMintQty(n)}
+                          className={cn(
+                            'w-7 h-7 rounded text-[11px] font-bold font-mono transition-colors border',
+                            mintQty === n
+                              ? 'bg-[#3ec470] text-black border-[#3ec470]'
+                              : 'bg-white/[0.04] text-white/60 border-white/[0.06] hover:border-[#3ec470]/40',
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
+                    <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Total Cost</span>
+                    <span className="font-mono text-[12px] font-bold text-white">
+                      {mintCostMon !== undefined ? `${mintCostMon.toFixed(4)} MON` : '-'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleMintPass}
+                    disabled={mintQty <= 0 || mintLoading || !wallet.isConnected && false}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-1.5 font-black text-[12px] py-2.5 rounded transition-all active:scale-[0.98]',
+                      !wallet.isConnected || mintLoading
+                        ? 'bg-white/[0.06] text-white/40 cursor-pointer hover:bg-white/10'
+                        : 'bg-[#3ec470] text-black hover:bg-[#4ade80]',
+                    )}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {mintLoading ? 'MINTING...' : !wallet.isConnected ? 'CONNECT TO MINT PASS' : `MINT ${mintQty} PASS`}
+                  </button>
+                  <div className="text-white/30 text-[9px] text-center">
+                    You hold <span className="text-white/60">{account ? (balanceOf ?? 0n).toString() : '0'}</span> PASS
+                    {' · '}
+                    <Link to={auctionData ? kolProfilePath(auctionData.kol) : '#'} className="text-[#3ec470]/80 hover:text-[#3ec470] font-bold">
+                      Full trade panel
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-white/30 text-[9px] italic">PASS mint / burn available on the KOL profile page.</div>
-              </div>
+              ) : (
+                <div className="text-center mt-5">
+                  <div className="text-white/30 text-[8px] font-bold tracking-[0.15em] uppercase mb-1.5">
+                    Your Pass Holdings: <span className="text-white/60">{account ? (balanceOf ?? 0n).toString() : '0'}</span>
+                  </div>
+                  <div className="text-white/30 text-[9px] italic">Loading PASS data...</div>
+                </div>
+              )}
             </div>
           </div>
         </div>

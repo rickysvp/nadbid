@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { parseEther } from 'viem';
 import {
   Wallet,
@@ -84,9 +85,6 @@ export default function KolOnboardingPage() {
   const [twitterFollowers, setTwitterFollowers] = useState(0);
   const [isVerifyingTwitter, setIsVerifyingTwitter] = useState(false);
   const [mintPrice, setMintPrice] = useState('0.001');
-  const [fixedBidAmount, setFixedBidAmount] = useState('99');
-  const [auctionContent, setAuctionContent] = useState('');
-  const [auctionDuration, setAuctionDuration] = useState('120');
 
   // ---- 从链上数据推导已完成步骤 ----
   const completedSteps = useMemo(() => {
@@ -305,48 +303,8 @@ export default function KolOnboardingPage() {
   };
 
   // ==========================================================================
-  // Step 4: 创建拍卖
+  // Step 4（第 5 步）: 创建拍卖 — 主入口在拍卖 Tab（Auctions 页），此处仅引导
   // ==========================================================================
-
-  const handleCreateAuction = async () => {
-    if (factory.isAddressMissing) {
-      toastError('Factory contract not deployed.');
-      return;
-    }
-    const passContracts = registry.kolData?.passContracts;
-    if (!passContracts || passContracts.length === 0) {
-      toastError('No PASS contract found. Create a PASS first.');
-      return;
-    }
-    if (!auctionContent.trim()) {
-      toastError('Please enter auction content description');
-      return;
-    }
-    const durationSec = Number(auctionDuration || '120');
-    if (!Number.isFinite(durationSec) || durationSec <= 0) {
-      toastError('Auction duration must be a positive number of seconds');
-      return;
-    }
-    if (durationSec > 24 * 60 * 60) {
-      toastError('Auction duration cannot exceed 24 hours (on-chain limit)');
-      return;
-    }
-    const passContract = passContracts[passContracts.length - 1];
-    await factory.createKolAuction(
-      {
-        passContract,
-        fixedBidAmount: parseEther(fixedBidAmount || '0'),
-        duration: BigInt(auctionDuration || '120'),
-        content: auctionContent.trim(),
-      },
-      {
-        onSuccess: () => {
-          success('Auction created successfully!');
-          invalidateAll();
-        },
-      },
-    );
-  };
 
   // ==========================================================================
   // 各步骤内容渲染
@@ -573,67 +531,24 @@ export default function KolOnboardingPage() {
       case 4:
         return (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                  Fixed Bid (MON)
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={fixedBidAmount}
-                  onChange={(e) => setFixedBidAmount(e.target.value)}
-                  disabled={factory.isLoading}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
-                />
+            <div className="bg-[#0f0f0f] border border-white/[0.04] rounded-lg p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center shrink-0">
+                  <Gavel className="w-4 h-4 text-[#3ec470]" />
+                </div>
+                <div>
+                  <p className="text-white/80 text-sm font-bold">Auctions are created on the Auctions tab</p>
+                  <p className="text-white/40 text-xs mt-1 leading-relaxed">
+                    Once your PASS contract is live, head to the Auctions page to launch your first
+                    fixed-price auction — set the fixed bid, duration, content, and even schedule a
+                    future start time.
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                  Duration (sec)
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="1"
-                  value={auctionDuration}
-                  onChange={(e) => setAuctionDuration(e.target.value)}
-                  disabled={factory.isLoading}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
-                />
-              </div>
+              <Link to="/auctions">
+                <Button fullWidth>Go to Auctions</Button>
+              </Link>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                Auction Content
-              </label>
-              <textarea
-                value={auctionContent}
-                onChange={(e) => setAuctionContent(e.target.value.slice(0, 200))}
-                disabled={factory.isLoading}
-                rows={3}
-                maxLength={200}
-                placeholder="Describe what the winner receives (e.g. 1-hour private call, signed merch, etc.)"
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50 resize-none"
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-[10px] text-white/30">Max 200 characters (on-chain limit)</span>
-                <span className="text-[10px] font-mono text-white/40">{auctionContent.length}/200</span>
-              </div>
-            </div>
-            <Button
-              fullWidth
-              onClick={handleCreateAuction}
-              loading={factory.isLoading}
-              disabled={factory.isAddressMissing}
-            >
-              {factory.isAddressMissing
-                ? 'Contract Not Deployed'
-                : 'Create Auction'}
-            </Button>
-            {factory.error && (
-              <p className="text-xs text-red-400">{factory.error}</p>
-            )}
           </div>
         );
 

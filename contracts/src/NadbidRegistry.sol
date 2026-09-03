@@ -102,7 +102,14 @@ contract NadbidRegistry {
         owner = msg.sender;
         MIN_FOLLOWERS = minFollowers;
     }
-    function setFactory(address _factory) external onlyOwner { require(factory == address(0), "SET"); factory = _factory; }
+    /// 设置 / 更新工厂合约（onlyOwner）。允许重复设置以便无痛升级 Factory（无需清空 KOL 数据）。
+    function setFactory(address _factory) external onlyOwner {
+        require(_factory != address(0), "ZERO_FACTORY");
+        address oldFactory = factory;
+        factory = _factory;
+        emit FactoryUpdated(oldFactory, _factory);
+    }
+    event FactoryUpdated(address indexed oldFactory, address indexed newFactory);
 
     /// 封禁 / 解封 KOL（onlyOwner）。封禁后：
     /// - canCreate 返回 false（不能创建新 PASS / 拍卖）

@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Search, Clock, AlertCircle } from 'lucide-react';
+import { Search, Clock, AlertCircle, Gavel, X } from 'lucide-react';
+import { parseEther } from 'viem';
+import { useQueryClient } from '@tanstack/react-query';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../hooks/useToast';
+import { useWalletStore } from '../stores/walletStore';
+import { ConnectModal } from '../components/wallet/ConnectModal';
+import { useRegistry } from '../web3/hooks/useRegistry';
+import { useFactory } from '../web3/hooks/useFactory';
 import { kolProfilePath, auctionDetailPath } from '../config/routes';
 import { cn } from '../utils/cn';
 import { shortenAddress } from '../utils/format';
@@ -167,9 +173,16 @@ function ChainAuctionCard({
         {statusBadge}
       </div>
 
-      {/* Follow on X Button */}
+      {/* Follow on X — 有链上 handle 时真实跳转该 KOL 推特，否则提示 */}
       <button
-        onClick={(e) => { e.stopPropagation(); info(`Follow ${kolHandle} on X`); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hasHandle) {
+            window.open(`https://x.com/${kolData!.twitterHandle.replace(/^@/, '')}`, '_blank', 'noopener,noreferrer');
+          } else {
+            info('No X handle registered on-chain yet');
+          }
+        }}
         className="w-full bg-[#0a0a0a] border border-white/[0.06] text-white/70 hover:text-white text-[10px] font-bold uppercase tracking-[0.15em] py-2.5 rounded-lg hover:bg-white/[0.02] hover:border-white/10 transition-all mb-6 relative z-10"
       >
         Follow on X
@@ -299,9 +312,245 @@ function ChainAuctionsView({ filter, search }: { filter: FilterTab; search: stri
   );
 }
 
+/** datetime-local 输入框当前值（本地时区，无秒） */
+function toLocalInputValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* ============================================================================
+ * 创建拍卖弹窗（拍卖 Tab 主入口）
+ * 业务规则：
+ *  - 需连接钱包 + 已注册 KOL + 已缴纳担保金（canCreate）
+ *  - 需已有 PASS 合约（拍卖绑定 PASS，合约侧校验 NOT_OWN_PASS）
+ *  - 开始时间：默认立即开始；选择未来时间 → 预约开始（createKolAuctionScheduled）
+ * ========================================================================== */
+function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const wallet = useWalletStore();
+  const { success, error: toastError } = useToast();
+  const queryClient = useQueryClient();
+  const account = wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
+  const registry = useRegistry(account);
+  const factory = useFactory();
+
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [fixedBid, setFixedBid] = useState('99');
+  const [duration, setDuration] = useState('120');
+  const [content, setContent] = useState('');
+  const [startAt, setStartAt] = useState(() => toLocalInputValue(new Date()));
+  const [passAddr, setPassAddr] = useState<`0x${string}` | ''>('');
+
+  const passContracts = registry.kolData?.passContracts ?? [];
+  const isRegistered = registry.isRegistered === true;
+  const canCreate = registry.canCreate === true;
+
+  // 默认选中最近创建的 PASS 合约
+  useEffect(() => {
+    if (passAddr === '' && passContracts.length > 0) {
+      setPassAddr(passContracts[passContracts.length - 1]);
+    }
+  }, [passContracts, passAddr]);
+
+  if (!open) return null;
+
+  /** 表单校验 + 提交：立即开始 → createKolAuction；未来开始 → createKolAuctionScheduled */
+  const handleCreate = async () => {
+    if (!account || !passAddr) return;
+    const fixedBidNum = Number(fixedBid);
+    const durationNum = Number(duration);
+    if (!(fixedBidNum > 0)) { toastError('Enter a valid fixed bid amount'); return; }
+    if (!(durationNum > 0)) { toastError('Enter a valid duration'); return; }
+    if (!content.trim()) { toastError('Describe the auction content'); return; }
+    const startMs = new Date(startAt).getTime();
+    if (Number.isNaN(startMs)) { toastError('Invalid start time'); return; }
+    const startSec = Math.floor(startMs / 1000);
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    const base = {
+      passContract: passAddr,
+      fixedBidAmount: parseEther(fixedBid.trim()),
+      duration: BigInt(durationNum),
+      content: content.trim().slice(0, 200),
+    };
+    const onSuccess = () => {
+      queryClient.invalidateQueries();
+      success('Auction created!');
+      onClose();
+    };
+    // 未来时间 → 预约开始；否则立即开始
+    const res =
+      startSec > nowSec
+        ? await factory.createKolAuctionScheduled({ ...base, startTime: BigInt(startSec) }, { onSuccess })
+        : await factory.createKolAuction(base, { onSuccess });
+    if (!res && factory.error) toastError(factory.error);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget && !factory.isLoading) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
+        className="bg-[#161616] border border-white/[0.08] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#3ec470]/10 flex items-center justify-center">
+              <Gavel className="w-4 h-4 text-[#3ec470]" />
+            </div>
+            <h2 className="text-white font-black text-lg tracking-tight">Create Auction</h2>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={factory.isLoading}
+            className="w-8 h-8 rounded-lg bg-white/[0.05] text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* 分层前置校验 */}
+        {!account ? (
+          <div className="text-center py-10">
+            <p className="text-white/40 text-sm mb-6">Connect your wallet to create an auction.</p>
+            <Button fullWidth onClick={() => setConnectOpen(true)}>Connect Wallet</Button>
+            <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+          </div>
+        ) : !isRegistered ? (
+          <div className="text-center py-10 space-y-4">
+            <AlertCircle className="w-10 h-10 text-white/20 mx-auto" />
+            <p className="text-white/60 text-sm">You are not a registered KOL yet.</p>
+            <Link to="/kol/onboarding" onClick={onClose}>
+              <Button fullWidth variant="secondary">Go to KOL Onboarding</Button>
+            </Link>
+          </div>
+        ) : passContracts.length === 0 ? (
+          <div className="text-center py-10 space-y-4">
+            <AlertCircle className="w-10 h-10 text-white/20 mx-auto" />
+            <p className="text-white/60 text-sm">
+              You need a PASS contract first. Create one in KOL Onboarding.
+            </p>
+            <Link to="/kol/onboarding" onClick={onClose}>
+              <Button fullWidth variant="secondary">Create PASS in Onboarding</Button>
+            </Link>
+          </div>
+        ) : !canCreate ? (
+          <div className="text-center py-10 space-y-4">
+            <AlertCircle className="w-10 h-10 text-white/20 mx-auto" />
+            <p className="text-white/60 text-sm">You have no active creation eligibility (bond required).</p>
+            <Link to="/kol/onboarding" onClick={onClose}>
+              <Button fullWidth variant="secondary">Bond in KOL Onboarding</Button>
+            </Link>
+          </div>
+        ) : (
+          /* 创建表单 */
+          <div className="space-y-4">
+            {/* PASS 合约选择 */}
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                PASS Contract
+              </label>
+              <select
+                value={passAddr}
+                onChange={(e) => setPassAddr(e.target.value as `0x${string}`)}
+                disabled={factory.isLoading}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+              >
+                {passContracts.map((addr) => (
+                  <option key={addr} value={addr} className="bg-[#161616]">
+                    {shortenAddress(addr)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 固定出价 + 时长 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                  Fixed Bid (MON)
+                </label>
+                <input
+                  type="number" step="0.01" min="0.01"
+                  value={fixedBid}
+                  onChange={(e) => setFixedBid(e.target.value)}
+                  disabled={factory.isLoading}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                  Duration (sec)
+                </label>
+                <input
+                  type="number" step="1" min="1" max="86400"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  disabled={factory.isLoading}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            {/* 开始时间（预约） */}
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Start Time
+              </label>
+              <input
+                type="datetime-local"
+                value={startAt}
+                min={toLocalInputValue(new Date())}
+                onChange={(e) => setStartAt(e.target.value)}
+                disabled={factory.isLoading}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+              />
+              <p className="text-[10px] text-white/30 mt-1.5">
+                Leave as now to start immediately; pick a future time to schedule the auction start.
+              </p>
+            </div>
+
+            {/* 拍卖内容 */}
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Auction Content
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value.slice(0, 200))}
+                disabled={factory.isLoading}
+                rows={3}
+                maxLength={200}
+                placeholder="Describe what the winner receives (e.g. 1-hour private call, signed merch, etc.)"
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50 resize-none"
+              />
+              <div className="flex justify-between mt-1">
+                <span className="text-[10px] text-white/30">Max 200 characters (on-chain limit)</span>
+                <span className="text-[10px] font-mono text-white/40">{content.length}/200</span>
+              </div>
+            </div>
+
+            <Button fullWidth onClick={handleCreate} loading={factory.isLoading} disabled={factory.isAddressMissing}>
+              {factory.isAddressMissing ? 'Contract Not Deployed' : 'Create Auction'}
+            </Button>
+            {factory.error && <p className="text-xs text-red-400">{factory.error}</p>}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function AuctionsPage() {
   const [filter, setFilter] = useState<FilterTab>('ALL');
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Registry 地址已配置 → 链上真实数据；未配置 → 显示「合约未部署」
   const registryConfigured = contractAddresses.registry !== undefined;
@@ -349,6 +598,15 @@ export default function AuctionsPage() {
                 </button>
               ))}
             </div>
+
+            {/* Create Auction 入口（拍卖 Tab 主入口） */}
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-2 bg-[#3ec470] text-black text-xs font-black uppercase tracking-wider px-6 py-3 rounded-full hover:bg-[#4ade80] transition-colors shadow-[0_0_20px_rgba(62,196,112,0.15)]"
+            >
+              <Gavel className="w-4 h-4" />
+              Create Auction
+            </button>
           </div>
         </div>
 
@@ -362,6 +620,9 @@ export default function AuctionsPage() {
           </div>
         )}
       </div>
+
+      {/* 创建拍卖弹窗 */}
+      <CreateAuctionModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }
