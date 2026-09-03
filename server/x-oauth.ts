@@ -24,8 +24,11 @@ const CALLBACK_URL =
 const FRONTEND_URL = process.env.X_FRONTEND_URL || 'http://localhost:3000';
 // 粉丝门槛：测试网 1000（Vercel X_FOLLOWERS_THRESHOLD），主网正式值部署时配置
 const FOLLOWERS_THRESHOLD = Number(process.env.X_FOLLOWERS_THRESHOLD) || 5000;
-// state 签名密钥：务必在 .env 配置（生产随机长串）
-const STATE_SECRET = process.env.X_STATE_SECRET || 'dev-insecure-state-secret-change-me';
+// state / ticket 签名密钥：生产必须配置（随机长串），缺失时拒绝启动（防止用公开默认值伪造）
+const STATE_SECRET: string = process.env.X_STATE_SECRET ?? '';
+if (!STATE_SECRET) {
+  throw new Error('X_STATE_SECRET must be configured (server refuses to start without it)');
+}
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 分钟
 
 function b64url(buf: Buffer): string {
@@ -67,6 +70,45 @@ function verifyState(state: string): string | null {
     };
     if (!data.v || typeof data.exp !== 'number' || Date.now() > data.exp) return null;
     return data.v;
+  } catch {
+    return null;
+  }
+}
+
+// ===== 一次性验证票据（ticket）=====
+// 服务器 OAuth 回调成功验证 X 本人身份后，签发短时效、HMAC 签名的验证票据。
+// 前端不得信任 URL 参数里的 username/followers/verified（可被伪造），
+// 必须用 ticket 调 /api/kol/verify-ticket 换取可信结果，再决定是否上链注册。
+const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
+
+interface VerifyTicket {
+  u: string; // username
+  f: number; // followers
+  exp: number;
+}
+
+function signTicket(username: string, followers: number): string {
+  const payload: VerifyTicket = { u: username, f: followers, exp: Date.now() + TICKET_TTL_MS };
+  const encoded = b64url(Buffer.from(JSON.stringify(payload)));
+  const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(encoded).digest());
+  return `${encoded}.${sig}`;
+}
+
+/** 验证票据，返回 { username, followers } 或 null（无效/过期/伪造） */
+function verifyTicket(ticket: string): { username: string; followers: number } | null {
+  const parts = ticket.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  const expected = b64url(crypto.createHmac('sha256', STATE_SECRET).update(payload).digest());
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as VerifyTicket;
+    if (typeof data.u !== 'string' || typeof data.f !== 'number' || Date.now() > data.exp) {
+      return null;
+    }
+    return { username: data.u, followers: data.f };
   } catch {
     return null;
   }
@@ -176,11 +218,11 @@ router.get('/x-oauth-callback', async (req, res) => {
     const username = me?.data?.username ?? '';
     const followers = me?.data?.public_metrics?.followers_count ?? 0;
 
-    // 5. 返回验证结果（粉丝数阈值判断）
+    // 5. 签发一次性验证票据（不把 username/followers/verified 明文放 URL，防伪造）
+    //    前端用 ticket 调 /api/kol/verify-ticket 换取可信结果。
+    const ticket = signTicket(username, followers);
     res.redirect(
-      `${FRONTEND_URL}/kol/onboarding?xoauth=success&username=${encodeURIComponent(
-        username
-      )}&followers=${followers}&verified=${followers >= FOLLOWERS_THRESHOLD}`
+      `${FRONTEND_URL}/kol/onboarding?xoauth=success&ticket=${encodeURIComponent(ticket)}`
     );
   } catch (e) {
     res.redirect(
@@ -189,6 +231,30 @@ router.get('/x-oauth-callback', async (req, res) => {
       )}`
     );
   }
+});
+
+/**
+ * 3. 验证一次性票据（前端 OAuth 回调后调用）
+ *    入参：?ticket=..
+ *    出参：{ verified, username, followers } —— 仅服务器签发的 ticket 可通过，
+ *          URL 参数伪造的 username/followers/verified 一律无效。
+ */
+router.get('/verify-ticket', (req, res) => {
+  const { ticket } = req.query as { ticket?: string };
+  if (!ticket) {
+    res.status(400).json({ error: 'missing ticket' });
+    return;
+  }
+  const result = verifyTicket(ticket);
+  if (!result) {
+    res.status(401).json({ error: 'invalid or expired ticket' });
+    return;
+  }
+  res.json({
+    verified: result.followers >= FOLLOWERS_THRESHOLD,
+    username: result.username,
+    followers: result.followers,
+  });
 });
 
 export default router;

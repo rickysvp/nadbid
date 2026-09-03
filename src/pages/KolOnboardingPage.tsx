@@ -118,28 +118,50 @@ export default function KolOnboardingPage() {
     setCurrentStep(STEPS.length); // 全部完成
   }, [completedSteps]);
 
-  // ---- X OAuth 回调参数检测：xoauth=success&username=..&followers=.. ----
+  // ---- X OAuth 回调参数检测：xoauth=success&ticket=..（ticket 为服务端签名票据）----
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const xoauth = params.get('xoauth');
     if (xoauth === 'success') {
-      const username = params.get('username') || '';
-      const followers = Number(params.get('followers') || 0);
-      const verified = params.get('verified') === 'true';
+      const ticket = params.get('ticket') || '';
       // 清理 URL（去掉回调参数，避免刷新重复触发）
       window.history.replaceState({}, '', window.location.pathname);
-      if (username && verified) {
-        setTwitterHandle(username);
-        setTwitterVerified(true);
-        setTwitterFollowers(followers);
-        success(`X account @${username} verified — ${followers.toLocaleString()} followers`);
-      } else if (username) {
-        setTwitterHandle(username);
-        setTwitterFollowers(followers);
-        toastError(
-          `@${username} has ${followers.toLocaleString()} followers — need 1,000+ to become a KOL`,
-        );
+      if (!ticket) {
+        toastError('X authorization succeeded but verification ticket is missing.');
+        return;
       }
+      // 用服务端签名票据换取可信验证结果（不信任 URL 参数中的 username/followers/verified）
+      (async () => {
+        try {
+          const r = await fetch(
+            `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}`
+          );
+          const data = (await r.json()) as {
+            verified?: boolean;
+            username?: string;
+            followers?: number;
+            error?: string;
+          };
+          if (r.ok && data.verified && data.username) {
+            setTwitterHandle(data.username);
+            setTwitterVerified(true);
+            setTwitterFollowers(data.followers ?? 0);
+            success(
+              `X account @${data.username} verified — ${(data.followers ?? 0).toLocaleString()} followers`,
+            );
+          } else if (r.ok && data.username) {
+            setTwitterHandle(data.username);
+            setTwitterFollowers(data.followers ?? 0);
+            toastError(
+              `@${data.username} has ${(data.followers ?? 0).toLocaleString()} followers — need 1,000+ to become a KOL`,
+            );
+          } else {
+            toastError(`X verification failed: ${data.error || 'invalid ticket'}`);
+          }
+        } catch {
+          toastError('X verification failed — please try authorizing again.');
+        }
+      })();
     } else if (xoauth === 'denied') {
       window.history.replaceState({}, '', window.location.pathname);
       info('X authorization cancelled.');

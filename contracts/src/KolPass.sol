@@ -71,10 +71,15 @@ contract KolPass is ERC721 {
 
     function burn(uint256[] calldata tokenIds) external {
         uint256 refund = 0;
+        // 与 mint 严格镜像：mint 第 k 枚成本 = curvePriceAt(k)（k 从 1 起，总供应从 0→N）
+        // burn 第 k 枚返还 = curvePriceAt(N - k + 1)（k 从 1 起，总供应从 N→0）
+        // 即 supplyAfterBurn 从 N-1 递减到 0 时，对应返还 curvePriceAt(1) 而非 basePrice，
+        // 因此内部供应索引 iSupply 从 totalMinted 递减到 1，永不取 0（避免 curvePriceAt(0)=basePrice 套利）。
+        uint256 total = totalMinted;
         for (uint256 i = 0; i < tokenIds.length; i++) {
             require(_ownerOf(tokenIds[i]) == msg.sender, "NOT_OWNER");
-            uint256 supplyAfterBurn = totalMinted - i - 1;
-            refund += curvePriceAt(supplyAfterBurn);
+            uint256 iSupply = total - i; // total..1，不会降到 0（tokenIds.length <= totalMinted 由 NOT_OWNER 保证）
+            refund += curvePriceAt(iSupply);
             _burn(tokenIds[i]);
         }
         // 扣 8% 手续费后返还
