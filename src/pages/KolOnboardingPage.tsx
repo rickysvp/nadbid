@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { parseEther } from 'viem';
@@ -121,7 +121,14 @@ export default function KolOnboardingPage() {
     setCurrentStep(STEPS.length); // 全部完成
   }, [completedSteps]);
 
-  // ---- X OAuth 回调参数检测：xoauth=success&ticket=..（ticket 为服务端签名票据）----
+  // ---- X OAuth 回调参数解析：success 时缓存票据，待钱包地址恢复后验证 ----
+  // 注意：X 授权会整页跳转（window.location.href），返回时 wagmi autoConnect
+  // 是异步恢复钱包的，address 初始为 null。若在此刻立即调 verify-ticket 会
+  // 因缺 wallet 参数报 "missing wallet"。因此这里只解析参数，验证放在依赖
+  // address 的 effect 中执行；用户未连接钱包时提示先连接，连接后自动补验证。
+  const pendingTicketRef = useRef<string | null>(null);
+  const warnedNoWalletRef = useRef(false);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const xoauth = params.get('xoauth');
@@ -133,39 +140,8 @@ export default function KolOnboardingPage() {
         toastError('X authorization succeeded but verification ticket is missing.');
         return;
       }
-      // 用服务端签名票据换取可信验证结果（不信任 URL 参数中的 username/followers/verified）
-      (async () => {
-        try {
-          const walletParam = address ? encodeURIComponent(address) : '';
-          const r = await fetch(
-            `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}&wallet=${walletParam}`
-          );
-          const data = (await r.json()) as {
-            verified?: boolean;
-            username?: string;
-            followers?: number;
-            error?: string;
-          };
-          if (r.ok && data.verified && data.username) {
-            setTwitterHandle(data.username);
-            setTwitterVerified(true);
-            setTwitterFollowers(data.followers ?? 0);
-            success(
-              `X account @${data.username} verified — ${(data.followers ?? 0).toLocaleString()} followers`,
-            );
-          } else if (r.ok && data.username) {
-            setTwitterHandle(data.username);
-            setTwitterFollowers(data.followers ?? 0);
-            toastError(
-              `@${data.username} has ${(data.followers ?? 0).toLocaleString()} followers — need 1,000+ to become a KOL`,
-            );
-          } else {
-            toastError(`X verification failed: ${data.error || 'invalid ticket'}`);
-          }
-        } catch {
-          toastError('X verification failed — please try authorizing again.');
-        }
-      })();
+      pendingTicketRef.current = ticket;
+      warnedNoWalletRef.current = false;
     } else if (xoauth === 'denied') {
       window.history.replaceState({}, '', window.location.pathname);
       info('X authorization cancelled.');
@@ -177,6 +153,55 @@ export default function KolOnboardingPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 等钱包地址可用后执行票据验证（autoConnect 恢复 address 后自动触发；
+  // 未连接钱包时给出明确提示，连接后仍可自动补验证）
+  useEffect(() => {
+    const ticket = pendingTicketRef.current;
+    if (!ticket) return;
+    if (!address) {
+      if (!warnedNoWalletRef.current) {
+        warnedNoWalletRef.current = true;
+        toastError('Wallet not connected — please connect your wallet to complete X verification.');
+      }
+      return;
+    }
+    // 地址已就绪，执行验证并清除待处理票据
+    pendingTicketRef.current = null;
+    (async () => {
+      try {
+        const walletParam = encodeURIComponent(address);
+        const r = await fetch(
+          `/api/kol/verify-ticket?ticket=${encodeURIComponent(ticket)}&wallet=${walletParam}`
+        );
+        const data = (await r.json()) as {
+          verified?: boolean;
+          username?: string;
+          followers?: number;
+          error?: string;
+        };
+        if (r.ok && data.verified && data.username) {
+          setTwitterHandle(data.username);
+          setTwitterVerified(true);
+          setTwitterFollowers(data.followers ?? 0);
+          success(
+            `X account @${data.username} verified — ${(data.followers ?? 0).toLocaleString()} followers`,
+          );
+        } else if (r.ok && data.username) {
+          setTwitterHandle(data.username);
+          setTwitterFollowers(data.followers ?? 0);
+          toastError(
+            `@${data.username} has ${(data.followers ?? 0).toLocaleString()} followers — need 1,000+ to become a KOL`,
+          );
+        } else {
+          toastError(`X verification failed: ${data.error || 'invalid ticket'}`);
+        }
+      } catch {
+        toastError('X verification failed — please try authorizing again.');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
 
   const allDone = currentStep >= STEPS.length;
   const contractsMissing = registry.isAddressMissing || factory.isAddressMissing;
@@ -197,11 +222,16 @@ export default function KolOnboardingPage() {
   // ==========================================================================
 
   const handleVerifyTwitter = async () => {
+    // 必须已连接钱包：X 授权票据会绑定当前钱包（防止同一 X 身份被多钱包冒用）
+    if (!address) {
+      toastError('Please connect your wallet before verifying Twitter');
+      return;
+    }
     // 方式改为 X OAuth 授权：跳转 X 登录本人账号授权，回调后带回 username/followers
     setIsVerifyingTwitter(true);
     try {
       // 绑定当前钱包地址：ticket 只允许该钱包使用（防止同一 X 身份被多钱包冒用）
-      const walletParam = address ? encodeURIComponent(address) : '';
+      const walletParam = encodeURIComponent(address);
       const res = await fetch(`/api/kol/x-auth-url?wallet=${walletParam}`);
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const data = await res.json();
