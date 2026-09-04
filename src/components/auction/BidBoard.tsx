@@ -35,7 +35,6 @@ export function BidBoard({ bids, leadingBidder, className }: BidBoardProps) {
             {sortedBids.map((bid, index) => (
               <motion.tr
                 key={bid.id}
-                layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}

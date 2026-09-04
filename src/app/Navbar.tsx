@@ -106,10 +106,7 @@ export default function Navbar() {
               >
                 {item.label}
                 {active && (
-                  <motion.span
-                    layoutId="nav-active-dot"
-                    className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#3ec470]"
-                  />
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#3ec470]" />
                 )}
               </button>
             );
