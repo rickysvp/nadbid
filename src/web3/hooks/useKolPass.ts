@@ -183,10 +183,14 @@ export function useKolPass(
         if (publicClient) {
           try {
             const [tm, cfg] = await Promise.all([
+              // Codex 审计修复：合约重部署后 KolPass 已无 totalMinted（tokenId 分配器
+              // 已拆为 nextTokenId；ABI 亦无此函数），旧代码永远走 catch 回退缓存值，
+              // 连续 mint 时 totalSupply 缓存陈旧 → 按旧供应量计价 → 链上 INSUFFICIENT。
+              // 直查 totalSupply（最新链上存活量，与合约 curvePriceAt(totalSupply+1) 一致）。
               publicClient.readContract({
                 address: passAddress,
                 abi: kolPassAbi,
-                functionName: 'totalMinted',
+                functionName: 'totalSupply',
               }),
               publicClient.readContract({
                 address: passAddress,

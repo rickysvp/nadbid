@@ -173,15 +173,10 @@ function rateLimited(key: string): boolean {
 router.get('/meta', (req, res) => {
   const wallet = (req.query.wallet as string | undefined) ?? '';
   // Codex 审计：严格校验 wallet 为合法地址（防非法值污染 state/ticket/签名流程）
-  if (!wallet || !isAddress(wallet)) {
-    res.status(400).json({ error: 'invalid wallet' });
-    return;
-  }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet' });
     return;
   }
-  // Codex 审计：严格校验 wallet 为合法地址（防非法值进入 ECDSA 签名流程抛未捕获异常）
   if (!isAddress(wallet)) {
     res.status(400).json({ error: 'invalid wallet' });
     return;
@@ -283,12 +278,12 @@ router.get('/x-auth-url', (req, res) => {
   }
   const wallet = (req.query.wallet as string | undefined) ?? '';
   // Codex 审计：严格校验 wallet 为合法地址（防非法值污染 state/ticket/签名流程）
-  if (!wallet || !isAddress(wallet)) {
-    res.status(400).json({ error: 'invalid wallet' });
-    return;
-  }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet — connect your wallet first' });
+    return;
+  }
+  if (!isAddress(wallet)) {
+    res.status(400).json({ error: 'invalid wallet' });
     return;
   }
   const verifier = genVerifier();
@@ -442,6 +437,12 @@ router.post('/verify-ticket', async (req, res) => {
   }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet' });
+    return;
+  }
+  // Codex 审计：严格校验 wallet 为合法地址——非法值会进入 signRegistration 的
+  // encodePacked(address,...) 强转并抛异常，且不在 try/catch 内（500 而非明确 400）。
+  if (!isAddress(wallet)) {
+    res.status(400).json({ error: 'invalid wallet' });
     return;
   }
   if (usedTickets.has(ticket)) {
