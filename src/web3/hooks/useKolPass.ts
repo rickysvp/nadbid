@@ -46,12 +46,16 @@ export interface UseKolPassResult {
   mint: (quantity: bigint, opts?: { value?: bigint } & KolPassTxOptions) => Promise<Hash | null>;
   /** burn(tokenIds)：销毁指定 tokenId 的 PASS */
   burn: (tokenIds: readonly bigint[], opts?: KolPassTxOptions) => Promise<Hash | null>;
+  /** claimKolFees(opts)：KOL 领取累计手续费（F5 Pull 模式，仅 KOL 地址有余额） */
+  claimKolFees: (opts?: KolPassTxOptions) => Promise<Hash | null>;
   /**
    * estimateMintCost(quantity)：估算 mint quantity 个 PASS 的精确链上成本（wei，含 8% 手续费缓冲），
    * 与 mint 默认 value 完全一致。供 UI 在确认弹窗展示与实际扣款一致的金额。
    * 曲线参数未加载（curveConfig 为 undefined）时返回 undefined。
    */
   estimateMintCost: (quantity: bigint) => bigint | undefined;
+  /** 当前账户在该 PASS 上累计待领手续费（F5 Pull 模式；仅 KOL 地址有余额） */
+  pendingKolFees: bigint | undefined;
   // ---- 交易状态（mint / burn 共享同一状态机） ----
   status: TxStatus;
   txHash: Hash | null;
@@ -239,6 +243,30 @@ export function useKolPass(
     [write, passAddress, queryClient],
   );
 
+  // ---- F5 Pull 模式：KOL 累计手续费（仅 KOL 地址有余额，可直接 claim）----
+  const pendingKolFeesRes = useReadContract({
+    address: passAddress,
+    abi: kolPassAbi,
+    functionName: 'pendingKolFees',
+    args: [account ?? '0x0000000000000000000000000000000000000000'],
+    query: { enabled: account !== undefined },
+  });
+  const claimKolFees = useCallback(
+    (opts: KolPassTxOptions = {}): Promise<Hash | null> => {
+      if (!passAddress) return Promise.resolve(null);
+      return write({
+        address: passAddress,
+        abi: kolPassAbi,
+        functionName: 'claimKolFees',
+        args: [],
+        onSuccess: wrapOnSuccess(opts.onSuccess),
+        toast: opts.toast,
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [write, passAddress, queryClient],
+  );
+
   return {
     curvePrice: curvePriceRes.data as bigint | undefined,
     totalSupply: totalSupplyRes.data as bigint | undefined,
@@ -248,6 +276,10 @@ export function useKolPass(
     mint,
     burn,
     estimateMintCost,
+    /** 当前账户在该 PASS 上累计待领手续费（F5 Pull 模式；仅 KOL 地址有余额） */
+    pendingKolFees: pendingKolFeesRes.data as bigint | undefined,
+    /** claimKolFees(opts)：KOL 领取累计手续费（F5 Pull 模式） */
+    claimKolFees,
     status,
     txHash,
     error,

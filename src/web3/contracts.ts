@@ -79,6 +79,9 @@ export const kolPassAbi =
   {"type": "function","name": "kol","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
   {"type": "function","name": "platformTreasury","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
   {"type": "function","name": "totalMinted","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "pendingKolFees","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "claimKolFees","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "event","name": "KolFeesClaimed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
   {"type": "event","name": "Transfer","inputs": [{"name": "from","type": "address","indexed": true,"internalType": "address"},{"name": "to","type": "address","indexed": true,"internalType": "address"},{"name": "tokenId","type": "uint256","indexed": true,"internalType": "uint256"}],"anonymous": false},
 ] as const satisfies Abi;
 
