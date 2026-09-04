@@ -347,18 +347,22 @@ export default function KolOnboardingPage() {
     }
     const handle = twitterHandle.trim().replace(/^@/, '');
     promptWalletConfirm();
-    await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
-      onSuccess: () => {
-        success('KOL registered on-chain!');
-        // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
-        try {
-          sessionStorage.removeItem('nadbid_xverify');
-        } catch {
-          /* ignore */
-        }
-        invalidateAll();
-      },
-    });
+    try {
+      await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
+        onSuccess: () => {
+          success('KOL registered on-chain!');
+          // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
+          try {
+            sessionStorage.removeItem('nadbid_xverify');
+          } catch {
+            /* ignore */
+          }
+          invalidateAll();
+        },
+      });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Registration failed — please retry');
+    }
   };
 
   // ==========================================================================
@@ -371,16 +375,20 @@ export default function KolOnboardingPage() {
       return;
     }
     promptWalletConfirm();
-    const res = await registry.depositBond({
-      onSuccess: () => {
-        success('Bond deposited — you are now a verified KOL!');
-        invalidateAll();
-      },
-    });
-    // F7：depositBond 在 BOND_AMOUNT 尚未读到时返回 null 且无 error——不能静默无反馈
-    if (!res) {
-      if (registry.error) toastError(registry.error);
-      else toastError('Bond amount still loading — please retry in a moment.');
+    try {
+      const res = await registry.depositBond({
+        onSuccess: () => {
+          success('Bond deposited — you are now a verified KOL!');
+          invalidateAll();
+        },
+      });
+      // F7：depositBond 在 BOND_AMOUNT 尚未读到时返回 null 且无 error——不能静默无反馈
+      if (!res) {
+        if (registry.error) toastError(registry.error);
+        else toastError('Bond amount still loading — please retry in a moment.');
+      }
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Bond deposit failed — please retry');
     }
   };
 
@@ -400,12 +408,16 @@ export default function KolOnboardingPage() {
     }
     const price = parseEther(mintPrice || '0');
     promptWalletConfirm();
-    await factory.createKolPass(price, {
-      onSuccess: () => {
-        success('PASS contract deployed successfully!');
-        invalidateAll();
-      },
-    });
+    try {
+      await factory.createKolPass(price, {
+        onSuccess: () => {
+          success('PASS contract deployed successfully!');
+          invalidateAll();
+        },
+      });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'PASS deployment failed — please retry');
+    }
   };
 
   // ==========================================================================
@@ -569,7 +581,7 @@ export default function KolOnboardingPage() {
                   Bond Amount
                 </div>
                 <div className="text-xl font-black text-white font-mono mt-1">
-                  10 <span className="text-sm text-white/40">MON</span>
+                  1 <span className="text-sm text-white/40">MON</span>
                 </div>
               </div>
               <div className="w-12 h-12 rounded-xl bg-[#3ec470]/10 flex items-center justify-center">

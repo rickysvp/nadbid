@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -95,40 +95,53 @@ export function useWriteContractTx(): UseWriteContractTxResult {
     query: { enabled: txHash !== null },
   });
 
-  // 收据查询失败（交易可能 revert）
-  if (receiptError && status === 'confirming') {
-    setStatus('error');
-    const info = classifyWeb3Error(receiptError);
-    setErrorMessage(info.message);
-    if (!info.silent) toast.error(info.message);
-  }
+  // ---- 以下副作用全部放在 useEffect 中，严禁在 render 期间 setState ----
+  // 原因：render 期间 setState 在 pending→confirming→success 竞态下可能反复触发
+  // 新渲染，导致 React "Maximum update depth exceeded" 崩溃 → 整页黑屏
+  // （此前线上黑屏根因，本次修复）。
 
-  // 交易在链上 revert：收据正常返回但 status=0x0。此时不能走 success 分支——
-  // 否则 toast 误报 "Transaction confirmed" 且 onSuccess（成功提示/关弹窗/刷新）被触发。
-  if (receiptSuccess && receipt && receipt.status === 'reverted' && status === 'confirming') {
-    setStatus('error');
-    const msg = 'Transaction reverted on-chain';
-    setErrorMessage(msg);
-    toast.error(msg);
-    onSuccessMapRef.current.delete(txHash!);
-  }
+  // 收据查询失败（交易可能 revert）
+  useEffect(() => {
+    if (receiptError && status === 'confirming') {
+      setStatus('error');
+      const info = classifyWeb3Error(receiptError);
+      setErrorMessage(info.message);
+      if (!info.silent) toast.error(info.message);
+    }
+  }, [receiptError, status, toast]);
+
+  // 交易在链上 revert：收据正常返回但 status=0x0。不能走 success 分支——
+  // 否则 toast 误报 "Transaction confirmed" 且 onSuccess（成功提示/刷新）被触发。
+  useEffect(() => {
+    if (receiptSuccess && receipt && receipt.status === 'reverted' && status === 'confirming') {
+      setStatus('error');
+      const msg = 'Transaction reverted on-chain';
+      setErrorMessage(msg);
+      toast.error(msg);
+      onSuccessMapRef.current.delete(txHash!);
+    }
+  }, [receiptSuccess, receipt, status, txHash, toast]);
 
   // 交易确认成功（仅 status=success 的收据）
-  if (receiptSuccess && receipt && receipt.status === 'success' && status === 'confirming') {
-    setStatus('success');
-    const cb = onSuccessMapRef.current.get(txHash!);
-    if (cb) {
-      onSuccessMapRef.current.delete(txHash!);
-      cb(txHash!, receipt);
+  useEffect(() => {
+    if (receiptSuccess && receipt && receipt.status === 'success' && status === 'confirming') {
+      setStatus('success');
+      const cb = onSuccessMapRef.current.get(txHash!);
+      if (cb) {
+        onSuccessMapRef.current.delete(txHash!);
+        cb(txHash!, receipt);
+      }
     }
-  }
+  }, [receiptSuccess, receipt, status, txHash]);
 
   // writeContract 错误（用户拒绝等，在 write 函数中已处理，这里兜底）
-  if (writeError && status === 'preparing') {
-    setStatus('error');
-    const info = classifyWeb3Error(writeError);
-    setErrorMessage(info.message);
-  }
+  useEffect(() => {
+    if (writeError && status === 'preparing') {
+      setStatus('error');
+      const info = classifyWeb3Error(writeError);
+      setErrorMessage(info.message);
+    }
+  }, [writeError, status]);
 
   const write = useCallback(
     async (args: WriteContractTxArgs): Promise<Hash | null> => {
@@ -173,12 +186,12 @@ export function useWriteContractTx(): UseWriteContractTxResult {
     resetWrite();
   }, [resetWrite]);
 
-  // 派生状态：pending → confirming 过渡
-  // 当 txHash 已设置且 useWaitForTransactionReceipt 开始 loading 时，状态从 pending 变为 confirming
-  // 这在 render 期间安全地更新状态（React 18 允许在 render 期间 setState 避免额外渲染）
-  if (status === 'pending' && txHash && isConfirming) {
-    setStatus('confirming');
-  }
+  // 派生状态：pending → confirming 过渡（useEffect 中更新，禁止 render 期间 setState）
+  useEffect(() => {
+    if (status === 'pending' && txHash && isConfirming) {
+      setStatus('confirming');
+    }
+  }, [status, txHash, isConfirming]);
 
   const isLoading = status === 'preparing' || status === 'pending' || status === 'confirming';
   const isSuccess = status === 'success';
