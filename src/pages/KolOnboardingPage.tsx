@@ -349,7 +349,7 @@ export default function KolOnboardingPage() {
     promptWalletConfirm();
     try {
       await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
-        onSuccess: () => {
+        onSuccess: async () => {
           success('KOL registered on-chain!');
           // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
           try {
@@ -358,6 +358,8 @@ export default function KolOnboardingPage() {
             /* ignore */
           }
           invalidateAll();
+          // 主动等待链上状态同步完成，确保步骤条尽快推进（避免 refetch 慢导致重复点击）
+          await queryClient.refetchQueries();
         },
       });
     } catch (err) {
@@ -377,9 +379,10 @@ export default function KolOnboardingPage() {
     promptWalletConfirm();
     try {
       const res = await registry.depositBond({
-        onSuccess: () => {
+        onSuccess: async () => {
           success('Bond deposited — you are now a verified KOL!');
           invalidateAll();
+          await queryClient.refetchQueries();
         },
       });
       // F7：depositBond 在 BOND_AMOUNT 尚未读到时返回 null 且无 error——不能静默无反馈
@@ -401,6 +404,11 @@ export default function KolOnboardingPage() {
       toastError('Factory contract not deployed. Set VITE_CONTRACT_FACTORY in .env');
       return;
     }
+    // 链上已存在 PASS 时禁止重复创建（防止 ALREADY_HAS_PASS revert）
+    if (registry.kolData?.passContracts && registry.kolData.passContracts.length > 0) {
+      toastError('You already have a PASS contract — one PASS per KOL');
+      return;
+    }
     // 前端预校验（合约有 ZERO_PRICE 兜底，提前提示避免链上 revert）
     if (!(Number(mintPrice) > 0)) {
       toastError('Enter a valid PASS mint price (greater than 0 MON)');
@@ -410,9 +418,10 @@ export default function KolOnboardingPage() {
     promptWalletConfirm();
     try {
       await factory.createKolPass(price, {
-        onSuccess: () => {
+        onSuccess: async () => {
           success('PASS contract deployed successfully!');
           invalidateAll();
+          await queryClient.refetchQueries();
         },
       });
     } catch (err) {
@@ -559,11 +568,20 @@ export default function KolOnboardingPage() {
                 fullWidth
                 onClick={handleRegisterKol}
                 loading={registry.isLoading}
-                disabled={!twitterVerified || !registerSignature || registry.isAddressMissing}
+                disabled={
+                  !twitterVerified ||
+                  !registerSignature ||
+                  registry.isAddressMissing ||
+                  registry.isLoading ||
+                  registry.isSuccess ||
+                  registry.isRegistered
+                }
               >
                 {registry.isAddressMissing
                   ? 'Contract Not Deployed'
-                  : 'Register KOL On-Chain'}
+                  : registry.isSuccess || registry.isRegistered
+                    ? 'Registered ✓'
+                    : 'Register KOL On-Chain'}
               </Button>
               {registry.error && (
                 <p className="text-xs text-red-400 mt-2">{registry.error}</p>
@@ -597,11 +615,18 @@ export default function KolOnboardingPage() {
               fullWidth
               onClick={handleDepositBond}
               loading={registry.isLoading}
-              disabled={registry.isAddressMissing}
+              disabled={
+                registry.isAddressMissing ||
+                registry.isLoading ||
+                registry.isSuccess ||
+                registry.hasBond
+              }
             >
               {registry.isAddressMissing
                 ? 'Contract Not Deployed'
-                : 'Deposit 1 MON Bond'}
+                : registry.isSuccess || registry.hasBond
+                  ? 'Bond Deposited ✓'
+                  : 'Deposit 1 MON Bond'}
             </Button>
             {registry.error && (
               <p className="text-xs text-red-400">{registry.error}</p>
@@ -634,11 +659,18 @@ export default function KolOnboardingPage() {
               fullWidth
               onClick={handleCreatePass}
               loading={factory.isLoading}
-              disabled={factory.isAddressMissing}
+              disabled={
+                factory.isAddressMissing ||
+                factory.isLoading ||
+                factory.isSuccess ||
+                (registry.kolData?.passContracts?.length ?? 0) > 0
+              }
             >
               {factory.isAddressMissing
                 ? 'Contract Not Deployed'
-                : 'Deploy PASS Contract'}
+                : factory.isSuccess || (registry.kolData?.passContracts?.length ?? 0) > 0
+                  ? 'PASS Deployed ✓'
+                  : 'Deploy PASS Contract'}
             </Button>
             {factory.error && (
               <p className="text-xs text-red-400">{factory.error}</p>
