@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {NadbidRegistry} from "../src/NadbidRegistry.sol";
 import {NadbidFactory} from "../src/NadbidFactory.sol";
 import {KolAuction} from "../src/KolAuction.sol";
+import {KolPass} from "../src/KolPass.sol";
 
 contract NadbidFactoryTest is Test {
     NadbidRegistry registry;
@@ -88,21 +89,81 @@ contract NadbidFactoryTest is Test {
         vm.stopPrank();
     }
 
-    // 业务规则：完成履约（settle）后可开启下一场拍卖
-    function test_CreateKolAuction_AllowedAfterSettle() public {
+    // 业务规则（SP-2 P0 修复）：settle 后拍卖进入履约流程，计数/押金闸门未释放——
+    // KOL 不得在完成履约前创建下一场拍卖；仅 COMPLETED / REFUNDED 终态才可开启下一场。
+    function test_CreateKolAuction_BlockedUntilCompleted() public {
         vm.startPrank(kol);
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
         address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
-        // 时间到 → settle 第 1 场
+        vm.stopPrank();
+        // winner 出价（有出价 → settle 进入 SETTLED 履约流程，计数保持锁定）
+        address winner = address(0x1234);
+        vm.deal(winner, 1000 ether);
+        vm.startPrank(winner);
+        KolPass(pass).mint{value: 13.39 ether * 108 / 100}(1);
+        KolAuction(payable(a1)).placeBid{value: 99 ether}();
+        vm.stopPrank();
         vm.warp(block.timestamp + 200);
+        vm.prank(kol);
         KolAuction(payable(a1)).settle();
-        // 履约完成后可创建第 2 场
+        assertEq(uint256(KolAuction(payable(a1)).getAuction().status), uint256(KolAuction.AuctionStatus.SETTLED));
+        assertEq(registry.openAuctionCount(kol), 1);
+        // settle 后计数未释放 → 创建第 2 场必须被拒
+        vm.prank(kol);
+        vm.expectRevert("ACTIVE_AUCTION_EXISTS");
+        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        // 完成履约（KOL 提交 + winner 确认）→ COMPLETED 终态 → 可创建第 2 场
+        vm.prank(kol);
+        KolAuction(payable(a1)).submitFulfillment(bytes32(uint256(0xABC)));
+        vm.prank(winner);
+        KolAuction(payable(a1)).confirmFulfillment();
+        assertEq(uint256(KolAuction(payable(a1)).getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertEq(registry.openAuctionCount(kol), 0);
+        vm.prank(kol);
         address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
         assertTrue(a2 != address(0));
         assertEq(registry.getKol(kol).auctionContracts.length, 2);
+    }
+
+    // 业务规则对偶：违约退款（REFUNDED）终态释放计数闸门；但违约 KOL 被罚没+封禁，
+    // 需 owner 解封并重新质押后才能创建下一场（防违约者立即再开新拍卖）
+    function test_CreateKolAuction_BlockedAfterBreach_UntilUnbanned() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
+        address pass = factory.createKolPass(13.39 ether);
+        address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
+        vm.stopPrank();
+        address winner = address(0x1234);
+        vm.deal(winner, 1000 ether);
+        vm.startPrank(winner);
+        KolPass(pass).mint{value: 13.39 ether * 108 / 100}(1);
+        KolAuction(payable(a1)).placeBid{value: 99 ether}();
+        vm.stopPrank();
+        vm.warp(block.timestamp + 200);
+        vm.prank(kol);
+        KolAuction(payable(a1)).settle();
+        // KOL 超时未履约 → 竞拍者触发违约结算（REFUNDED）
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(winner);
+        KolAuction(payable(a1)).claimRefund();
+        assertEq(uint256(KolAuction(payable(a1)).getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        assertEq(registry.openAuctionCount(kol), 0);   // 计数闸门已释放
+        assertFalse(registry.canCreate(kol));            // 但违约 KOL 已被封禁冻结
+        vm.prank(kol);
+        vm.expectRevert("!CAN_CREATE");
+        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        // owner 解封 + 重新质押后可创建下一场
+        registry.setBanned(kol, false);
+        vm.startPrank(kol);
+        vm.deal(kol, 1 ether);
+        registry.depositBond{value: 1 ether}();
+        address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        assertTrue(a2 != address(0));
         vm.stopPrank();
     }
 

@@ -35,7 +35,8 @@ contract KolAuction {
         uint256 fulfillmentDeadline;       // KOL 提交履约的截止（settle + FULFILLMENT_DEADLINE）
         uint256 fulfillmentTime;           // KOL 实际提交时间（0 = 未提交）
         uint256 autoConfirmDeadline;       // winner 确认/争议截止（submit + AUTO_CONFIRM_WINDOW）
-        bytes32 evidenceHash;              // 履约/争议证据哈希
+        bytes32 fulfillmentEvidenceHash;   // KOL 履约证据哈希（SP-2 P1：与争议证据分离）
+        bytes32 disputeEvidenceHash;       // winner 争议证据哈希（不被履约证据覆盖）
     }
 
     Auction public auction;
@@ -78,9 +79,9 @@ contract KolAuction {
 
     event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp);
     event AuctionSettled(uint256 auctionId, address lastBidder, uint256 totalVolume, uint256 platformFee, uint256 guaranteePool, uint256 blockNumber);
-    event FulfillmentSubmitted(uint256 auctionId, address indexed winner, bytes32 evidenceHash, uint256 timestamp);
+    event FulfillmentSubmitted(uint256 auctionId, address indexed winner, bytes32 fulfillmentEvidenceHash, uint256 timestamp);
     event FulfillmentConfirmed(uint256 auctionId, address indexed winner, uint256 timestamp);
-    event DisputeRaised(uint256 auctionId, address indexed winner, bytes32 evidenceHash, uint256 timestamp);
+    event DisputeRaised(uint256 auctionId, address indexed winner, bytes32 disputeEvidenceHash, uint256 timestamp);
     event DisputeResolved(uint256 auctionId, bool kolWon, uint256 timestamp);
     event AuctionRefunded(uint256 auctionId, uint256 lockedAmount, uint256 slashedBond, uint256 timestamp);
     event RefundClaimed(address indexed bidder, uint256 amount);
@@ -112,7 +113,8 @@ contract KolAuction {
             fulfillmentDeadline: 0,
             fulfillmentTime: 0,
             autoConfirmDeadline: 0,
-            evidenceHash: bytes32(0)
+            fulfillmentEvidenceHash: bytes32(0),
+            disputeEvidenceHash: bytes32(0)
         });
         platformTreasury = _platformTreasury;
         registry = _registry;
@@ -163,7 +165,8 @@ contract KolAuction {
         if (a.totalBids == 0) {
             // 无出价：无资金、无履约需求，直接终态（无需履约流程）
             a.status = AuctionStatus.COMPLETED;
-            IRegistry(registry).notifyAuctionSettled(a.kol);
+            // SP-2（P0）：终态才释放计数（无出价场次无履约流程，立即终态）
+            IRegistry(registry).notifyAuctionClosed(a.kol);
             emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, platformFee, 0, block.number);
             return;
         }
@@ -172,9 +175,8 @@ contract KolAuction {
         a.winnerTotalSpent = cumulativeBid[a.lastBidder];
         a.fulfillmentDeadline = block.timestamp + FULFILLMENT_DEADLINE;
         a.status = AuctionStatus.SETTLED;
-        // F2：通知 Registry 本拍卖已结算（openAuctionCount -1，释放创建/赎回闸门）。
-        // notify 失败则整体 revert，结算状态与计数保持一致。
-        IRegistry(registry).notifyAuctionSettled(a.kol);
+        // SP-2（P0）：此处【不再】通知 Registry 释放计数/押金闸门——拍卖仍处于履约流程，
+        // KOL 不得在完成履约前开新拍卖或赎回押金；计数在 COMPLETED/REFUNDED 终态释放。
         emit AuctionSettled(a.id, a.winner, a.totalVolume, platformFee, a.totalVolume - platformFee, block.number);
     }
 
@@ -209,7 +211,7 @@ contract KolAuction {
         require(block.timestamp <= a.fulfillmentDeadline, "TOO_LATE");
         a.fulfillmentTime = block.timestamp;
         a.autoConfirmDeadline = block.timestamp + AUTO_CONFIRM_WINDOW;
-        a.evidenceHash = evidenceHash;
+        a.fulfillmentEvidenceHash = evidenceHash;
         a.status = AuctionStatus.AWAITING_CONFIRMATION;
         emit FulfillmentSubmitted(a.id, a.winner, evidenceHash, block.timestamp);
     }
@@ -237,7 +239,7 @@ contract KolAuction {
         require(msg.sender == a.winner, "!WINNER");
         require(a.status == AuctionStatus.AWAITING_CONFIRMATION, "!AWAITING");
         require(block.timestamp <= a.autoConfirmDeadline, "TOO_LATE");
-        a.evidenceHash = evidenceHash;
+        a.disputeEvidenceHash = evidenceHash;  // 与履约证据分离，仲裁可同时查看双方证据
         a.status = AuctionStatus.DISPUTED;
         emit DisputeRaised(a.id, a.winner, evidenceHash, block.timestamp);
     }
@@ -272,17 +274,19 @@ contract KolAuction {
         emit RefundClaimed(msg.sender, share);
     }
 
-    /// 内部：将锁定的 80% 释放为 KOL 待领，状态 → COMPLETED
+    /// 内部：将锁定的 80% 释放为 KOL 待领，状态 → COMPLETED（终态：释放计数/押金闸门）
     function _releaseToKol() internal {
         Auction storage a = auction;
         uint256 locked = a.totalVolume * KOL_SETTLE_PCT / PCT_DENOM;
         pendingKol += locked;
         a.status = AuctionStatus.COMPLETED;
+        IRegistry(registry).notifyAuctionClosed(a.kol);
         emit FulfillmentConfirmed(a.id, a.winner, block.timestamp);
     }
 
     /// 内部：违约结算——罚没 KOL 押金（Registry.slashKolBond 转入本合约）、
-    /// 固化退款池（80% 锁定资金 + 罚没押金）、状态 → REFUNDED。仅可触发一次。
+    /// 固化退款池（80% 锁定资金 + 罚没押金）、状态 → REFUNDED（终态：释放计数/押金闸门）。
+    /// 仅可触发一次。
     function _initiateRefund() internal {
         Auction storage a = auction;
         require(a.status == AuctionStatus.SETTLED || a.status == AuctionStatus.DISPUTED, "!REFUNDABLE");
@@ -290,6 +294,7 @@ contract KolAuction {
         slashedBond = IRegistry(registry).slashKolBond(a.kol);
         refundPool = locked + slashedBond;
         a.status = AuctionStatus.REFUNDED;
+        IRegistry(registry).notifyAuctionClosed(a.kol);
         emit AuctionRefunded(a.id, locked, slashedBond, block.timestamp);
     }
 
@@ -327,11 +332,11 @@ contract KolAuction {
     function lastBidder() external view returns (address) { return auction.lastBidder; }
 }
 
-// 供 KolAuction 查询 banned / arbitrator + 结算/罚没回调（避免双向 import）
+// 供 KolAuction 查询 banned / arbitrator + 终态回调（避免双向 import）
 interface IRegistry {
     function isKolBanned(address wallet) external view returns (bool);
     function factory() external view returns (address);
-    function notifyAuctionSettled(address kol) external;
+    function notifyAuctionClosed(address kol) external;
     function slashKolBond(address kol) external returns (uint256);
     function arbitrator() external view returns (address);
     function hasBond(address wallet) external view returns (bool);

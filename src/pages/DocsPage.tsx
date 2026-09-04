@@ -35,11 +35,11 @@ const docSections: DocSection[] = [
       },
       {
         question: 'How is an auction settled?',
-        answer: 'After the auction ends, anyone can trigger settlement. 80% of the total volume goes to the KOL and 20% is the platform fee. Both sides claim their share via pull payments — settlement never blocks on either party.',
+        answer: 'After the auction ends, anyone can trigger settlement. The winner is locked and 80% of the total volume is held in escrow while the KOL must submit proof of fulfillment (48h window). The winner then confirms (48h window) or raises a dispute. Only after the auction reaches Completed — via winner confirmation, auto-confirmation, or an arbitration ruling in the KOL\u2019s favor — can the KOL claim the 80%. The 20% platform fee is claimable by the treasury right after settlement. In case of a KOL breach (no fulfillment) or a dispute ruled against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed to bidders pro-rata as refunds.',
       },
       {
         question: 'Can a KOL run more than one auction at a time?',
-        answer: 'No. A KOL can only have one active (unsettled) auction. The next auction can be created only after the current one is settled.',
+        answer: 'No. A KOL can only have one auction in progress. The next auction can be created only after the current one reaches a terminal state (Completed or Refunded). The bond also stays locked until that terminal state — a KOL cannot redeem the 1 MON bond while an auction is still in its fulfillment process.',
       },
     ],
   },
@@ -92,15 +92,15 @@ const docSections: DocSection[] = [
     content: [
       {
         question: 'What can KOLs claim?',
-        answer: 'After an auction settles, the KOL claims 80% of the auction volume (pull payment). KOLs also accumulate 5% of PASS mint/burn fees on their own PASS contract and can claim those at any time.',
+        answer: 'After an auction reaches Completed (fulfillment confirmed by the winner, auto-confirmed, or arbitration ruled in the KOL\u2019s favor), the KOL claims 80% of the auction volume (pull payment). KOLs also accumulate 5% of PASS mint/burn fees on their own PASS contract and can claim those at any time.',
       },
       {
         question: 'What can the platform claim?',
-        answer: 'The platform claims 20% of settled auction volume and 3% of PASS mint/burn fees. Both are pull payments from the respective contracts.',
+        answer: 'The platform claims 20% of settled auction volume (claimable right after settlement) and 3% of PASS mint/burn fees. Both are pull payments from the respective contracts.',
       },
       {
         question: 'How do I get my bond back?',
-        answer: 'KOLs deposit a 1 MON bond to create PASS and auctions. After requesting redemption and a 48-hour cooldown (with no unsettled auctions), the bond is returned.',
+        answer: 'KOLs deposit a 1 MON bond to create PASS and auctions. After requesting redemption and a 48-hour cooldown — and only when the KOL has no auction still in its fulfillment process (terminal Completed/Refunded state) — the bond is returned. A breach (missing fulfillment deadline or losing an arbitration) forfeits the bond into the refund pool.',
       },
       {
         question: 'Is there a claim fee?',

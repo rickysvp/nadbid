@@ -119,10 +119,14 @@ contract NadbidRegistry {
         openAuctionCount[kol]++;             // F2：进行中拍卖 +1
     }
 
-    /// F2：KolAuction.settle() 回调——标记该拍卖已结算，对应 KOL 的进行中拍卖 -1。
+    /// SP-2（P0 修复）：KolAuction 进入终态（COMPLETED / REFUNDED）时回调——
+    /// 释放该 KOL 的进行中拍卖计数（openAuctionCount -1），解锁创建下一场拍卖与押金赎回。
+    /// 语义变更：不再在 settle() 时释放。settle 后拍卖仍处于履约/争议流程，押金必须持续
+    /// 锁定到终态，否则 KOL 可在履约前赎回押金 → 违约时 slashKolBond 因 NOT_BONDED 失败，
+    /// 退款永久卡死。
     /// 仅 Factory 登记的拍卖合约可调（isAuction）、每合约仅一次（settlementNotified）、
     /// 且必须由拍卖所属 KOL 回调（auctionKol 绑定，防误登记/升级后传他人 kol 误减计数）。
-    function notifyAuctionSettled(address kol) external {
+    function notifyAuctionClosed(address kol) external {
         require(isAuction[msg.sender], "!AUCTION");
         require(auctionKol[msg.sender] == kol, "KOL_MISMATCH");
         require(!settlementNotified[msg.sender], "DUP_NOTIFY");

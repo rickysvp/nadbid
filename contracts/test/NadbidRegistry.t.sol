@@ -52,7 +52,7 @@ contract NadbidRegistryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp - 1, _signRegistration(kol, "elonmusk", 150000000));
     }
 
-    // Codex 审计（纵深防御）回归：notifyAuctionSettled 必须由拍卖所属 KOL 回调。
+    // Codex 审计（纵深防御）回归：notifyAuctionClosed 必须由拍卖所属 KOL 回调。
     // 用其他 KOL 地址回调必须 revert（KOL_MISMATCH），防止误登记/升级后恶意合约
     // 传他人 kol 把 openAuctionCount 误减成负数。
     function test_NotifySettled_KolMismatch() public {
@@ -72,10 +72,10 @@ contract NadbidRegistryTest is Test {
         // 用 kolB 回调同一拍卖 → 必须 revert
         vm.prank(auction);
         vm.expectRevert(bytes("KOL_MISMATCH"));
-        registry.notifyAuctionSettled(kolB);
+        registry.notifyAuctionClosed(kolB);
         // 正确 KOL 回调 → 计数减一
         vm.prank(auction);
-        registry.notifyAuctionSettled(kol);
+        registry.notifyAuctionClosed(kol);
         assertEq(registry.openAuctionCount(kol), 0);
     }
 

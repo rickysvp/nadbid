@@ -421,6 +421,63 @@ contract KolAuctionTest is Test {
         assertEq(auction.pendingKol(), 0);
     }
 
+    // ================= SP-2 P0 回归：计数/押金闸门锁定到终态 =================
+
+    // P0 修复：settle 后（履约流程中）KOL 不得赎回押金——否则违约时 slashKolBond
+    // 因 NOT_BONDED 失败、退款永久卡死。COMPLETED 终态后才允许赎回。
+    function test_BondRedeem_BlockedUntilCompleted() public {
+        _bondKol();
+        _settleWithBid();
+        // settle 后计数未释放 → 押金赎回被拒
+        vm.prank(kol);
+        vm.expectRevert(bytes("OPEN_AUCTIONS"));
+        reg.requestBondRedeem();
+        // 完成履约 → COMPLETED → 闸门释放
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        vm.prank(bidder);
+        auction.confirmFulfillment();
+        assertEq(reg.openAuctionCount(kol), 0);
+        vm.prank(kol);
+        reg.requestBondRedeem();
+        // 48h 冷却后真正赎出押金
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(kol);
+        reg.finalizeBondRedeem();
+        assertFalse(reg.hasBond(kol));
+    }
+
+    // P0 对偶：违约退款（REFUNDED）终态同样释放闸门，KOL 可赎回押金
+    //（且违约结算本身能成功罚没押金——锁定期内 KOL 无法提前赎回）
+    function test_BondRedeem_AllowedAfterRefund() public {
+        _bondKol();
+        _settleWithBid();
+        vm.warp(block.timestamp + 48 hours + 1);
+        // 违约触发退款：押金罚没成功（锁定期内 KOL 无法赎回）
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        assertEq(auction.slashedBond(), 1 ether);
+        assertEq(reg.openAuctionCount(kol), 0);
+        // REFUNDED 后 KOL 可发起赎回（押金已被罚没 → NOT_BONDED）
+        vm.prank(kol);
+        vm.expectRevert(bytes("NOT_BONDED"));
+        reg.requestBondRedeem();
+    }
+
+    // P0 回归：无出价拍卖 settle 即 COMPLETED（终态），计数同步释放
+    function test_NoBidSettle_ReleasesCount() public {
+        _bondKol();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertEq(reg.openAuctionCount(kol), 0);
+        // 终态后 KOL 可正常赎回押金（未违约）
+        vm.prank(kol);
+        reg.requestBondRedeem();
+    }
+
 
 // 拒收原生代币的合约（无 receive/fallback 收款路径 → call 失败）
 }

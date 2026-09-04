@@ -56,8 +56,15 @@ function useCountdown(targetDate: number) {
   return { timeString, totalSeconds };
 }
 
-/** 链上拍卖展示状态派生：settled 优先；其次按 endTime / startTime 判定 ENDED / UPCOMING / LIVE */
-function deriveChainStatus(data: AuctionData): 'LIVE' | 'UPCOMING' | 'ENDED' | 'SETTLED' {
+/** 链上拍卖展示状态派生（SP-2）：按履约状态机 status 区分终态；未终态按 endTime / startTime 判定 */
+function deriveChainStatus(data: AuctionData): 'LIVE' | 'UPCOMING' | 'ENDED' | 'SETTLED' | 'AWAITING' | 'COMPLETED' | 'DISPUTED' | 'REFUNDED' {
+  switch (data.status) {
+    case 2: return 'AWAITING';   // AWAITING_CONFIRMATION
+    case 3: return 'COMPLETED';
+    case 4: return 'DISPUTED';
+    case 5: return 'REFUNDED';
+    default: break;
+  }
   if (data.settled) return 'SETTLED';
   const nowSec = Math.floor(Date.now() / 1000);
   if (nowSec >= Number(data.endTime)) return 'ENDED';
@@ -136,10 +143,20 @@ function ChainAuctionCard({
       <Badge variant="live" pulse>Live</Badge>
     ) : status === 'UPCOMING' ? (
       <Badge variant="upcoming">Upcoming</Badge>
+    ) : status === 'AWAITING' ? (
+      <Badge variant="settled">Awaiting Fulfillment</Badge>
+    ) : status === 'COMPLETED' ? (
+      <Badge variant="live">Completed</Badge>
+    ) : status === 'DISPUTED' ? (
+      <Badge variant="ended">Disputed</Badge>
+    ) : status === 'REFUNDED' ? (
+      <Badge variant="neutral">Refunded</Badge>
     ) : status === 'SETTLED' ? (
       <Badge variant="settled">Settled</Badge>
-    ) : (
+    ) : status === 'ENDED' ? (
       <Badge variant="ended">Ended</Badge>
+    ) : (
+      <Badge variant="neutral">Unknown</Badge>
     );
 
   return (
