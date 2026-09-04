@@ -20,7 +20,6 @@ import { shortenAddress } from '../utils/format';
 function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSupply: number; currentPrice: number }) {
   const [curveHoverProgress, setCurveHoverProgress] = useState<number | null>(null);
   const [isChartLoading, setIsChartLoading] = useState(true);
-  const [isZoomed] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,7 +40,9 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
     if (e.touches.length > 0) handleInteraction(e.touches[0].clientX);
   };
 
-  const maxDisplaySupply = isZoomed ? 2000 : 10000;
+  // 联合曲线只显示"已铸造"区间（0 → 当前供应量）：
+  // 未铸造的未来段不再绘制，曲线终点即当前 supply / 当前价。
+  const maxDisplaySupply = Math.max(currentSupply, 1);
   const getPrice = (supply: number) => currentPrice * Math.pow(supply / currentSupply, 2);
   const maxDisplayPrice = getPrice(maxDisplaySupply);
 
@@ -49,8 +50,8 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
   const hoverRawX = curveHoverProgress !== null ? curveHoverProgress : actualRawX;
   const hoverSupply = Math.floor(hoverRawX * maxDisplaySupply);
   const hoverMintPrice = getPrice(hoverSupply);
-  const isMinting = hoverSupply > currentSupply;
-  const isCurrent = Math.abs(hoverSupply - currentSupply) < 100 && curveHoverProgress === null;
+  const isCurrent =
+    Math.abs(hoverSupply - currentSupply) < Math.max(1, currentSupply * 0.05) && curveHoverProgress === null;
 
   const cx = hoverRawX * 100;
   const cy = 100 - (hoverMintPrice / maxDisplayPrice) * 100;
@@ -64,6 +65,10 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
   }).join(' ');
 
   const actualX = actualRawX * 100;
+  /** 价格标签：小数值保留足够精度（当前 KOL 测试 PASS mint 价极低时避免全显示 0） */
+  const fmtPrice = (v: number) => (v >= 1 ? v.toFixed(0) : v >= 0.01 ? v.toFixed(2) : v.toFixed(6));
+  /** 供应量标签：整数直接显示，小数保留 2 位 */
+  const fmtSupply = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2));
 
   return (
     <div className="w-full flex-1 min-h-[240px] bg-[#0a0a0a] border border-white/[0.04] rounded relative overflow-hidden mt-2">
@@ -105,24 +110,24 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
           </div>
 
           <div className="absolute left-3 top-3 bottom-8 flex flex-col justify-between text-white/30 text-[9px] font-mono pointer-events-none z-0">
-            <span>{maxDisplayPrice.toFixed(0)}</span>
-            <span>{(maxDisplayPrice * 0.66).toFixed(0)}</span>
-            <span>{(maxDisplayPrice * 0.33).toFixed(0)}</span>
+            <span>{fmtPrice(maxDisplayPrice)}</span>
+            <span>{fmtPrice(maxDisplayPrice * 0.66)}</span>
+            <span>{fmtPrice(maxDisplayPrice * 0.33)}</span>
             <span>0</span>
           </div>
 
           <div className="absolute bottom-2 left-10 right-4 flex justify-between text-white/30 text-[9px] font-mono pointer-events-none z-0">
             <span>0</span>
-            <span>{(maxDisplaySupply * 0.33).toFixed(0)}</span>
-            <span>{(maxDisplaySupply * 0.66).toFixed(0)}</span>
-            <span>{maxDisplaySupply}</span>
+            <span>{fmtSupply(maxDisplaySupply * 0.33)}</span>
+            <span>{fmtSupply(maxDisplaySupply * 0.66)}</span>
+            <span>{fmtSupply(maxDisplaySupply)}</span>
           </div>
 
           <div
             className="absolute top-0 bottom-0 border-l border-white/10 pointer-events-none border-dashed z-0"
             style={{ left: `${actualX}%` }}
           >
-            <div className="absolute top-2 -translate-x-1/2 bg-[#161616] border border-white/10 text-white/40 text-[7px] font-bold px-1.5 py-0.5 rounded tracking-widest whitespace-nowrap">CURRENT SUPPLY</div>
+            <div className="absolute top-2 right-0 translate-x-1/2 bg-[#161616] border border-white/10 text-white/40 text-[7px] font-bold px-1.5 py-0.5 rounded tracking-widest whitespace-nowrap">CURRENT SUPPLY</div>
           </div>
 
           <svg viewBox="0 0 100 100" className="w-full h-full relative z-10" preserveAspectRatio="none">
@@ -178,8 +183,8 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
               <div className="bg-[#111] border border-white/10 rounded-lg p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.8)] flex flex-col min-w-[140px]">
                 <div className="flex justify-between items-center mb-2.5 border-b border-white/10 pb-2">
                   <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.1em]">Coordinates</div>
-                  <div className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${isCurrent ? 'bg-white/10 text-white' : isMinting ? 'bg-[#3ec470]/20 text-[#3ec470]' : 'bg-red-500/20 text-red-400'}`}>
-                    {isCurrent ? 'CURRENT' : isMinting ? 'MINTING' : 'BURNING'}
+                  <div className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${isCurrent ? 'bg-white/10 text-white' : 'bg-white/[0.06] text-white/60'}`}>
+                    {isCurrent ? 'CURRENT' : 'PAST'}
                   </div>
                 </div>
                 <div className="flex justify-between items-center mb-1.5">
@@ -317,28 +322,43 @@ export default function KolProfilePage() {
   // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
   const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
 
-  // KOL 推特简介（bio）：server 在 X 验证时持久化（GET /api/kol/meta?wallet=）。
-  // 生产同域（nadbid.fun）；本地 dev 无 proxy 时 fetch 失败 → bio 为空，降级展示链上摘要。
+  // KOL 推特资料（bio + 头像）：优先本地持久化（X 授权时写入）；
+  // 未授权过时 server 用 App-only API 按 handle 拉公开资料（GET /api/kol/meta?wallet=&handle=）。
+  // 生产同域（nadbid.fun）；本地 dev 无 proxy 时 fetch 失败 → 降级展示链上摘要 + 默认头像。
   const [kolBio, setKolBio] = useState<string | undefined>(undefined);
+  const [kolAvatar, setKolAvatar] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (!kolAddress) {
       setKolBio(undefined);
+      setKolAvatar(undefined);
       return;
     }
     let cancelled = false;
-    fetch(`/api/kol/meta?wallet=${kolAddress}`)
+    const handle = chainKolInfo?.twitterHandle?.replace(/^@/, '') ?? '';
+    fetch(`/api/kol/meta?wallet=${kolAddress}&handle=${encodeURIComponent(handle)}`)
       .then((r) => r.json())
-      .then((d: { found?: boolean; bio?: string }) => {
-        if (!cancelled) setKolBio(d?.found && typeof d.bio === 'string' ? d.bio : undefined);
+      .then((d: { found?: boolean; bio?: string; avatar?: string }) => {
+        if (cancelled) return;
+        setKolBio(d?.found && typeof d.bio === 'string' ? d.bio : undefined);
+        setKolAvatar(d?.found && typeof d.avatar === 'string' ? d.avatar : undefined);
       })
       .catch(() => {
-        if (!cancelled) setKolBio(undefined);
+        if (!cancelled) {
+          setKolBio(undefined);
+          setKolAvatar(undefined);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [kolAddress]);
+  }, [kolAddress, chainKolInfo?.twitterHandle]);
   const displayBio = kolBio && kolBio.trim() !== '' ? kolBio.trim() : undefined;
+  /** X 头像（48px 默认 → 400px），加载失败时回退默认头像组件 */
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [kolAvatar]);
+  const displayAvatar = !avatarFailed && kolAvatar ? kolAvatar.replace(/_normal(\.\w+)$/, '_400x400$1') : undefined;
 
   if (!kolAddress) {
     return (
@@ -383,7 +403,16 @@ export default function KolProfilePage() {
           <div className="lg:col-span-3 bg-[#161616] border border-white/[0.04] rounded-lg p-6 flex flex-col items-center text-center">
             <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }} className="relative w-24 h-24 mb-4 cursor-pointer">
               <div className="absolute inset-0 bg-white/5 rounded-full animate-pulse"></div>
-              <KolAvatar handle={displayAvatarHandle} size="xl" name={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[#161616] relative z-10 bg-[#0a0a0a] shadow-xl" />
+              {displayAvatar ? (
+                <img
+                  src={displayAvatar}
+                  alt={displayName}
+                  onError={() => setAvatarFailed(true)}
+                  className="w-24 h-24 rounded-full object-cover border-2 border-[#161616] relative z-10 bg-[#0a0a0a] shadow-xl"
+                />
+              ) : (
+                <KolAvatar handle={displayAvatarHandle} size="xl" name={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[#161616] relative z-10 bg-[#0a0a0a] shadow-xl" />
+              )}
             </motion.div>
             <h1 className="text-2xl font-black tracking-tight mb-1">{displayName}</h1>
             <div className="text-white/40 text-sm font-mono mb-6">{displayHandle}</div>

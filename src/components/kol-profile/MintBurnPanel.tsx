@@ -136,9 +136,13 @@ export function MintBurnPanel({
   /** 余额内可 mint 的最大数量 */
   const maxMintQty = Math.max(0, Math.floor((wallet.balanceMon || 0) / (effectivePrice > 0 ? effectivePrice : 1)));
 
-  /** CTA 是否可点：数量合法、链上数据就绪（时序保护）、不在交易中 */
+  /** CTA 是否可点：数量合法、链上数据就绪（时序保护）、不在交易中。
+   *  burn 特例：未连接钱包时仍可点击（点击后引导连接），避免按钮"点了没反应" */
   const canSubmit =
-    isQtyValid && !isSubmitting && chainDataReady && (isMint ? true : burnQty > 0 && chainBurnReady);
+    isQtyValid &&
+    !isSubmitting &&
+    chainDataReady &&
+    (isMint || !wallet.isConnected || (burnQty > 0 && chainBurnReady));
 
   const handleSetMax = () => {
     setQty(String(isMint ? maxMintQty : effectiveHolding));
@@ -315,8 +319,12 @@ export function MintBurnPanel({
               </span>
             </div>
             {chainBurnable.length === 0 ? (
-              <div className="text-amber-400/80 text-[10px] font-mono leading-relaxed">
-                No PASS tokens to burn. Mint PASS first to participate in the bonding curve.
+              <div className="text-amber-400/80 text-x] font-mono leading-relaxed">
+                {!wallet.isConnected
+                  ? 'Connect your wallet to view your PASS tokens.'
+                  : chainHolding === undefined
+                    ? 'Loading your PASS tokens...'
+                    : 'You hold 0 PASS of this KOL. Mint first, then come back to burn.'}
               </div>
             ) : (
               <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
@@ -400,7 +408,9 @@ export function MintBurnPanel({
                 ? 'Mint PASS'
                 : burnQty > 0
                   ? `Burn ${burnQty} PASS`
-                  : 'Select PASS to Burn'}
+                  : chainHolding !== undefined && chainHolding === 0
+                    ? 'No PASS to Burn'
+                    : 'Select PASS to Burn'}
       </Button>
       {!wallet.isConnected && isQtyValid && (
         <div className="text-[#3ec470]/70 text-[9px] text-center mt-2 font-bold tracking-wider">
