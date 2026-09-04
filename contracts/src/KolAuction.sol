@@ -120,6 +120,10 @@ contract KolAuction {
         // Pull 模式：仅记录待领金额，不直接转账（拒收地址不再阻塞结算/担保赎回）
         pendingPlatform += platformFee;
         pendingKol += guaranteePool;
+        // F2：通知 Registry 本拍卖已结算（对应 KOL 的 openAuctionCount -1，
+        // 释放"同时只能进行一场拍卖"的创建/赎回闸门）。notify 失败则整体 revert，
+        // 结算状态与计数保持一致。
+        IRegistry(registry).notifyAuctionSettled(a.kol);
         emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, platformFee, guaranteePool, block.number);
     }
 
@@ -154,8 +158,9 @@ contract KolAuction {
     function lastBidder() external view returns (address) { return auction.lastBidder; }
 }
 
-// 供 KolAuction 查询 banned（避免双向 import）
+// 供 KolAuction 查询 banned + 结算回调（避免双向 import）
 interface IRegistry {
     function isKolBanned(address wallet) external view returns (bool);
     function factory() external view returns (address);
+    function notifyAuctionSettled(address kol) external;
 }

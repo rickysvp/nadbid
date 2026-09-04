@@ -23,6 +23,8 @@ contract KolAuctionTest is Test {
         // 把自己设为 factory 后直接 new（msg.sender = 测试合约）通过白名单校验
         reg.setFactory(address(this));
         auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg), block.timestamp);
+        // F2：登记为可信拍卖（settle 回调 registry.notifyAuctionSettled 需要 isAuction）
+        reg.addAuctionContract(kol, address(auction));
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);
         vm.prank(bidder);
@@ -161,6 +163,8 @@ contract KolAuctionTest is Test {
         reg.setFactory(address(this)); // F6 白名单
         // 用拒收 KOL 重建拍卖（复用同一 pass，bidder 已持有）
         KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg), block.timestamp);
+        // F2：登记为可信拍卖（settle 回调需要）
+        reg.addAuctionContract(address(rejectKol), address(rejAuction));
         vm.prank(bidder);
         rejAuction.placeBid{value: fixedBid}();
         vm.warp(block.timestamp + 1000);

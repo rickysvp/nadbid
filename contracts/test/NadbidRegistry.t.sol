@@ -17,18 +17,18 @@ contract NadbidRegistryTest is Test {
         registry.setPlatformSigner(signer);
     }
 
-    /// 生成平台对 (wallet, handle, followers) 的注册签名（与合约 registerKol 验签一致）
+    /// 生成平台对 (wallet, handle, followers, expiry) 的注册签名（与合约 registerKol 验签一致）
     function _signRegistration(address wallet, string memory handle, uint256 followers)
         internal view returns (bytes memory)
     {
-        bytes32 hash = keccak256(abi.encodePacked(wallet, handle, followers));
+        bytes32 hash = keccak256(abi.encodePacked(wallet, handle, followers, block.timestamp + 1 hours));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerSk, hash);
         return abi.encodePacked(r, s, v);
     }
 
     function test_RegisterKol() public {
         vm.prank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         assertTrue(registry.isKolRegistered(kol));
     }
 
@@ -36,18 +36,25 @@ contract NadbidRegistryTest is Test {
         // 无签名/错误签名 → 拒绝（防绕过前端伪造粉丝数）
         vm.prank(kol);
         vm.expectRevert();
-        registry.registerKol("elonmusk", 150000000, hex"00");
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, hex"00");
     }
 
     function test_RegisterKol_RejectsLowFollowers() public {
         vm.prank(kol);
         vm.expectRevert();
-        registry.registerKol("small", 999, _signRegistration(kol, "small", 999));
+        registry.registerKol("small", 999, block.timestamp + 1 hours, _signRegistration(kol, "small", 999));
+    }
+
+    function test_RegisterKol_RejectsExpiredSig() public {
+        vm.prank(kol);
+        vm.expectRevert();
+        // 签名带已过期的 expiry → 拒绝（防签名永久有效被重放）
+        registry.registerKol("elonmusk", 150000000, block.timestamp - 1, _signRegistration(kol, "elonmusk", 150000000));
     }
 
     function test_DepositBond_RequiresExactAmount() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 20 ether);
         vm.expectRevert();
         registry.depositBond{value: 9 ether}();
@@ -56,7 +63,7 @@ contract NadbidRegistryTest is Test {
 
     function test_BondRedeem_48hCooldown() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         registry.requestBondRedeem();

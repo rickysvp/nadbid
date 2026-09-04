@@ -15,7 +15,7 @@ contract DeployFactory is Script {
         address registryAddr = vm.envAddress("REGISTRY_ADDRESS");
         address platformTreasury = vm.envAddress("PLATFORM_TREASURY");
         vm.startBroadcast();
-        NadbidFactory factory = new NadbidFactory(registryAddr, platformTreasury);
+        NadbidFactory factory = new NadbidFactory(registryAddr, platformTreasury, vm.envOr("FIXED_BID_AMOUNT", uint256(0.1 ether)));
         NadbidRegistry(registryAddr).setFactory(address(factory));
         vm.stopBroadcast();
         console2.log("Registry (unchanged):", registryAddr);

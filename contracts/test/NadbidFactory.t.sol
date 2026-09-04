@@ -17,7 +17,7 @@ contract NadbidFactoryTest is Test {
         registry = new NadbidRegistry(1000);
         signer = vm.addr(signerSk);
         registry.setPlatformSigner(signer);
-        factory = new NadbidFactory(address(registry), address(0xCAFE));  // registry + platformTreasury 两参
+        factory = new NadbidFactory(address(registry), address(0xCAFE), 99 ether);  // registry + treasury + fixedBid
         registry.setFactory(address(factory));
     }
 
@@ -25,14 +25,14 @@ contract NadbidFactoryTest is Test {
     function _signRegistration(address wallet, string memory handle, uint256 followers)
         internal view returns (bytes memory)
     {
-        bytes32 hash = keccak256(abi.encodePacked(wallet, handle, followers));
+        bytes32 hash = keccak256(abi.encodePacked(wallet, handle, followers, block.timestamp + 1 hours));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerSk, hash);
         return abi.encodePacked(r, s, v);
     }
 
     function test_CreateKolPass_RequiresBond() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.expectRevert();
         factory.createKolPass(13.39 ether);  // 未质押
         vm.stopPrank();
@@ -40,7 +40,7 @@ contract NadbidFactoryTest is Test {
 
     function test_CreateKolPass_AfterBond() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
@@ -52,7 +52,7 @@ contract NadbidFactoryTest is Test {
     function test_CreateKolAuction() public {
         // 先建 PASS，再建拍卖
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
@@ -66,7 +66,7 @@ contract NadbidFactoryTest is Test {
     function test_CreateKolAuction_RejectsFakePass() public {
         FakePass fake = new FakePass(kol);
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         vm.expectRevert("NOT_FACTORY_PASS");
@@ -77,7 +77,7 @@ contract NadbidFactoryTest is Test {
     // 业务规则：KOL 同时只能进行一场拍卖——上一场未结算时创建新拍卖必须被拒
     function test_CreateKolAuction_BlockedWhileActive() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
@@ -91,7 +91,7 @@ contract NadbidFactoryTest is Test {
     // 业务规则：完成履约（settle）后可开启下一场拍卖
     function test_CreateKolAuction_AllowedAfterSettle() public {
         vm.startPrank(kol);
-        registry.registerKol("elonmusk", 150000000, _signRegistration(kol, "elonmusk", 150000000));
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);

@@ -14,7 +14,7 @@ contract Deploy is Script {
         address platformSigner = vm.envAddress("PLATFORM_SIGNER"); // registerKol 注册签名验签公钥
         vm.startBroadcast();
         NadbidRegistry registry = new NadbidRegistry(minFollowers);
-        NadbidFactory factory = new NadbidFactory(address(registry), platformTreasury);
+        NadbidFactory factory = new NadbidFactory(address(registry), platformTreasury, vm.envOr("FIXED_BID_AMOUNT", uint256(0.1 ether)));
         registry.setFactory(address(factory));
         registry.setPlatformSigner(platformSigner);
         vm.stopBroadcast();
