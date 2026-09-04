@@ -5,8 +5,7 @@ import { useToast } from '../../hooks/useToast';
 import { useWalletStore } from '../../stores/walletStore';
 import { useKolPass } from '../../web3/hooks/useKolPass';
 import { curvePriceAt, supplyAfterBurn, supplyAfterMint } from '../../utils/bondingCurve';
-import { TradeConfirmationModal, ConnectModal } from '../trade';
-import type { TradeDetailItem } from '../trade';
+import { ConnectModal } from '../trade';
 import { cn } from '../../utils/cn';
 
 export interface MintBurnResultPayload {
@@ -42,7 +41,7 @@ type MintBurnTab = 'mint' | 'burn';
  * passAddress 未配置（KOL 尚未创建 PASS 合约）时显示占位提示。
  */
 export function MintBurnPanel({
-  kolHandle,
+  kolHandle: _kolHandle,
   kolName,
   supply,
   price,
@@ -50,7 +49,7 @@ export function MintBurnPanel({
   onTradeSuccess,
 }: MintBurnPanelProps) {
   const wallet = useWalletStore();
-  const { error: toastError } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const account =
     wallet.isConnected && wallet.address ? (wallet.address as `0x${string}`) : undefined;
   const chain = useKolPass(passAddress, account);
@@ -59,7 +58,6 @@ export function MintBurnPanel({
 
   const [tab, setTab] = useState<MintBurnTab>('mint');
   const [qty, setQty] = useState<string>('1');
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   // 链上 burn：tokenId 多选集合（联合曲线核心需求 — 按曲线价回购，多人套利是设计模型）
   const [burnSelected, setBurnSelected] = useState<Set<string>>(new Set());
@@ -78,9 +76,6 @@ export function MintBurnPanel({
 
   /** 交易状态机（链上 6 态） */
   const isSubmitting = chain.isLoading;
-  const txStatus = chain.status;
-  const txHash = chain.txHash;
-  const txError = chain.error;
 
   const isMint = tab === 'mint';
 
@@ -124,9 +119,6 @@ export function MintBurnPanel({
     : undefined;
   /** 链上精确成本 → MON（显示用） */
   const chainCostMon = chainCostWei !== undefined ? Number(chainCostWei) / 1e18 : undefined;
-  /** 确认弹窗使用的 Unit Price / Total Cost：取链上精确成本口径 */
-  const displayUnitPrice =
-    chainCostMon !== undefined ? chainCostMon / (isMint ? qtyNum : burnQty || 1) : effectivePrice;
   const displayTotalAmount = chainCostMon !== undefined ? chainCostMon : totalAmount;
   /** 预估新供应量 / 新价格（Mint 上涨 / Burn 下跌） */
   const newSupply = isMint ? supplyAfterMint(effectiveSupply, qtyNum) : supplyAfterBurn(effectiveSupply, qtyNum);
@@ -152,10 +144,10 @@ export function MintBurnPanel({
     setQty(String(isMint ? maxMintQty : effectiveHolding));
   };
 
-  /** 点击 CTA：校验 → 未连接钱包引导连接 → 打开确认弹窗 */
+  /** 点击 CTA：校验 → 未连接钱包引导连接 → 直接执行交易（无确认弹窗，简化交互） */
   const handleTradeClick = () => {
     if (!canSubmit) return;
-    // Burn 持仓不足：立即给出错误提示（不进入弹窗）
+    // Burn 持仓不足：立即给出错误提示
     if (burnExceedsHolding) {
       toastError(`Insufficient PASS holdings. You hold ${chainBurnable.length} PASS, tried to burn ${burnQty}.`);
       return;
@@ -165,20 +157,23 @@ export function MintBurnPanel({
       return;
     }
     chain.reset();
-    setConfirmOpen(true);
+    void executeTrade();
   };
 
-  /** 连接成功后的续接：回到交易确认流程 */
+  /** 连接成功后的续接：直接执行交易 */
   const handleConnected = () => {
     chain.reset();
-    setConfirmOpen(true);
+    void executeTrade();
   };
 
-  /** 确认交易：mint / burn 均走真实链上交易 */
-  const handleConfirm = async () => {
+  /** 执行交易：mint / burn 均直接走真实链上交易，不再弹窗确认 */
+  const executeTrade = async () => {
     if (isMint) {
       const txHashRes = await chain.mint(BigInt(qtyNum));
-      if (!txHashRes) return; // 用户拒绝 / 失败 → 状态由 TradeConfirmationModal 展示
+      if (!txHashRes) {
+        // 用户拒绝 / 失败：失败原因由 useWriteContractTx 分类后经 toast 提示
+        return;
+      }
 
       const newSupply = supplyAfterMint(effectiveSupply, qtyNum);
       // P3-10：精确"下一枚"价（与顶部展示公式一致）
@@ -193,13 +188,7 @@ export function MintBurnPanel({
       const costMon = chainCostMon !== undefined ? chainCostMon : qtyNum * effectivePrice;
       await wallet.refreshBalance(costMon);
       onTradeSuccess?.({ action: 'mint', amount: qtyNum, newSupply, newPrice });
-
-      // 展示成功态后自动关闭并重置
-      setTimeout(() => {
-        setConfirmOpen(false);
-        chain.reset();
-        setBurnSelected(new Set());
-      }, 1400);
+      toastSuccess(`Minted ${qtyNum} ${kolName} PASS`);
       return;
     }
 
@@ -223,26 +212,8 @@ export function MintBurnPanel({
     // burn 返还按曲线价（链上实际到账额），用于刷新余额
     await wallet.refreshBalance(burnAmt * (chainPrice ?? 0));
     onTradeSuccess?.({ action: 'burn', amount: burnAmt, newSupply, newPrice });
-
-    setTimeout(() => {
-      setConfirmOpen(false);
-      chain.reset();
-      setBurnSelected(new Set());
-    }, 1400);
+    toastSuccess(`Burned ${burnAmt} ${kolName} PASS`);
   };
-
-  const confirmDetails: TradeDetailItem[] = [
-    { label: 'KOL', value: `${kolName} (${kolHandle})` },
-    { label: 'Action', value: isMint ? 'Mint PASS' : 'Burn PASS' },
-    { label: 'Quantity', value: `${isMint ? qtyNum : burnQty} PASS` },
-    { label: 'Unit Price', value: `${displayUnitPrice.toFixed(6)} MON` },
-    {
-      label: isMint ? 'Total Cost' : 'Est. Return',
-      value: `${displayTotalAmount.toFixed(6)} MON`,
-      highlight: true,
-    },
-    { label: 'Est. New Price', value: `${newPrice.toFixed(6)} MON` },
-  ];
 
   // 无 PASS 合约 → 占位提示（KOL 未创建 PASS，无 mock 交易）
   if (!hasPass) {
@@ -440,29 +411,7 @@ export function MintBurnPanel({
         PASS follows a bonding curve — burning refunds at curve price. Prices may slip.
       </div>
 
-      {/* 交易确认弹窗 */}
-      <TradeConfirmationModal
-        open={confirmOpen}
-        onClose={() => {
-          setConfirmOpen(false);
-          chain.reset();
-        }}
-        title={isMint ? 'Confirm Mint' : 'Confirm Burn'}
-        description={
-          isMint
-            ? `Mint ${qtyNum} ${kolName} PASS at the current bonding-curve price.`
-            : `Burn ${qtyNum} ${kolName} PASS and receive MON back along the bonding curve.`
-        }
-        details={confirmDetails}
-        confirmText={isMint ? 'Confirm Mint' : 'Confirm Burn'}
-        cancelText="Cancel"
-        onConfirm={handleConfirm}
-        status={txStatus}
-        txHash={txHash ?? undefined}
-        error={txError ?? undefined}
-      />
-
-      {/* 钱包连接引导 */}
+      {/* 钱包连接引导（交易直接执行，无确认弹窗） */}
       <ConnectModal
         open={connectOpen}
         onClose={() => setConnectOpen(false)}

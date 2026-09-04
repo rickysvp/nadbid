@@ -22,6 +22,34 @@ export interface KolData {
   auctionContracts: readonly `0x${string}`[];
 }
 
+/**
+ * wagmi/viem 对 solidity struct 返回值解码为数组（按字段声明顺序），
+ * 而非命名对象。全站按对象属性访问（kolData.twitterHandle / passContracts），
+ * 必须归一化为 KolData。任何直接读 getKol / kolList 的地方都要经过本函数。
+ */
+export function normalizeKolData(raw: unknown): KolData | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) {
+    const r = raw as unknown[];
+    if (r.length < 12) return undefined;
+    return {
+      wallet: r[0] as `0x${string}`,
+      twitterHandle: String(r[1] ?? ''),
+      followers: r[2] as bigint,
+      registered: Boolean(r[3]),
+      bonded: Boolean(r[4]),
+      bondAmount: r[5] as bigint,
+      bondTimestamp: r[6] as bigint,
+      bondRedeemRequestedAt: r[7] as bigint,
+      bondRedeemPending: Boolean(r[8]),
+      banned: Boolean(r[9]),
+      passContracts: (r[10] ?? []) as readonly `0x${string}`[],
+      auctionContracts: (r[11] ?? []) as readonly `0x${string}`[],
+    };
+  }
+  return raw as KolData;
+}
+
 /** 写入交易的通用选项 */
 export interface RegistryTxOptions {
   /** 交易成功确认后的回调 */
@@ -192,7 +220,7 @@ export function useRegistry(wallet?: `0x${string}` | undefined): UseRegistryResu
 
   return {
     isRegistered: isRegisteredRes.data as boolean | undefined,
-    kolData: kolRes.data as KolData | undefined,
+    kolData: normalizeKolData(kolRes.data),
     hasBond: hasBondRes.data as boolean | undefined,
     canCreate: canCreateRes.data as boolean | undefined,
     bondAmount: bondAmountRes.data as bigint | undefined,

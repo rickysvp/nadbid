@@ -20,7 +20,7 @@ import { contractAddresses, registryAbi, kolAuctionAbi } from '../web3/contracts
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { useAuction } from '../web3/hooks/useAuction';
 import type { AuctionData } from '../web3/hooks/useAuction';
-import type { KolData } from '../web3/hooks/useRegistry';
+import { normalizeKolData, type KolData } from '../web3/hooks/useRegistry';
 
 type FilterTab = 'ALL' | 'LIVE' | 'UPCOMING';
 
@@ -262,7 +262,7 @@ function ChainKolSlot({ index, filter, search, onVisibility }: ChainKolSlotProps
     args: [kolAddress ?? ZERO_ADDRESS],
     query: { enabled: !isEmpty },
   });
-  const kolData = kolRes.data as KolData | undefined;
+  const kolData = normalizeKolData(kolRes.data);
   const auctionContracts = kolData?.auctionContracts ?? [];
 
   return (

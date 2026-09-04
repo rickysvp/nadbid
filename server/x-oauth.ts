@@ -101,22 +101,83 @@ const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
 // 主防线仍是短 TTL + wallet 绑定）
 const usedTickets = new Set<string>();
 
+// ---- KOL 元信息（bio 等 X 资料）轻量持久化 ----
+// 说明：X 验证成功时把 { username, followers, bio } 存到 JSON 文件，供 KOL
+// 详情页展示真实推特简介。Vercel serverless 无持久文件系统，meta 可能随实例
+// 回收丢失（bio 为空时前端降级展示链上真实信息，不影响主流程）。
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+interface KolMeta {
+  username: string;
+  followers: number;
+  bio: string;
+  updatedAt: number;
+}
+
+const KOL_META_FILE = path.join(process.cwd(), 'server', 'data', 'kol-meta.json');
+
+function readKolMeta(): Record<string, KolMeta> {
+  try {
+    return JSON.parse(fs.readFileSync(KOL_META_FILE, 'utf8')) as Record<string, KolMeta>;
+  } catch {
+    return {};
+  }
+}
+
+function writeKolMeta(meta: Record<string, KolMeta>): void {
+  try {
+    fs.mkdirSync(path.dirname(KOL_META_FILE), { recursive: true });
+    fs.writeFileSync(KOL_META_FILE, JSON.stringify(meta, null, 2), 'utf8');
+  } catch {
+    // 持久化失败不阻断主流程（meta 仅为增强展示）
+  }
+}
+
+function upsertKolMeta(wallet: string, username: string, followers: number, bio?: string): void {
+  const meta = readKolMeta();
+  meta[wallet.toLowerCase()] = {
+    username,
+    followers,
+    bio: bio ?? meta[wallet.toLowerCase()]?.bio ?? '',
+    updatedAt: Date.now(),
+  };
+  writeKolMeta(meta);
+}
+
+/** 4. 查询 KOL 元信息（GET /api/kol/meta?wallet=）：bio 等 X 资料，供 KOL 详情页展示 */
+router.get('/meta', (req, res) => {
+  const wallet = (req.query.wallet as string | undefined) ?? '';
+  if (!wallet) {
+    res.status(400).json({ error: 'missing wallet' });
+    return;
+  }
+  const meta = readKolMeta()[wallet.toLowerCase()];
+  if (!meta) {
+    res.json({ found: false });
+    return;
+  }
+  res.json({ found: true, ...meta });
+});
+
 interface VerifyTicket {
   u: string; // username
   f: number; // followers
   w: string; // 申请者钱包地址（绑定 X 身份，防多钱包冒用）
+  b?: string; // X 简介（bio）— 可选字段，旧 ticket 兼容
   exp: number;
 }
 
-function signTicket(username: string, followers: number, wallet: string): string {
+function signTicket(username: string, followers: number, wallet: string, bio?: string): string {
   const payload: VerifyTicket = { u: username, f: followers, w: wallet, exp: Date.now() + TICKET_TTL_MS };
+  if (bio) payload.b = bio;
   const encoded = b64url(Buffer.from(JSON.stringify(payload)));
   const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(encoded).digest());
   return `${encoded}.${sig}`;
 }
 
-/** 验证票据，返回 { username, followers, wallet } 或 null（无效/过期/伪造） */
-function verifyTicket(ticket: string): { username: string; followers: number; wallet: string } | null {
+/** 验证票据，返回 { username, followers, wallet, bio } 或 null（无效/过期/伪造） */
+function verifyTicket(ticket: string): { username: string; followers: number; wallet: string; bio?: string } | null {
   const parts = ticket.split('.');
   if (parts.length !== 2) return null;
   const [payload, sig] = parts;
@@ -134,7 +195,7 @@ function verifyTicket(ticket: string): { username: string; followers: number; wa
     ) {
       return null;
     }
-    return { username: data.u, followers: data.f, wallet: data.w };
+    return { username: data.u, followers: data.f, wallet: data.w, bio: typeof data.b === 'string' ? data.b : undefined };
   } catch {
     return null;
   }
@@ -230,9 +291,9 @@ router.get('/x-oauth-callback', async (req, res) => {
       return;
     }
 
-    // 4. /2/users/me → 本人 username / id（此端点免费 0 积分）
+    // 4. /2/users/me → 本人 username / id / 简介（此端点免费 0 积分）
     const meRes = await fetch(
-      'https://api.twitter.com/2/users/me?user.fields=username,public_metrics,name',
+      'https://api.twitter.com/2/users/me?user.fields=username,public_metrics,name,description',
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!meRes.ok) {
@@ -245,15 +306,16 @@ router.get('/x-oauth-callback', async (req, res) => {
       return;
     }
     const me = (await meRes.json()) as {
-      data?: { id?: string; username?: string; name?: string; public_metrics?: { followers_count?: number } };
+      data?: { id?: string; username?: string; name?: string; description?: string; public_metrics?: { followers_count?: number } };
     };
     const username = me?.data?.username ?? '';
     const followers = me?.data?.public_metrics?.followers_count ?? 0;
+    const bio = me?.data?.description ?? '';
 
     // 5. 签发一次性验证票据（绑定申请者钱包，防止多钱包冒用同一 X 身份；
     //    不把 username/followers/verified 明文放 URL，防伪造）
     //    前端用 ticket 调 /api/kol/verify-ticket 换取可信结果。
-    const ticket = signTicket(username, followers, wallet);
+    const ticket = signTicket(username, followers, wallet, bio);
     res.redirect(
       `${FRONTEND_URL}/kol/onboarding?xoauth=success&ticket=${encodeURIComponent(ticket)}`
     );
@@ -320,6 +382,7 @@ router.post('/verify-ticket', async (req, res) => {
       username: result.username,
       followers: result.followers,
       threshold: FOLLOWERS_THRESHOLD,
+      bio: result.bio ?? null,
       signature: null,
     });
     return;
@@ -330,13 +393,16 @@ router.post('/verify-ticket', async (req, res) => {
   // viem account.sign 返回 Promise（resolve 为 0x{r}{s}{v} 65 字节 hex）；
   // 必须 await，否则 res.json 会把 Promise 序列化成空对象 {}
   const signature = await platformSigner.sign({ hash });
-  // 一次性：使用后标记（单实例尽力而为；放在签名成功之后，避免配置错误浪费 ticket）
+  // 一次性：使用后标记（放在签名成功之后，避免配置错误浪费 ticket）
   usedTickets.add(ticket);
+  // KOL 元信息持久化：X 简介等资料供详情页展示（失败不阻断主流程）
+  upsertKolMeta(wallet, result.username, result.followers, result.bio);
   res.json({
     verified: true,
     username: result.username,
     followers: result.followers,
     threshold: FOLLOWERS_THRESHOLD,
+    bio: result.bio ?? null,
     signature,
   });
 });

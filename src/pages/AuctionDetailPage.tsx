@@ -18,7 +18,7 @@ import { useKolPass, type CurveConfig } from '../web3/hooks/useKolPass';
 import { contractAddresses, registryAbi } from '../web3/contracts';
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { kolProfilePath } from '../config/routes';
-import type { KolData } from '../web3/hooks/useRegistry';
+import { normalizeKolData } from '../web3/hooks/useRegistry';
 
 /** 便士拍卖：单次出价固定金额（MON），兜底取 auction.bidIncrement */
 const DEFAULT_BID_AMOUNT = AUCTION.FIXED_BID_AMOUNT;
@@ -260,7 +260,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
     args: [auctionData?.kol ?? '0x0000000000000000000000000000000000000000'],
     query: { enabled: auctionData !== undefined },
   });
-  const kolOnChain = kolRes.data as KolData | undefined;
+  const kolOnChain = normalizeKolData(kolRes.data);
   const kolTwitterHandle = kolOnChain?.twitterHandle ?? '';
   const hasKolHandle = kolTwitterHandle.trim() !== '';
   const kolName = hasKolHandle ? kolTwitterHandle.replace(/^@/, '') : (auctionData?.kol ? shortenAddress(auctionData.kol) : 'On-Chain KOL');

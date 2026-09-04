@@ -317,6 +317,29 @@ export default function KolProfilePage() {
   // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
   const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
 
+  // KOL 推特简介（bio）：server 在 X 验证时持久化（GET /api/kol/meta?wallet=）。
+  // 生产同域（nadbid.fun）；本地 dev 无 proxy 时 fetch 失败 → bio 为空，降级展示链上摘要。
+  const [kolBio, setKolBio] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!kolAddress) {
+      setKolBio(undefined);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/kol/meta?wallet=${kolAddress}`)
+      .then((r) => r.json())
+      .then((d: { found?: boolean; bio?: string }) => {
+        if (!cancelled) setKolBio(d?.found && typeof d.bio === 'string' ? d.bio : undefined);
+      })
+      .catch(() => {
+        if (!cancelled) setKolBio(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kolAddress]);
+  const displayBio = kolBio && kolBio.trim() !== '' ? kolBio.trim() : undefined;
+
   if (!kolAddress) {
     return (
       <div className="min-h-screen bg-transparent pt-32 pb-24">
@@ -379,10 +402,16 @@ export default function KolProfilePage() {
           <div className="lg:col-span-9 bg-[#161616] border border-white/[0.04] rounded-lg p-6 flex flex-col justify-between">
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-[0.1em] mb-4">Overview</h2>
-              <p className="text-white/60 text-[13px] leading-relaxed max-w-3xl">
-                Verified on-chain KOL. Bid for a personalized service on nadbid.fun — the last bidder at countdown end wins.
-                Hold a PASS of this KOL to place bids.
-              </p>
+              {displayBio ? (
+                <p className="text-white/60 text-[13px] leading-relaxed max-w-3xl">{displayBio}</p>
+              ) : (
+                <p className="text-white/60 text-[13px] leading-relaxed max-w-3xl">
+                  Verified on-chain KOL
+                  {displayName ? ` — @${displayName}` : ''} runs penny auctions on nadbid.fun: bid a fixed
+                  amount, each bid resets the 40s countdown, and the last bidder when time runs out wins the
+                  auction. Hold a PASS to place bids.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
