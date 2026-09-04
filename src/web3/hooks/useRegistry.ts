@@ -71,11 +71,13 @@ export interface UseRegistryResult {
   /** 担保金金额（BOND_AMOUNT，单位 wei） */
   bondAmount: bigint | undefined;
   // ---- 链上写入 ----
-  /** registerKol(twitterHandle, followers, signature)：注册为 KOL（signature 为平台
-   *   ECDSA 注册签名，由 server 在 X 验证通过后签发，防绕过前端伪造粉丝数） */
+  /** registerKol(twitterHandle, followers, expiry, signature)：注册为 KOL（signature 为平台
+   *   ECDSA 注册签名，由 server 在 X 验证通过后签发，防绕过前端伪造粉丝数；
+   *   expiry 为秒级 Unix 时间戳，防签名永久有效被重放） */
   registerKol: (
     twitterHandle: string,
     followers: bigint,
+    expiry: bigint,
     signature: `0x${string}`,
     opts?: RegistryTxOptions,
   ) => Promise<Hash | null>;
@@ -152,6 +154,8 @@ export function useRegistry(wallet?: `0x${string}` | undefined): UseRegistryResu
     (
       twitterHandle: string,
       followers: bigint,
+      /** 签名过期时间（秒级 Unix 时间戳，server 签发时设定） */
+      expiry: bigint,
       /** 平台 ECDSA 注册签名（server 在 X 验证通过后签发，P2-2 防伪造粉丝数注册） */
       signature: `0x${string}`,
       opts: RegistryTxOptions = {},
@@ -161,7 +165,7 @@ export function useRegistry(wallet?: `0x${string}` | undefined): UseRegistryResu
         address: registryAddress,
         abi: registryAbi,
         functionName: 'registerKol',
-        args: [twitterHandle, followers, signature],
+        args: [twitterHandle, followers, expiry, signature],
         onSuccess: opts.onSuccess,
         toast: opts.toast,
       });

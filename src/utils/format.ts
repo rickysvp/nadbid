@@ -15,6 +15,32 @@ export function formatCurrency(value: number, symbol = '$', decimals = 2): strin
   return `${symbol}${formatNumber(value, decimals)}`;
 }
 
+/**
+ * F7：格式化 MON 金额（wei → 显示字符串），动态精度避免小额显示为 0。
+ *  - >=1 MON：最多 2 位小数（千分位）
+ *  - 0.001..1：保留到有效位（最多 6 位）
+ *  - <0.001：显示科学计数（如 1e-5），避免 0.000001 冗长
+ *  - 0 / NaN / 负数安全
+ */
+export function formatMon(wei: bigint | number | undefined | null, maxDecimals = 2): string {
+  if (wei === undefined || wei === null) return '—';
+  const value = typeof wei === 'bigint' ? Number(wei) / 1e18 : Number(wei);
+  if (!Number.isFinite(value)) return '—';
+  if (value === 0) return '0';
+  if (value < 0) return `-${formatMon(typeof wei === 'bigint' ? -wei : -value, maxDecimals)}`;
+  if (value >= 1) {
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: maxDecimals,
+      maximumFractionDigits: maxDecimals,
+    });
+  }
+  if (value >= 0.001) {
+    // 保留最多 4 位有效小数（去尾零）
+    return value.toFixed(4).replace(/\.?0+$/, '');
+  }
+  return value.toExponential(1).replace('e', 'e');
+}
+
 /** 缩写钱包地址：0x4F8a...3aB9 */
 export function shortenAddress(address: string, prefixLen = 6, suffixLen = 4): string {
   if (!address || address.length <= prefixLen + suffixLen) return address;

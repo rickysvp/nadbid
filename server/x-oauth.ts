@@ -102,8 +102,8 @@ const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
 const usedTickets = new Set<string>();
 
 // ---- KOL 元信息（bio 等 X 资料）轻量持久化 ----
-// 说明：X 验证成功时把 { username, followers, bio } 存到 JSON 文件，供 KOL
-// 详情页展示真实推特简介。Vercel serverless 无持久文件系统，meta 可能随实例
+// 说明：X 验证成功时把 { username, followers, bio, avatar } 存到 JSON 文件，供 KOL
+// 详情页展示真实推特资料。Vercel serverless 无持久文件系统，meta 可能随实例
 // 回收丢失（bio 为空时前端降级展示链上真实信息，不影响主流程）。
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -148,6 +148,24 @@ function upsertKolMeta(wallet: string, username: string, followers: number, bio?
   writeKolMeta(meta);
 }
 
+// ---- F6：OAuth 端点限流（防脚本刷爆 X API 免费额度 / 无成本刷 state）----
+// 简单内存滑动窗口（serverless 单实例尽力而为；生产可换 Redis/IP 维度）。
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 20; // 每 IP 每分钟最多 20 次 OAuth 相关请求
+const rateBuckets = new Map<string, number[]>();
+
+function rateLimited(key: string): boolean {
+  const now = Date.now();
+  const arr = (rateBuckets.get(key) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (arr.length >= RATE_LIMIT_MAX) {
+    rateBuckets.set(key, arr);
+    return true;
+  }
+  arr.push(now);
+  rateBuckets.set(key, arr);
+  return false;
+}
+
 /** 4. 查询 KOL 元信息（GET /api/kol/meta?wallet=）：
  *  X 资料（bio / 头像）供 KOL 详情页展示。
  *  数据来自 KOL 本人 X 授权（users/me）时的持久化；未授权过或 Vercel 实例回收时返回 found:false，
@@ -172,8 +190,11 @@ interface VerifyTicket {
   w: string; // 申请者钱包地址（绑定 X 身份，防多钱包冒用）
   b?: string; // X 简介（bio）— 可选字段，旧 ticket 兼容
   a?: string; // X 头像 URL — 可选字段，旧 ticket 兼容
-  exp: number;
+  exp: number; // 过期时间（毫秒）
 }
+
+/** 注册签名过期时间（秒级 Unix 时间戳，与合约 registerKol 的 expiry 校验一致） */
+const REG_SIG_TTL_SEC = 5 * 60; // 5 分钟
 
 function signTicket(username: string, followers: number, wallet: string, bio?: string, avatar?: string): string {
   const payload: VerifyTicket = { u: username, f: followers, w: wallet, exp: Date.now() + TICKET_TTL_MS };
@@ -182,6 +203,27 @@ function signTicket(username: string, followers: number, wallet: string, bio?: s
   const encoded = b64url(Buffer.from(JSON.stringify(payload)));
   const sig = b64url(crypto.createHmac('sha256', STATE_SECRET).update(encoded).digest());
   return `${encoded}.${sig}`;
+}
+
+/**
+ * 平台注册签名（F3：hash 含 expiry，签名只在 expiry 前有效，防永久有效被重放）。
+ * 与合约 registerKol 验签逻辑一致：
+ *   keccak256(abi.encodePacked(wallet, twitterHandle, followers, expiry))
+ */
+async function signRegistration(
+  wallet: string,
+  username: string,
+  followers: number,
+): Promise<{ signature: `0x${string}`; expiry: number }> {
+  const expiry = Math.floor(Date.now() / 1000) + REG_SIG_TTL_SEC;
+  const hash = keccak256(
+    encodePacked(
+      ['address', 'string', 'uint256', 'uint256'],
+      [wallet as Hex, username, BigInt(followers), BigInt(expiry)],
+    ),
+  );
+  const signature = (await platformSigner!.sign({ hash })) as `0x${string}`;
+  return { signature, expiry };
 }
 
 /** 验证票据，返回 { username, followers, wallet, bio, avatar } 或 null（无效/过期/伪造） */
@@ -223,6 +265,12 @@ router.get('/x-auth-url', (req, res) => {
     res.status(503).json({ error: 'X_CLIENT_ID/X_CLIENT_SECRET not configured' });
     return;
   }
+  // F6：限流（按 IP）
+  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+  if (rateLimited(`auth:${ip}`)) {
+    res.status(429).json({ error: 'Too many requests — try again in a minute' });
+    return;
+  }
   const wallet = (req.query.wallet as string | undefined) ?? '';
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet — connect your wallet first' });
@@ -245,6 +293,12 @@ router.get('/x-auth-url', (req, res) => {
 
 /** 2. X 回调：换 token → 拿本人 username → 查粉丝数 */
 router.get('/x-oauth-callback', async (req, res) => {
+  // F6：限流（按 IP，回调每次消耗 X token exchange + users/me 两次免费额度）
+  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+  if (rateLimited(`cb:${ip}`)) {
+    res.status(429).send('Too many requests — try again in a minute');
+    return;
+  }
   const { code, state, error } = req.query as {
     code?: string;
     state?: string;
@@ -339,9 +393,11 @@ router.get('/x-oauth-callback', async (req, res) => {
     // 5. 签发一次性验证票据（绑定申请者钱包，防止多钱包冒用同一 X 身份；
     //    不把 username/followers/verified 明文放 URL，防伪造）
     //    前端用 ticket 调 /api/kol/verify-ticket 换取可信结果。
+    //    F5：ticket 改放 URL fragment（#ticket=...）——fragment 不随 HTTP 请求头发送、
+    //    不进入服务器/Vercel 访问日志，避免 ticket 泄露被中间人抢先消费。
     const ticket = signTicket(username, followers, wallet, bio, avatar);
     res.redirect(
-      `${FRONTEND_URL}/kol/onboarding?xoauth=success&ticket=${encodeURIComponent(ticket)}`
+      `${FRONTEND_URL}/kol/onboarding#xoauth=success&ticket=${encodeURIComponent(ticket)}`
     );
   } catch (e) {
     res.redirect(
@@ -392,8 +448,7 @@ router.post('/verify-ticket', async (req, res) => {
   if (!platformSigner) {
     res.status(503).json({ error: 'PLATFORM_SIGNER_PRIVATE_KEY not configured' });
     return;
-  }
-  // 粉丝门槛判定（F1/F3）：verified=false 时**不签发注册签名** ——
+  }  // 粉丝门槛判定（F1/F3）：verified=false 时**不签发注册签名** ——
   // 平台签名是注册的硬前提，签名一经签发即代表平台背书该账号已达门槛；
   // 若仍照常签发，当合约 MIN_FOLLOWERS < server 阈值时，攻击者可绕过前端
   // 直接拿签名调合约 registerKol，让 server 的更高门槛形同虚设。
@@ -411,12 +466,8 @@ router.post('/verify-ticket', async (req, res) => {
     });
     return;
   }
-  const hash = keccak256(
-    encodePacked(['address', 'string', 'uint256'], [wallet as Hex, result.username, BigInt(result.followers)])
-  );
-  // viem account.sign 返回 Promise（resolve 为 0x{r}{s}{v} 65 字节 hex）；
-  // 必须 await，否则 res.json 会把 Promise 序列化成空对象 {}
-  const signature = await platformSigner.sign({ hash });
+  // 平台注册签名（F3：hash 含 expiry，签名只在 5 分钟内有效）
+  const { signature, expiry } = await signRegistration(wallet, result.username, result.followers);
   // 一次性：使用后标记（放在签名成功之后，避免配置错误浪费 ticket）
   usedTickets.add(ticket);
   // KOL 元信息持久化：X 简介等资料供详情页展示（失败不阻断主流程）
@@ -427,6 +478,7 @@ router.post('/verify-ticket', async (req, res) => {
     followers: result.followers,
     threshold: FOLLOWERS_THRESHOLD,
     bio: result.bio ?? null,
+    expiry,
     signature,
   });
 });

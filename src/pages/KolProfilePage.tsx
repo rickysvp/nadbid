@@ -14,7 +14,7 @@ import { useKolPass } from '../web3/hooks/useKolPass';
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { kolPassAbi } from '../web3/contracts';
 import { useRegistry, type KolData } from '../web3/hooks/useRegistry';
-import { shortenAddress } from '../utils/format';
+import { shortenAddress, formatMon } from '../utils/format';
 
 // Interactive Bonding Curve with zoom and tooltip
 function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSupply: number; currentPrice: number }) {
@@ -193,7 +193,7 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Price</span>
-                  <span className="text-[#3ec470] font-mono text-[11px] font-bold">{hoverMintPrice.toFixed(2)} MON</span>
+                  <span className="text-[#3ec470] font-mono text-[11px] font-bold">{formatMon(BigInt(Math.round(hoverMintPrice*1e18)))} MON</span>
                 </div>
               </div>
               {cy >= 40 && <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white/10"></div>}
@@ -487,7 +487,7 @@ export default function KolProfilePage() {
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Latest Mint Price:</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-white">{actualMintPrice.toFixed(2)} <span className="text-white/40">MON</span></span>
+                  <span className="font-mono text-xs font-bold text-white">{formatMon(BigInt(Math.round(actualMintPrice*1e18)))} <span className="text-white/40">MON</span></span>
                 </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">

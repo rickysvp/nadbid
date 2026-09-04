@@ -319,7 +319,7 @@ export function MintBurnPanel({
               </span>
             </div>
             {chainBurnable.length === 0 ? (
-              <div className="text-amber-400/80 text-x] font-mono leading-relaxed">
+              <div className="text-amber-400/80 text-xs font-mono leading-relaxed">
                 {!wallet.isConnected
                   ? 'Connect your wallet to view your PASS tokens.'
                   : chainHolding === undefined

@@ -26,8 +26,6 @@ contract KolPass is ERC721Enumerable {
 
     struct CurveConfig { uint256 basePrice; uint256 baseSupply; uint256 exponent; }
 
-    mapping(uint256 => uint256) public curveSupplyCache; // 预留（如需要）
-
     constructor(address _kol, uint256 _basePrice, address _platformTreasury, address _factory)
         ERC721(string.concat("Nadbid-", _toString(address(this))), "NPASS")
     {

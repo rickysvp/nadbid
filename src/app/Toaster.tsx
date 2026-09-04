@@ -57,7 +57,7 @@ export default function Toaster() {
             )}
           >
             <Icon className={cn('w-5 h-5 shrink-0 mt-0.5', config.text)} />
-            <p className="flex-1 text-x] text-white/90 font-medium leading-relaxed">
+            <p className="flex-1 text-sm text-white/90 font-medium leading-relaxed">
               {toast.message}
             </p>
             <button

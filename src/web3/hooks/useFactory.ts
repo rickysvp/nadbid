@@ -4,6 +4,7 @@ import { contractAddresses, factoryAbi } from '../contracts';
 import type { ToastLike } from '../web3Errors';
 import { useWriteContractTx } from './useWriteContractTx';
 import type { TxStatus } from './useWriteContractTx';
+import { useReadContract } from './useReadContract';
 
 /** createKolAuction 的参数 */
 export interface CreateKolAuctionArgs {
@@ -50,6 +51,10 @@ export interface UseFactoryResult {
   reset: () => void;
   /** 工厂合约地址未配置 */
   isAddressMissing: boolean;
+  /** F1：固定出价金额（链上 FIXED_BID_AMOUNT，wei）——前端创建拍卖默认值
+   *   必须取链上值（测试网 0.1 MON / 主网 99 MON），否则按 99 硬编码提交会
+   *   触发合约 WRONG_FIXED_BID revert */
+  fixedBidAmount: bigint | undefined;
 }
 
 /**
@@ -63,6 +68,12 @@ export interface UseFactoryResult {
 export function useFactory(): UseFactoryResult {
   const factoryAddress = contractAddresses.factory;
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
+  // F1：固定出价金额（链上 immutable，随环境不同：测试网 0.1 / 主网 99）
+  const { data: fixedBidAmount } = useReadContract({
+    address: factoryAddress,
+    abi: factoryAbi,
+    functionName: 'FIXED_BID_AMOUNT',
+  });
 
   const createKolPass = useCallback(
     (mintPrice: bigint, opts: FactoryTxOptions = {}): Promise<Hash | null> => {
@@ -120,5 +131,6 @@ export function useFactory(): UseFactoryResult {
     isSuccess,
     reset,
     isAddressMissing: factoryAddress === undefined,
+    fixedBidAmount: fixedBidAmount as bigint | undefined,
   };
 }

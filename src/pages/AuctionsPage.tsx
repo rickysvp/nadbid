@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, Clock, AlertCircle, Gavel, X } from 'lucide-react';
-import { parseEther } from 'viem';
+import { parseEther, formatUnits } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePublicClient } from 'wagmi';
 import { KolAvatar } from '../components/kol/KolAvatar';
@@ -336,11 +336,20 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   const publicClient = usePublicClient();
 
   const [connectOpen, setConnectOpen] = useState(false);
-  const [fixedBid, setFixedBid] = useState('99');
+  // F1：固定出价由合约强制（FIXED_BID_AMOUNT immutable：测试网 0.1 / 主网 99 MON），
+  // 初始为空，链上值读取后自动填充；输入框只读，防止 KOL 填任意价导致 WRONG_FIXED_BID revert。
+  const [fixedBid, setFixedBid] = useState('');
   const [duration, setDuration] = useState('120');
   const [content, setContent] = useState('');
   const [startAt, setStartAt] = useState(() => toLocalInputValue(new Date()));
   const [passAddr, setPassAddr] = useState<`0x${string}` | ''>('');
+
+  // F1：链上 FIXED_BID_AMOUNT 读取后回填输入框（固定出价，无需 KOL 填写）
+  useEffect(() => {
+    if (factory.fixedBidAmount !== undefined) {
+      setFixedBid(formatUnits(factory.fixedBidAmount, 18));
+    }
+  }, [factory.fixedBidAmount]);
 
   const passContracts = registry.kolData?.passContracts ?? [];
   const isRegistered = registry.isRegistered === true;
@@ -404,7 +413,7 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
     }
     const fixedBidNum = Number(fixedBid);
     const durationNum = Number(duration);
-    if (!(fixedBidNum > 0)) { toastError('Enter a valid fixed bid amount'); return; }
+    if (!(fixedBidNum > 0)) { toastError('Fixed bid loading — try again in a moment'); return; }
     if (fixedBidNum > 10000) { toastError('Fixed bid too large (max 10,000 MON)'); return; }
     if (!(durationNum > 0)) { toastError('Enter a valid duration'); return; }
     // P3-6：与合约 MAX_DURATION(24h)/MAX_START_DELAY(30d) 对齐的前端预校验，避免等到链上 revert
@@ -545,9 +554,14 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
                   type="number" step="0.01" min="0.01"
                   value={fixedBid}
                   onChange={(e) => setFixedBid(e.target.value)}
-                  disabled={factory.isLoading}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                  disabled={true}
+                  readOnly
+                  title="Fixed bid is enforced on-chain by the factory contract"
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 opacity-70 cursor-not-allowed"
                 />
+                <p className="text-[11px] text-white/40 mt-1.5">
+                  Fixed by contract (on-chain FIXED_BID_AMOUNT)
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">

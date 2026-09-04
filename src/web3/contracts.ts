@@ -27,7 +27,7 @@ export type ContractKey = keyof typeof contractAddresses;
 
 export const registryAbi =
 [
-  {"type": "function","name": "registerKol","inputs": [{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"},{"name": "signature","type": "bytes","internalType": "bytes"}],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "registerKol","inputs": [{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"},{"name": "expiry","type": "uint256","internalType": "uint256"},{"name": "signature","type": "bytes","internalType": "bytes"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "depositBond","inputs": [],"outputs": [],"stateMutability": "payable"},
   {"type": "function","name": "requestBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "finalizeBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
@@ -53,6 +53,7 @@ export const registryAbi =
 
 export const factoryAbi =
 [
+  {"type": "function","name": "FIXED_BID_AMOUNT","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "createKolPass","inputs": [{"name": "mintPrice","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},
   {"type": "function","name": "createKolAuction","inputs": [{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "duration","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},
   {"type": "function","name": "createKolAuctionScheduled","inputs": [{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "duration","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "startTime","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},

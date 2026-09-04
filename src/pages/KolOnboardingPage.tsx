@@ -86,6 +86,8 @@ export default function KolOnboardingPage() {
   const [isVerifyingTwitter, setIsVerifyingTwitter] = useState(false);
   // P2-2：平台注册签名（verify-ticket 返回，registerKol 上链时随 handle/followers 验签）
   const [registerSignature, setRegisterSignature] = useState<string | null>(null);
+  // F3：平台注册签名过期时间（秒级 Unix 时间戳；verify-ticket 返回，registerKol 上链时随签名一起验签）
+  const [registerExpiry, setRegisterExpiry] = useState<number>(0);
   const [mintPrice, setMintPrice] = useState('0.001');
 
   // ---- 从链上数据推导已完成步骤 ----
@@ -132,11 +134,14 @@ export default function KolOnboardingPage() {
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // F5：ticket 从 X 回调经 URL fragment（#xoauth=success&ticket=...）带回——
+    // fragment 不进服务器访问日志。兼容旧版 query 传参（已部署的 OAuth 流程）。
     const params = new URLSearchParams(window.location.search);
-    const xoauth = params.get('xoauth');
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const xoauth = params.get('xoauth') ?? hashParams.get('xoauth');
     if (xoauth === 'success') {
-      const ticket = params.get('ticket') || '';
-      // 清理 URL（去掉回调参数，避免刷新重复触发）
+      const ticket = params.get('ticket') || hashParams.get('ticket') || '';
+      // 清理 URL（去掉回调参数，避免刷新重复触发；hash 一并清除）
       window.history.replaceState({}, '', window.location.pathname);
       if (!ticket) {
         toastError('X authorization succeeded but verification ticket is missing.');
@@ -201,6 +206,8 @@ export default function KolOnboardingPage() {
           username?: string;
           followers?: number;
           signature?: string;
+          /** 平台注册签名过期时间（秒级 Unix 时间戳，F3） */
+          expiry?: number;
           threshold?: number;
           error?: string;
         };
@@ -210,6 +217,8 @@ export default function KolOnboardingPage() {
           setTwitterFollowers(data.followers ?? 0);
           // P2-2：缓存平台注册签名（registerKol 上链时随 handle/followers 一起验签）
           setRegisterSignature(data.signature ?? null);
+          // F3：签名过期时间（合约验签要求 block.timestamp <= expiry）
+          if (data.expiry) setRegisterExpiry(data.expiry);
           // F4：会话级持久化（页面刷新恢复，关闭标签页即失效）。签名绑定签发时的
           // 钱包，换钱包不恢复；注册上链成功后清除（签名使命完成）。
           try {
@@ -220,6 +229,7 @@ export default function KolOnboardingPage() {
                 username: data.username,
                 followers: data.followers ?? 0,
                 signature: data.signature,
+                expiry: data.expiry,
               }),
             );
           } catch {
@@ -260,6 +270,7 @@ export default function KolOnboardingPage() {
         username?: string;
         followers?: number;
         signature?: string;
+        expiry?: number;
       };
       if (!stored.wallet || !stored.username || !stored.signature) return;
       if (stored.wallet.toLowerCase() !== address.toLowerCase()) return;
@@ -267,6 +278,8 @@ export default function KolOnboardingPage() {
       setTwitterFollowers(stored.followers ?? 0);
       setTwitterVerified(true);
       setRegisterSignature(stored.signature as `0x${string}`);
+      // F3：恢复签名过期时间（缺失时按已过期处理，防止旧缓存签名上链被拒后无提示）
+      setRegisterExpiry(stored.expiry ?? Math.floor(Date.now() / 1000) - 1);
     } catch {
       // 损坏数据：清除后按未验证处理
       try {
@@ -341,6 +354,11 @@ export default function KolOnboardingPage() {
       toastError('Missing platform signature — please re-authorize with X');
       return;
     }
+    // F3：签名过期时间缺失或已过期 → 要求重新授权（防签名重放/旧缓存失效后无提示）
+    if (!registerExpiry || registerExpiry * 1000 <= Date.now()) {
+      toastError('Verification signature expired — please verify your Twitter again');
+      return;
+    }
     if (registry.isAddressMissing) {
       toastError('Registry contract not deployed. Set VITE_CONTRACT_REGISTRY in .env');
       return;
@@ -348,7 +366,7 @@ export default function KolOnboardingPage() {
     const handle = twitterHandle.trim().replace(/^@/, '');
     promptWalletConfirm();
     try {
-      await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
+      await registry.registerKol(handle, BigInt(twitterFollowers), BigInt(registerExpiry), registerSignature as `0x${string}`, {
         onSuccess: async () => {
           success('KOL registered on-chain!');
           // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
@@ -571,6 +589,7 @@ export default function KolOnboardingPage() {
                 disabled={
                   !twitterVerified ||
                   !registerSignature ||
+                  !registerExpiry ||
                   registry.isAddressMissing ||
                   registry.isLoading ||
                   registry.isSuccess ||
