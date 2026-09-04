@@ -17,6 +17,13 @@ contract KolPass is ERC721Enumerable {
     uint256 public feePlatform = 3;  // 3%
     uint256 public constant FEE_DENOM = 100;
 
+    // Pull 模式手续费（F5）：mint/burn 只记账、不转账——KOL 收款地址不可控
+    // （合约钱包/拒收地址）不再阻塞任何用户的 mint/burn；KOL 随时自行 claim。
+    // 平台手续费仍 Push：platformTreasury 为平台自控地址，无拒收风险。
+    mapping(address => uint256) public pendingKolFees;
+
+    event KolFeesClaimed(address indexed kol, uint256 amount);
+
     struct CurveConfig { uint256 basePrice; uint256 baseSupply; uint256 exponent; }
 
     mapping(uint256 => uint256) public curveSupplyCache; // 预留（如需要）
@@ -60,11 +67,10 @@ contract KolPass is ERC721Enumerable {
             _safeMint(msg.sender, totalMinted);
             tokenIds[i] = totalMinted;
         }
-        // 拆分手续费
+        // 手续费拆分（F5）：KOL 份额记账（Pull，claimKolFees 领取），平台份额即时转出（Push，地址自控）
         uint256 kolFee = totalCost * feeKOL / FEE_DENOM;
         uint256 platformFee = totalCost * feePlatform / FEE_DENOM;
-        (bool ok1, ) = payable(kol).call{value: kolFee}("");
-        require(ok1, "KOL_FEE_FAIL");
+        pendingKolFees[kol] += kolFee;
         (bool ok2, ) = payable(platformTreasury).call{value: platformFee}("");
         require(ok2, "PLATFORM_FEE_FAIL");
         // 退多余
@@ -90,17 +96,27 @@ contract KolPass is ERC721Enumerable {
         }
         // CEI：先扣减 totalMinted（重入时读到最新供应，防止重入以陈旧 supply 多退）
         totalMinted = totalMinted - tokenIds.length;
-        // 扣 8% 手续费后返还
+        // 扣 8% 手续费后返还（F5：KOL 份额记账 Pull，平台份额 Push）
         uint256 fee = refund * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 net = refund - fee;
         uint256 kolFee = refund * feeKOL / FEE_DENOM;
         uint256 platformFee = refund * feePlatform / FEE_DENOM;
-        (bool ok1, ) = payable(kol).call{value: kolFee}("");
-        require(ok1, "KOL_FEE_FAIL");
+        pendingKolFees[kol] += kolFee;
         (bool ok2, ) = payable(platformTreasury).call{value: platformFee}("");
         require(ok2, "PLATFORM_FEE_FAIL");
         (bool ok3, ) = payable(msg.sender).call{value: net}("");
         require(ok3, "REFUND_FAIL");
+    }
+
+    /// @notice KOL 领取累计手续费（Pull 模式，F5）。仅 KOL 地址有余额，映射天然隔离，无需 onlyKol。
+    function claimKolFees() external {
+        uint256 amount = pendingKolFees[msg.sender];
+        require(amount > 0, "NO_FEES");
+        // CEI：先清零再转（防重入重复领取）
+        pendingKolFees[msg.sender] = 0;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "CLAIM_FAIL");
+        emit KolFeesClaimed(msg.sender, amount);
     }
 
     // ===== Soulbound =====

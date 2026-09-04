@@ -53,6 +53,10 @@ contract KolAuction {
 
     /// @param _startTime 拍卖开始时间（秒级 Unix 时间戳；= block.timestamp 立即开始）
     constructor(address _kol, address _passContract, uint256 _fixedBidAmount, uint256 _duration, string memory _content, address _platformTreasury, address _registry, uint256 _startTime) {
+        // F6：仅平台官方 Factory 可部署拍卖。Registry.factory() 由 onlyOwner 设定，
+        // 攻击者无法改值；直接 new KolAuction 创建的"并行拍卖"被排除在业务外——
+        // 否则可绕过"KOL 同时只能进行一场拍卖"的软约束（绕过产物不进 Registry 索引）。
+        require(IRegistry(_registry).factory() == msg.sender, "NOT_FACTORY");
         require(_startTime >= block.timestamp, "START_PAST");
         isScheduled = _startTime > block.timestamp;
         auction = Auction({
@@ -153,4 +157,5 @@ contract KolAuction {
 // 供 KolAuction 查询 banned（避免双向 import）
 interface IRegistry {
     function isKolBanned(address wallet) external view returns (bool);
+    function factory() external view returns (address);
 }

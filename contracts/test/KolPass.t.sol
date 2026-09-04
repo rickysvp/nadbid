@@ -38,13 +38,31 @@ contract KolPassTest is Test {
         vm.deal(buyer, 100 ether);
         uint256 unit = pass.curvePriceAt(1);  // 第一枚实际曲线价（注意：非 curvePrice()）
         uint256 cost = unit * 108 / 100;
-        uint256 beforeKol = kol.balance;
         uint256 beforePlatform = platform.balance;
         vm.prank(buyer);
         pass.mint{value: cost}(1);
-        // 5% KOL + 3% 平台 = 8%（基数 = 实际曲线成交额 unit，非 basePrice）
-        assertEq(kol.balance - beforeKol, unit * 5 / 100);
+        // F5 Pull：KOL 5% 记入 pendingKolFees（不再即时转账），平台 3% 仍即时到账
+        assertEq(pass.pendingKolFees(kol), unit * 5 / 100);
         assertEq(platform.balance - beforePlatform, unit * 3 / 100);
+    }
+
+    // F5：KOL 领取累计手续费（Pull 模式）；重复领取 revert NO_FEES
+    function test_ClaimKolFees() public {
+        vm.deal(buyer, 100 ether);
+        uint256 unit = pass.curvePriceAt(1);
+        vm.prank(buyer);
+        pass.mint{value: unit * 108 / 100}(1);
+        uint256 expected = pass.pendingKolFees(kol);
+        assertGt(expected, 0);
+        uint256 beforeKol = kol.balance;
+        vm.prank(kol);
+        pass.claimKolFees();
+        assertEq(kol.balance - beforeKol, expected);
+        assertEq(pass.pendingKolFees(kol), 0);
+        // 非 KOL 无余额可领
+        vm.prank(buyer);
+        vm.expectRevert();
+        pass.claimKolFees();
     }
 
     function test_Transfer_IsSoulbound() public {

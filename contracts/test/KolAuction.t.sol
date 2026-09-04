@@ -17,8 +17,11 @@ contract KolAuctionTest is Test {
 
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
-        // KolAuction 需传 registry（供 banned 检查）；测试用独立 registry 实例
+        // KolAuction 需传 registry（供 banned/factory 检查）；测试用独立 registry 实例
         NadbidRegistry reg = new NadbidRegistry(1000);
+        // F6：KolAuction 构造要求 msg.sender == Registry.factory()；测试合约即 owner，
+        // 把自己设为 factory 后直接 new（msg.sender = 测试合约）通过白名单校验
+        reg.setFactory(address(this));
         auction = new KolAuction(kol, address(pass), fixedBid, duration, "1v1 live chat", platform, address(reg), block.timestamp);
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);
@@ -83,6 +86,7 @@ contract KolAuctionTest is Test {
     // 预约拍卖：开始时间未到不可出价，到点后正常出价
     function test_PlaceBid_NotStartedBeforeStartTime() public {
         NadbidRegistry reg = new NadbidRegistry(1000);
+        reg.setFactory(address(this)); // F6 白名单
         uint256 start = block.timestamp + 1000;
         KolAuction sched = new KolAuction(kol, address(pass), fixedBid, duration, "scheduled", platform, address(reg), start);
         // 未到开始时间：出价必须 revert
@@ -98,6 +102,14 @@ contract KolAuctionTest is Test {
         assertEq(sched.totalBids(), 1);
         // 预约拍卖出价后：endTime 不被 40s 重置压缩（保持完整 duration，只延长不提前）
         assertEq(sched.endTime(), start + duration);
+    }
+
+    // F6 回归：非官方 Factory 直接 new KolAuction 必须 revert（否则可绕过"同时一场拍卖"软约束）
+    function test_Constructor_RejectsNonFactory() public {
+        NadbidRegistry reg = new NadbidRegistry(1000);
+        // 未 setFactory（factory = 0）→ 白名单校验失败，构造 revert
+        vm.expectRevert(bytes("NOT_FACTORY"));
+        new KolAuction(kol, address(pass), fixedBid, duration, "bad factory", platform, address(reg), block.timestamp);
     }
 
     function test_Settle_AfterEnd() public {
@@ -146,6 +158,7 @@ contract KolAuctionTest is Test {
     function test_Settle_RejectingKol_DoesNotBlock() public {
         RejectingKol rejectKol = new RejectingKol();
         NadbidRegistry reg = new NadbidRegistry(1000);
+        reg.setFactory(address(this)); // F6 白名单
         // 用拒收 KOL 重建拍卖（复用同一 pass，bidder 已持有）
         KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg), block.timestamp);
         vm.prank(bidder);
