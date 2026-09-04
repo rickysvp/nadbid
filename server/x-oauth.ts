@@ -274,7 +274,7 @@ router.get('/x-oauth-callback', async (req, res) => {
  *    消费集合；Vercel 多实例下无法强一致，故以短时效 + 钱包绑定为主防线）。
  *    改 POST：避免 ticket 出现在 URL/访问日志。
  */
-router.post('/verify-ticket', (req, res) => {
+router.post('/verify-ticket', async (req, res) => {
   const { ticket, wallet } = (req.body ?? {}) as { ticket?: string; wallet?: string };
   if (!ticket) {
     res.status(400).json({ error: 'missing ticket' });
@@ -298,9 +298,8 @@ router.post('/verify-ticket', (req, res) => {
     res.status(403).json({ error: 'ticket wallet mismatch — verify with the same wallet that started OAuth' });
     return;
   }
-  // 一次性：使用后标记（单实例尽力而为）
-  usedTickets.add(ticket);
   // 签名（P2-2）：合约 registerKol 需要平台 ECDSA 签名。缺失私钥时无法注册。
+  // 注意：私钥未配置时不得消费 ticket（返回 503 让用户补配置后可重试同一 ticket）。
   if (!platformSigner) {
     res.status(503).json({ error: 'PLATFORM_SIGNER_PRIVATE_KEY not configured' });
     return;
@@ -308,7 +307,11 @@ router.post('/verify-ticket', (req, res) => {
   const hash = keccak256(
     encodePacked(['address', 'string', 'uint256'], [wallet as Hex, result.username, BigInt(result.followers)])
   );
-  const signature = platformSigner.sign({ hash });
+  // viem account.sign 返回 Promise（resolve 为 0x{r}{s}{v} 65 字节 hex）；
+  // 必须 await，否则 res.json 会把 Promise 序列化成空对象 {}
+  const signature = await platformSigner.sign({ hash });
+  // 一次性：使用后标记（单实例尽力而为；放在签名成功之后，避免配置错误浪费 ticket）
+  usedTickets.add(ticket);
   res.json({
     verified: result.followers >= FOLLOWERS_THRESHOLD,
     username: result.username,

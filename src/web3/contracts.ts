@@ -27,7 +27,7 @@ export type ContractKey = keyof typeof contractAddresses;
 
 export const registryAbi =
 [
-  {"type": "function","name": "registerKol","inputs": [{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"}],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "registerKol","inputs": [{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"},{"name": "signature","type": "bytes","internalType": "bytes"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "depositBond","inputs": [],"outputs": [],"stateMutability": "payable"},
   {"type": "function","name": "requestBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "finalizeBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},

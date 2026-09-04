@@ -347,7 +347,8 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   const canCreate = registry.canCreate === true;
 
   // 业务规则（合约强制）：KOL 同时只能进行一场拍卖。
-  // 前端只读预检：遍历名下所有拍卖合约，任一未 settle → 禁用创建并提示"先完成履约"。
+  // 前端只读预检：检查名下拍卖合约（与合约 MAX_ACTIVE_AUCTION_CHECK=8 对齐，只查
+  // 最近 8 场——未结算的进行中拍卖只可能出现在最新场次），任一未 settle → 禁用创建。
   const auctionContracts = registry.kolData?.auctionContracts ?? [];
   const [hasActiveAuction, setHasActiveAuction] = useState<boolean | undefined>(undefined);
   useEffect(() => {
@@ -360,9 +361,11 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
     (async () => {
       if (!publicClient) return;
       try {
-        for (const addr of auctionContracts) {
+        // 从最新一场往前查最近 8 场；串行约束下未结算场只可能是最新一场（或其附近）
+        const start = Math.max(0, auctionContracts.length - 8);
+        for (let i = auctionContracts.length - 1; i >= start; i--) {
           const settled = await publicClient.readContract({
-            address: addr,
+            address: auctionContracts[i],
             abi: kolAuctionAbi,
             functionName: 'settled',
           });

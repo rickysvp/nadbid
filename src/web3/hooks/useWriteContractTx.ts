@@ -95,22 +95,32 @@ export function useWriteContractTx(): UseWriteContractTxResult {
     query: { enabled: txHash !== null },
   });
 
-  // 交易确认成功
-  if (receiptSuccess && receipt && status === 'confirming') {
-    setStatus('success');
-    const cb = onSuccessMapRef.current.get(txHash!);
-    if (cb) {
-      onSuccessMapRef.current.delete(txHash!);
-      cb(txHash!, receipt);
-    }
-  }
-
   // 收据查询失败（交易可能 revert）
   if (receiptError && status === 'confirming') {
     setStatus('error');
     const info = classifyWeb3Error(receiptError);
     setErrorMessage(info.message);
     if (!info.silent) toast.error(info.message);
+  }
+
+  // 交易在链上 revert：收据正常返回但 status=0x0。此时不能走 success 分支——
+  // 否则 toast 误报 "Transaction confirmed" 且 onSuccess（成功提示/关弹窗/刷新）被触发。
+  if (receiptSuccess && receipt && receipt.status === 'reverted' && status === 'confirming') {
+    setStatus('error');
+    const msg = 'Transaction reverted on-chain';
+    setErrorMessage(msg);
+    toast.error(msg);
+    onSuccessMapRef.current.delete(txHash!);
+  }
+
+  // 交易确认成功（仅 status=success 的收据）
+  if (receiptSuccess && receipt && receipt.status === 'success' && status === 'confirming') {
+    setStatus('success');
+    const cb = onSuccessMapRef.current.get(txHash!);
+    if (cb) {
+      onSuccessMapRef.current.delete(txHash!);
+      cb(txHash!, receipt);
+    }
   }
 
   // writeContract 错误（用户拒绝等，在 write 函数中已处理，这里兜底）
