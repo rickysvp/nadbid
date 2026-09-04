@@ -114,17 +114,23 @@ export function useAuction(
   const { write, status, txHash, error, isLoading, isSuccess, reset } = useWriteContractTx();
 
   // 事件驱动：任何 BidPlaced 都会刷新拍卖状态 / 累计出价 / 出价次数 / lastBidder 累计
+  // 注：Monad 测试网 RPC 有索引延迟，事件触发时状态可能尚未同步；延迟 1.5s 二次 refetch 兜底。
+  const refetchAll = useCallback(() => {
+    auctionRes.refetch();
+    cumulativeRes.refetch();
+    bidCountRes.refetch();
+    lastBidderCumulativeRes.refetch();
+    lastBidderBidCountRes.refetch();
+  }, [auctionRes, cumulativeRes, bidCountRes, lastBidderCumulativeRes, lastBidderBidCountRes]);
+
   useWatchContractEvent({
     address: auctionAddress,
     abi: kolAuctionAbi,
     eventName: 'BidPlaced',
     enabled: auctionAddress !== undefined,
     onLogs: () => {
-      auctionRes.refetch();
-      cumulativeRes.refetch();
-      bidCountRes.refetch();
-      lastBidderCumulativeRes.refetch();
-      lastBidderBidCountRes.refetch();
+      refetchAll();
+      setTimeout(refetchAll, 1500);
     },
   });
 

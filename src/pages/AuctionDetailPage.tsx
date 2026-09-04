@@ -14,7 +14,7 @@ import { shortenAddress } from '../utils/format';
 import { AUCTION } from '../utils/constants';
 import { cn } from '../utils/cn';
 import { useAuction } from '../web3/hooks/useAuction';
-import { useKolPass } from '../web3/hooks/useKolPass';
+import { useKolPass, type CurveConfig } from '../web3/hooks/useKolPass';
 import { contractAddresses, registryAbi } from '../web3/contracts';
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { kolProfilePath } from '../config/routes';
@@ -57,6 +57,17 @@ function useCountdownDetail(targetDate: number | undefined) {
       setProgress(100);
       return;
     }
+    // 立即同步一次：targetDate 变化（如出价后链上 endTime 重置）时倒计时立刻生效，
+    // 不等 1s 后的首个 interval 滴答
+    const remaining0 = targetDate - Date.now();
+    if (remaining0 > 0) {
+      setTimeLeft(remaining0);
+      setProgress(Math.max(0, Math.min(100, (remaining0 / COUNTDOWN_BASE_MS) * 100)));
+    } else {
+      setTimeLeft(0);
+      setProgress(0);
+      return;
+    }
     const interval = setInterval(() => {
       const remaining = targetDate - Date.now();
       if (remaining > 0) {
@@ -83,6 +94,119 @@ function useCountdownDetail(targetDate: number | undefined) {
   return { timeString, progress, isOver: timeLeft !== undefined && timeLeft <= 0, totalSeconds, isPending: timeLeft === undefined };
 }
 
+/**
+ * PASS 联合曲线图（纯 SVG，无外部依赖）。
+ * 曲线 P(s) = basePrice * (s / baseSupply)^exponent —— mint 价格随供应量二次增长，
+ * 越早 mint 越便宜（联合曲线获利空间）。标注当前供应量 / 当前价格位置。
+ */
+function PassBondingCurve({
+  curveConfig,
+  currentSupply,
+  currentPrice,
+}: {
+  curveConfig: CurveConfig | undefined;
+  currentSupply: bigint | undefined;
+  currentPrice: bigint | undefined;
+}) {
+  if (!curveConfig || Number(curveConfig.baseSupply) <= 0 || Number(curveConfig.exponent) <= 0) {
+    return (
+      <div className="text-white/30 text-[9px] italic py-8 text-center">
+        Curve data loading...
+      </div>
+    );
+  }
+
+  const basePrice = Number(curveConfig.basePrice) / 1e18;
+  const baseSupply = Number(curveConfig.baseSupply);
+  const exponent = Number(curveConfig.exponent);
+  const supply = currentSupply !== undefined ? Number(currentSupply) : undefined;
+  const price = currentPrice !== undefined ? Number(currentPrice) / 1e18 : undefined;
+
+  if (!(basePrice > 0)) {
+    return (
+      <div className="text-white/30 text-[9px] italic py-8 text-center">
+        Curve unavailable
+      </div>
+    );
+  }
+
+  const W = 320;
+  const H = 150;
+  const PAD_L = 46;
+  const PAD_R = 12;
+  const PAD_T = 12;
+  const PAD_B = 24;
+  const maxSupply = baseSupply * 2;
+  const maxPrice = basePrice * Math.pow(maxSupply / baseSupply, exponent);
+  const px = (s: number) => PAD_L + (s / maxSupply) * (W - PAD_L - PAD_R);
+  const py = (p: number) => H - PAD_B - (p / maxPrice) * (H - PAD_T - PAD_B);
+
+  // 曲线采样点（60 段折线足够平滑）
+  const STEPS = 60;
+  const pts: string[] = [];
+  for (let i = 0; i <= STEPS; i++) {
+    const s = (maxSupply * i) / STEPS;
+    const p = basePrice * Math.pow(s / baseSupply, exponent);
+    pts.push(`${px(s).toFixed(1)},${py(p).toFixed(1)}`);
+  }
+
+  const curX = supply !== undefined ? px(Math.min(supply, maxSupply)) : undefined;
+  const curY = price !== undefined ? py(Math.min(price, maxPrice)) : undefined;
+
+  // 轴刻度
+  const xTicks = [0, 0.5, 1, 1.5, 2].map((k) => ({ s: baseSupply * k, label: `${baseSupply * k}` }));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: maxPrice * k, label: `${(maxPrice * k).toFixed(3)}` }));
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="PASS bonding curve">
+        {/* 网格 + Y 轴刻度 */}
+        {yTicks.map((t, i) => (
+          <g key={`y${i}`}>
+            <line x1={PAD_L} x2={W - PAD_R} y1={py(t.p)} y2={py(t.p)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            <text x={PAD_L - 6} y={py(t.p) + 3} textAnchor="end" fontSize="8" fill="rgba(255,255,255,0.35)" fontFamily="monospace">
+              {t.label}
+            </text>
+          </g>
+        ))}
+        {/* X 轴刻度 */}
+        {xTicks.map((t, i) => (
+          <g key={`x${i}`}>
+            <line x1={px(t.s)} x2={px(t.s)} y1={PAD_T} y2={H - PAD_B} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            <text x={px(t.s)} y={H - PAD_B + 12} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.35)" fontFamily="monospace">
+              {t.label}
+            </text>
+          </g>
+        ))}
+        {/* 轴标签 */}
+        <text x={PAD_L + 2} y={PAD_T - 2} fontSize="7.5" fill="rgba(255,255,255,0.4)" fontFamily="monospace">
+          PRICE (MON)
+        </text>
+        <text x={W - PAD_R} y={H - 4} textAnchor="end" fontSize="7.5" fill="rgba(255,255,255,0.4)" fontFamily="monospace">
+          SUPPLY →
+        </text>
+        {/* 曲线 */}
+        <polyline points={pts.join(' ')} fill="none" stroke="#3ec470" strokeWidth="1.8" strokeLinejoin="round" />
+        {/* 当前点 */}
+        {curX !== undefined && curY !== undefined && (
+          <g>
+            <line x1={curX} x2={curX} y1={PAD_T} y2={H - PAD_B} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+            <line x1={PAD_L} x2={curX} y1={curY} y2={curY} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx={curX} cy={curY} r="3.5" fill="#3ec470" stroke="#0a0a0a" strokeWidth="1.5" />
+            <text x={curX + 6} y={curY - 5} fontSize="8.5" fill="#3ec470" fontFamily="monospace" fontWeight="bold">
+              {supply} SUPPLY · {price !== undefined ? `${price.toFixed(4)} MON` : ''}
+            </text>
+          </g>
+        )}
+      </svg>
+      <div className="flex justify-between text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mt-1 px-1">
+        <span>0</span>
+        <span>{maxSupply} max supply</span>
+      </div>
+    </div>
+  );
+}
+
 /** 链上拍卖详情页 — id 为 KolAuction 合约地址（0x 开头），数据来自 useAuction（内置 BidPlaced 事件订阅自动刷新） */
 function ChainAuctionDetail({ address }: { address: string }) {
   const { success, error, info } = useToast();
@@ -93,6 +217,10 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const [connectOpen, setConnectOpen] = useState(false);
   const [pulse, setPulse] = useState(false);
   const [mintQty, setMintQty] = useState(1); // PASS mint 数量（详情页快速 mint）
+  // 乐观倒计时：出价交易确认瞬间立即把倒计时重置为 40s（合约保证 endTime=now+40s，
+  // 与乐观值一致），避免 Monad 测试网 RPC 索引延迟导致 refetch 拿到旧 endTime、
+  // 用户看不到倒计时重置。链上 endTime 同步到位后自动接管。
+  const [optimisticEndMs, setOptimisticEndMs] = useState<number | undefined>(undefined);
 
   // 链上拍卖状态：placeBid 默认取链上 fixedBidAmount；BidPlaced 事件自动 refetch
   const {
@@ -112,6 +240,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
     balanceOf,
     totalSupply,
     curvePrice: passCurvePrice,
+    curveConfig,
     estimateMintCost,
     mint,
     isLoading: mintLoading,
@@ -147,7 +276,13 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const nowSec = Math.floor(Date.now() / 1000);
   const isUpcoming =
     !!auctionData && Number(auctionData.startTime) > nowSec;
-  const countdownTarget = isUpcoming ? startTimeMs : endTimeMs;
+  // 链上 endTime 接管乐观值：refetch 后链上已重置（≥ 乐观值 - 2s）即清除乐观状态
+  useEffect(() => {
+    if (optimisticEndMs !== undefined && endTimeMs !== undefined && endTimeMs >= optimisticEndMs - 2000) {
+      setOptimisticEndMs(undefined);
+    }
+  }, [endTimeMs, optimisticEndMs]);
+  const countdownTarget = isUpcoming ? startTimeMs : (optimisticEndMs ?? endTimeMs);
   const countdown = useCountdownDetail(countdownTarget);
   const { timeString, progress, totalSeconds, isOver, isPending } = countdown;
 
@@ -202,7 +337,11 @@ function ChainAuctionDetail({ address }: { address: string }) {
         success(`Bid placed! Countdown reset to ${BID_EXTEND_SECONDS}s.`);
         setPulse(true);
         setTimeout(() => setPulse(false), 500);
+        // 乐观重置倒计时（合约保证 endTime=now+40s）；RPC 索引延迟时用户也能立即看到重置
+        setOptimisticEndMs(Date.now() + BID_EXTEND_SECONDS * 1000);
         refetchAuction();
+        // RPC 索引补偿：1.5s 后二次 refetch，确保链上 endTime 同步到位并接管乐观值
+        setTimeout(() => refetchAuction(), 1500);
       },
     });
   };
@@ -580,6 +719,15 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   <div className="text-white/30 text-[9px] italic">Loading PASS data...</div>
                 </div>
               )}
+
+              {/* 联合曲线：PASS 价格随供应量增长（越早 mint 越便宜） */}
+              <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em]">Bonding Curve</span>
+                  <span className="text-white/25 text-[8px]">price grows with supply</span>
+                </div>
+                <PassBondingCurve curveConfig={curveConfig} currentSupply={totalSupply} currentPrice={passCurvePrice} />
+              </div>
             </div>
           </div>
         </div>
