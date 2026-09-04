@@ -11,7 +11,7 @@ import type { Abi } from 'viem';
  * 不在静态配置中。
  */
 export const contractAddresses = {
-  /** NadbidRegistry 注册表合约（KOL 入驻、担保金、索引） */
+  /** NadbidRegistry 注册表合约（KOL 入驻、担保金、索引、仲裁角色） */
   registry: import.meta.env.VITE_CONTRACT_REGISTRY as `0x${string}` | undefined,
   /** NadbidFactory 工厂合约（创建 KolPass / KolAuction） */
   factory: import.meta.env.VITE_CONTRACT_FACTORY as `0x${string}` | undefined,
@@ -39,6 +39,8 @@ export const registryAbi =
   {"type": "function","name": "setFactory","inputs": [{"name": "_factory","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "factory","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
   {"type": "function","name": "owner","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
+  {"type": "function","name": "arbitrator","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
+  {"type": "function","name": "setArbitrator","inputs": [{"name": "_arbitrator","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "kolList","inputs": [{"name": "","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
   {"type": "function","name": "BOND_AMOUNT","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "BOND_REDEEM_COOLDOWN","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
@@ -49,6 +51,9 @@ export const registryAbi =
   {"type": "event","name": "BondDeposited","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
   {"type": "event","name": "BondRedeemRequested","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
   {"type": "event","name": "BondRedeemed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "BondSlashed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "to","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
+  {"type": "event","name": "ArbitratorUpdated","inputs": [{"name": "arbitrator","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
+  {"type": "event","name": "KolBanned","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "banned","type": "bool","indexed": false,"internalType": "bool"}],"anonymous": false},
 ] as const satisfies Abi;
 
 export const factoryAbi =
@@ -87,20 +92,31 @@ export const kolPassAbi =
 
 export const kolAuctionAbi =
 [
-  {"type": "function","name": "getAuction","inputs": [],"outputs": [{"name": "","type": "tuple","internalType": "struct KolAuction.Auction","components": [{"name": "id","type": "uint256","internalType": "uint256"},{"name": "kol","type": "address","internalType": "address"},{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "itemCategory","type": "uint8","internalType": "uint8"},{"name": "startTime","type": "uint256","internalType": "uint256"},{"name": "endTime","type": "uint256","internalType": "uint256"},{"name": "lastBidder","type": "address","internalType": "address"},{"name": "totalBids","type": "uint256","internalType": "uint256"},{"name": "totalVolume","type": "uint256","internalType": "uint256"},{"name": "status","type": "uint8","internalType": "enum KolAuction.AuctionStatus"},{"name": "settled","type": "bool","internalType": "bool"}]}],"stateMutability": "view"},
+  {"type": "function","name": "getAuction","inputs": [],"outputs": [{"name": "","type": "tuple","internalType": "struct KolAuction.Auction","components": [{"name": "id","type": "uint256","internalType": "uint256"},{"name": "kol","type": "address","internalType": "address"},{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "itemCategory","type": "uint8","internalType": "uint8"},{"name": "startTime","type": "uint256","internalType": "uint256"},{"name": "endTime","type": "uint256","internalType": "uint256"},{"name": "lastBidder","type": "address","internalType": "address"},{"name": "totalBids","type": "uint256","internalType": "uint256"},{"name": "totalVolume","type": "uint256","internalType": "uint256"},{"name": "status","type": "uint8","internalType": "enum KolAuction.AuctionStatus"},{"name": "settled","type": "bool","internalType": "bool"},{"name": "winner","type": "address","internalType": "address"},{"name": "winnerTotalSpent","type": "uint256","internalType": "uint256"},{"name": "fulfillmentDeadline","type": "uint256","internalType": "uint256"},{"name": "fulfillmentTime","type": "uint256","internalType": "uint256"},{"name": "autoConfirmDeadline","type": "uint256","internalType": "uint256"},{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"}]}],"stateMutability": "view"},
   {"type": "function","name": "getCumulativeBid","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "getBidCount","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "placeBid","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "payable"},
   {"type": "function","name": "settle","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "auction","inputs": [],"outputs": [{"name": "id","type": "uint256","internalType": "uint256"},{"name": "kol","type": "address","internalType": "address"},{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "itemCategory","type": "uint8","internalType": "uint8"},{"name": "startTime","type": "uint256","internalType": "uint256"},{"name": "endTime","type": "uint256","internalType": "uint256"},{"name": "lastBidder","type": "address","internalType": "address"},{"name": "totalBids","type": "uint256","internalType": "uint256"},{"name": "totalVolume","type": "uint256","internalType": "uint256"},{"name": "status","type": "uint8","internalType": "enum KolAuction.AuctionStatus"},{"name": "settled","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "endTime","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "lastBidder","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "totalBids","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "settled","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "cumulativeBid","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "bidCount","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "submitFulfillment","inputs": [{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"}],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "confirmFulfillment","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "autoConfirm","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "dispute","inputs": [{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"}],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "resolveDispute","inputs": [{"name": "kolWon","type": "bool","internalType": "bool"}],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "claimRefund","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "claimKol","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "claimPlatform","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "refundable","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "kolBreached","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
+  {"type": "function","name": "pendingKol","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
+  {"type": "function","name": "pendingPlatform","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "lastBidderCumulative","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "lastBidderBidCount","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "event","name": "BidPlaced","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "bidSeq","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "bidder","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
   {"type": "event","name": "AuctionSettled","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "lastBidder","type": "address","indexed": false,"internalType": "address"},{"name": "totalVolume","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "platformFee","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "guaranteePool","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "blockNumber","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "FulfillmentSubmitted","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "evidenceHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "FulfillmentConfirmed","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "DisputeRaised","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "evidenceHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "DisputeResolved","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "kolWon","type": "bool","indexed": false,"internalType": "bool"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+  {"type": "event","name": "RefundClaimed","inputs": [{"name": "bidder","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
 ] as const satisfies Abi;

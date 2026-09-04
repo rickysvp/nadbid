@@ -229,8 +229,18 @@ function ChainAuctionDetail({ address }: { address: string }) {
     bidCount,
     lastBidderCumulative,
     lastBidderBidCount,
+    pendingKol,
+    pendingPlatform,
+    refundable,
+    kolBreached,
     placeBid,
     settle,
+    submitFulfillment,
+    confirmFulfillment,
+    autoConfirm,
+    dispute,
+    claimRefund,
+    claimKol,
     isLoading: txLoading,
     refetchAuction,
   } = useAuction(auctionAddress, account);
@@ -297,6 +307,17 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const isLive = !!auctionData && !isEnded && !isSettled && !isUpcoming;
   const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
 
+  // ---- SP-2 履约状态机：状态派生 + 权限判断 ----
+  const auctionStatus = auctionData?.status;
+  const isKol = !!account && !!auctionData && account.toLowerCase() === auctionData.kol.toLowerCase();
+  const winner = auctionData && auctionData.winner !== '0x0000000000000000000000000000000000000000' ? auctionData.winner : null;
+  const isWinner = !!account && !!winner && account.toLowerCase() === winner.toLowerCase();
+  const nowSec2 = Math.floor(Date.now() / 1000);
+  const kolSubmitted = !!auctionData && auctionData.fulfillmentTime > 0n;
+  const confirmWindowOpen = !!auctionData && Number(auctionData.autoConfirmDeadline) > nowSec2;
+  const fulfillmentExpired = !!auctionData && !kolSubmitted && Number(auctionData.fulfillmentDeadline) > 0 && Number(auctionData.fulfillmentDeadline) <= nowSec2;
+  const [evidenceInput, setEvidenceInput] = useState('');
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     success('Auction link copied to clipboard!');
@@ -357,10 +378,57 @@ function ChainAuctionDetail({ address }: { address: string }) {
     }
     await settle({
       onSuccess: () => {
-        success('Auction settled!');
+        success('Auction settled! Funds locked pending fulfillment.');
         refetchAuction();
       },
     });
+  };
+
+  /** SP-2 履约动作分发：根据当前身份/状态执行对应链上调用 */
+  const handleFulfillmentAction = async (action: 'submit' | 'confirm' | 'autoconfirm' | 'dispute' | 'refund' | 'claimkol') => {
+    if (!auctionData || txLoading) return;
+    if (!wallet.isConnected) {
+      setConnectOpen(true);
+      return;
+    }
+    const toastCfg = {
+      onSuccess: () => {
+        refetchAuction();
+        setTimeout(refetchAuction, 1500);
+      },
+    };
+    switch (action) {
+      case 'submit': {
+        const hash = evidenceInput.trim();
+        if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+          error('请粘贴 0x + 64 位十六进制证据哈希（如 keccak256(证据内容)）');
+          return;
+        }
+        await submitFulfillment(hash as `0x${string}`, { onSuccess: () => { success('Fulfillment submitted!'); toastCfg.onSuccess(); } });
+        break;
+      }
+      case 'confirm':
+        await confirmFulfillment({ onSuccess: () => { success('Fulfillment confirmed! Funds released to KOL.'); toastCfg.onSuccess(); } });
+        break;
+      case 'autoconfirm':
+        await autoConfirm({ onSuccess: () => { success('Auto-confirmed (window expired).'); toastCfg.onSuccess(); } });
+        break;
+      case 'dispute': {
+        const hash = evidenceInput.trim();
+        if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+          error('请粘贴 0x + 64 位十六进制证据哈希（如 keccak256(争议证据)）');
+          return;
+        }
+        await dispute(hash as `0x${string}`, { onSuccess: () => { success('Dispute raised. Awaiting arbitration.'); toastCfg.onSuccess(); } });
+        break;
+      }
+      case 'refund':
+        await claimRefund({ onSuccess: () => { success('Refund claimed!'); toastCfg.onSuccess(); } });
+        break;
+      case 'claimkol':
+        await claimKol({ onSuccess: () => { success('KOL earnings claimed!'); toastCfg.onSuccess(); } });
+        break;
+    }
   };
 
   /** 详情页快速 mint PASS：未连接 → ConnectModal；已连接 → mint(mintQty) */
@@ -420,10 +488,18 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   <Badge variant="neutral">Loading</Badge>
                 ) : isUpcoming ? (
                   <Badge variant="upcoming">Upcoming</Badge>
+                ) : auctionStatus === 2 ? (
+                  <Badge variant="settled">Awaiting Confirmation</Badge>
+                ) : auctionStatus === 3 ? (
+                  <Badge variant="live">Completed</Badge>
+                ) : auctionStatus === 4 ? (
+                  <Badge variant="ended">Disputed</Badge>
+                ) : auctionStatus === 5 ? (
+                  <Badge variant="neutral">Refunded</Badge>
                 ) : isLive ? (
                   <Badge variant="live" pulse>Live</Badge>
                 ) : isSettled ? (
-                  <Badge variant="settled">Settled</Badge>
+                  <Badge variant="settled">{kolBreached ? 'Breached' : 'Settled'}</Badge>
                 ) : (
                   <Badge variant="ended">Ended</Badge>
                 )}
@@ -605,17 +681,25 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 >
                   {!auctionData
                     ? 'LOADING...'
-                    : isSettled
-                      ? 'AUCTION SETTLED'
-                      : isEnded
-                        ? 'AUCTION ENDED'
-                        : isUpcoming
-                          ? 'STARTS SOON'
-                          : txLoading
-                            ? 'BIDDING...'
-                            : wallet.isConnected
-                              ? 'PLACE BID'
-                              : 'ENTER AUCTION'}
+                    : auctionStatus === 2
+                      ? 'AWAITING CONFIRMATION'
+                      : auctionStatus === 3
+                        ? 'COMPLETED'
+                        : auctionStatus === 4
+                          ? 'DISPUTED'
+                          : auctionStatus === 5
+                            ? 'REFUNDED'
+                            : isSettled
+                              ? 'AUCTION SETTLED'
+                              : isEnded
+                                ? 'AUCTION ENDED'
+                                : isUpcoming
+                                  ? 'STARTS SOON'
+                                  : txLoading
+                                    ? 'BIDDING...'
+                                    : wallet.isConnected
+                                      ? 'PLACE BID'
+                                      : 'ENTER AUCTION'}
                 </button>
 
                 {/* 结束且未结算 → 结算按钮（加分项） */}
@@ -626,6 +710,131 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   >
                     Settle Auction
                   </button>
+                )}
+
+                {/* SP-2 履约状态机操作区（AWAITING_CONFIRMATION / DISPUTED / COMPLETED / REFUNDED） */}
+                {auctionStatus === 2 && (
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-white/[0.06] rounded-lg p-4 text-left space-y-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#3ec470]">
+                      ⚖️ Fulfillment — {kolSubmitted ? 'KOL submitted' : 'KOL must submit within 48h'}
+                    </div>
+
+                    {isKol && !kolSubmitted && !fulfillmentExpired && (
+                      <>
+                        <input
+                          value={evidenceInput}
+                          onChange={(e) => setEvidenceInput(e.target.value)}
+                          placeholder="0x + evidence hash (keccak256 of proof)"
+                          className="w-full bg-[#161616] border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white placeholder:text-white/25 focus:border-[#3ec470]/50 outline-none"
+                        />
+                        <button
+                          onClick={() => handleFulfillmentAction('submit')}
+                          disabled={txLoading}
+                          className="w-full bg-[#3ec470]/15 border border-[#3ec470]/40 text-[#3ec470] font-bold text-[11px] py-2.5 rounded hover:bg-[#3ec470]/25 transition-colors uppercase"
+                        >
+                          {txLoading ? 'Submitting...' : 'Submit Fulfillment'}
+                        </button>
+                      </>
+                    )}
+
+                    {isWinner && kolSubmitted && confirmWindowOpen && (
+                      <>
+                        <div className="text-white/40 text-[10px] leading-relaxed">
+                          KOL 已提交履约证据。请确认履约质量，或提交争议证据发起仲裁（48h 窗口内）。
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleFulfillmentAction('confirm')}
+                            disabled={txLoading}
+                            className="flex-1 bg-[#3ec470] text-black font-black text-[11px] py-2.5 rounded hover:bg-[#4ade80] transition-colors uppercase"
+                          >
+                            {txLoading ? 'Confirming...' : 'Confirm Fulfillment'}
+                          </button>
+                          <button
+                            onClick={() => handleFulfillmentAction('dispute')}
+                            disabled={txLoading}
+                            className="flex-1 bg-[#7a2d2d]/40 border border-[#ea6668]/40 text-[#ff8a8c] font-bold text-[11px] py-2.5 rounded hover:bg-[#7a2d2d]/60 transition-colors uppercase"
+                          >
+                            Dispute
+                          </button>
+                        </div>
+                        <input
+                          value={evidenceInput}
+                          onChange={(e) => setEvidenceInput(e.target.value)}
+                          placeholder="Dispute evidence hash (0x + 64 hex)"
+                          className="w-full bg-[#161616] border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white placeholder:text-white/25 focus:border-[#ea6668]/50 outline-none"
+                        />
+                      </>
+                    )}
+
+                    {!confirmWindowOpen && kolSubmitted && (
+                      <button
+                        onClick={() => handleFulfillmentAction('autoconfirm')}
+                        disabled={txLoading}
+                        className="w-full bg-white/[0.06] border border-white/10 text-white/70 font-bold text-[11px] py-2.5 rounded hover:bg-white/10 transition-colors uppercase"
+                      >
+                        {txLoading ? 'Confirming...' : 'Auto Confirm (window expired)'}
+                      </button>
+                    )}
+
+                    {fulfillmentExpired && !kolSubmitted && (
+                      <div className="text-[#ff8a8c] text-[10px] font-bold leading-relaxed">
+                        KOL 未在期限内提交履约 → 已违约。任意出价者可点击 Claim Refund 触发违约结算（80% 资金 + 押金罚没进入退款池）。
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {auctionStatus === 4 && (
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-[#ea6668]/30 rounded-lg p-4 text-left">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ff8a8c] mb-2">⚖️ Disputed</div>
+                    <div className="text-white/40 text-[10px] leading-relaxed">
+                      争议已提交仲裁。资金保持锁定，等待平台仲裁结果。中标者可在此页面跟踪裁定结果。
+                    </div>
+                  </div>
+                )}
+
+                {auctionStatus === 3 && (
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-[#3ec470]/30 rounded-lg p-4 text-left space-y-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#3ec470]">✅ Completed</div>
+                    {isKol && pendingKol !== undefined && pendingKol > 0n && (
+                      <button
+                        onClick={() => handleFulfillmentAction('claimkol')}
+                        disabled={txLoading}
+                        className="w-full bg-[#3ec470] text-black font-black text-[11px] py-2.5 rounded hover:bg-[#4ade80] transition-colors uppercase"
+                      >
+                        {txLoading ? 'Claiming...' : `Claim KOL Earnings (${formatMonWei(pendingKol)} MON)`}
+                      </button>
+                    )}
+                    <div className="flex justify-between text-white/40 text-[10px] font-mono">
+                      <span>KOL pending</span>
+                      <span className="text-white font-bold">{formatMonWei(pendingKol)} MON</span>
+                    </div>
+                    <div className="flex justify-between text-white/40 text-[10px] font-mono">
+                      <span>Platform fee</span>
+                      <span className="text-white font-bold">{formatMonWei(pendingPlatform)} MON</span>
+                    </div>
+                  </div>
+                )}
+
+                {auctionStatus === 5 && (
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-white/[0.06] rounded-lg p-4 text-left">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ff8a8c] mb-2">Refunded</div>
+                    {account && refundable !== undefined && refundable > 0n && (
+                      <button
+                        onClick={() => handleFulfillmentAction('refund')}
+                        disabled={txLoading}
+                        className="w-full bg-[#3ec470] text-black font-black text-[11px] py-2.5 rounded hover:bg-[#4ade80] transition-colors uppercase"
+                      >
+                        {txLoading ? 'Claiming...' : `Claim Refund (${formatMonWei(refundable)} MON)`}
+                      </button>
+                    )}
+                    <div className="text-white/40 text-[10px] mt-2">
+                      {account && refundable !== undefined && refundable === 0n
+                        ? '你没有可领取的退款（未出价或已领取）。'
+                        : '违约退款池已分配，按出价金额比例领取。'}
+                    </div>
+                  </div>
                 )}
 
                 <div className="text-white/40 text-[9px] font-bold tracking-[0.15em] uppercase mt-5">

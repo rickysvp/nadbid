@@ -51,13 +51,13 @@ contract IntegrationTest is Test {
 
         // 4. 出价
         vm.prank(buyer);
-        KolAuction(auctionAddr).placeBid{value: 99 ether}();
-        assertEq(KolAuction(auctionAddr).lastBidder(), buyer);
+        KolAuction(payable(auctionAddr)).placeBid{value: 99 ether}();
+        assertEq(KolAuction(payable(auctionAddr)).lastBidder(), buyer);
 
         // 5. 结算
         vm.warp(block.timestamp + 1000);
         vm.prank(kol);
-        KolAuction(auctionAddr).settle();
-        assertTrue(KolAuction(auctionAddr).settled());
+        KolAuction(payable(auctionAddr)).settle();
+        assertTrue(KolAuction(payable(auctionAddr)).settled());
     }
 }

@@ -197,6 +197,10 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   );
 
   const reset = useCallback(() => {
+    // 审计修复：reset 必须释放 busyRef——D8 后超时不再自动释放锁（避免原交易晚到
+    // 确认被覆盖），用户放弃时唯一释放通道就是 reset；此前漏清 busyRef 导致
+    // reset 后仍被 "transaction already in progress" 拒绝，无法发起新交易。
+    busyRef.current = false;
     setTxHash(null);
     setStatus('idle');
     setErrorMessage(null);

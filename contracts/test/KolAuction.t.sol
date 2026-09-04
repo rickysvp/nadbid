@@ -166,7 +166,17 @@ contract KolAuctionTest is Test {
         assertEq(auction.pendingPlatform(), 0);
         assertEq(platform.balance - platformBefore, platformFee);
 
-        // KOL 领取 80%（kol 在 setUp mint 时已收到 5% 手续费，按增量断言）
+        // SP-2：settle 后 80% 锁定，KOL 不能立即领取
+        assertEq(auction.pendingKol(), 0);
+        vm.prank(kol);
+        vm.expectRevert(bytes("!COMPLETED"));
+        auction.claimKol();
+
+        // KOL 提交履约 → 中标者确认 → COMPLETED 后可领取
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        vm.prank(bidder);
+        auction.confirmFulfillment();
         uint256 kolBefore = kol.balance;
         vm.prank(kol);
         auction.claimKol();
@@ -200,13 +210,224 @@ contract KolAuctionTest is Test {
         assertEq(rejAuction.pendingPlatform(), 0);
         assertEq(platform.balance - platformBefore, platformFee);
 
-        // KOL 份额留存合约（拒收地址无法领取，但结算与担保赎回不受影响）
+        // SP-2：80% 锁定在合约余额（不进入 pendingKol），拒收 KOL 无法在履约前领取；
+        // 提交履约 + 自动确认后释放为待领（claimKol 仍会因拒收失败，但状态不阻塞）
+        assertEq(rejAuction.pendingKol(), 0);
+        assertEq(address(rejAuction).balance, fixedBid - platformFee);
+        vm.prank(address(rejectKol));
+        rejAuction.submitFulfillment(bytes32(uint256(0xDEF)));
+        vm.warp(block.timestamp + 48 hours + 1);
+        rejAuction.autoConfirm();
         assertEq(rejAuction.pendingKol(), fixedBid - platformFee);
     }
-}
+
+    // ================= SP-2 履约状态机 =================
+
+    function _settleWithBid() internal {
+        vm.prank(bidder);
+        auction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+    }
+
+    /// 注册 KOL 并质押 1 MON 押金（退款/罚没测试的前置）
+    function _bondKol() internal {
+        // setPlatformSigner 为 onlyOwner：以测试合约（reg 的 owner）身份调用
+        reg.setPlatformSigner(vm.addr(0xA11CE));
+        vm.startPrank(kol);
+        bytes32 hash = keccak256(abi.encodePacked(kol, "handle", uint256(150000), block.timestamp + 1 hours));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xA11CE, hash);
+        reg.registerKol("handle", 150000, block.timestamp + 1 hours, abi.encodePacked(r, s, v));
+        vm.deal(kol, 1 ether);
+        reg.depositBond{value: 1 ether}();
+        vm.stopPrank();
+    }
+
+    function test_Settle_FreezesWinnerAndLocks() public {
+        _settleWithBid();
+        // winner 固化
+        assertEq(auction.getAuction().winner, bidder);
+        assertEq(auction.getAuction().winnerTotalSpent, fixedBid);
+        // 80% 锁定：pendingKol 为 0，资金留在合约
+        assertEq(auction.pendingKol(), 0);
+        // settle 后全部资金仍在合约（20% 平台待领 + 80% 锁定）
+        assertEq(address(auction).balance, fixedBid);
+        assertEq(auction.getAuction().fulfillmentDeadline, block.timestamp + 48 hours);
+    }
+
+    function test_ClaimKol_BeforeCompleted_Reverts() public {
+        _settleWithBid();
+        vm.prank(kol);
+        vm.expectRevert(bytes("!COMPLETED"));
+        auction.claimKol();
+    }
+
+    function test_Fulfillment_OnlyKol() public {
+        _settleWithBid();
+        vm.prank(bidder);
+        vm.expectRevert(bytes("!KOL"));
+        auction.submitFulfillment(bytes32(uint256(1)));
+    }
+
+    function test_Fulfillment_ConfirmByWinner() public {
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.AWAITING_CONFIRMATION));
+        assertEq(auction.getAuction().autoConfirmDeadline, block.timestamp + 48 hours);
+        // 非中标者不能确认
+        address other = address(0x7777);
+        vm.deal(other, 100 ether);
+        vm.prank(other);
+        vm.expectRevert(bytes("!WINNER"));
+        auction.confirmFulfillment();
+        // 中标者确认 → COMPLETED
+        vm.prank(bidder);
+        auction.confirmFulfillment();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertEq(auction.pendingKol(), fixedBid * 80 / 100);
+    }
+
+    function test_Fulfillment_AutoConfirm() public {
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(2)));
+        // 未到窗口：不可自动确认
+        vm.warp(block.timestamp + 48 hours - 1);
+        vm.expectRevert(bytes("NOT_READY"));
+        auction.autoConfirm();
+        // 窗口结束：任何人可自动确认
+        vm.warp(block.timestamp + 2);
+        auction.autoConfirm();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertEq(auction.pendingKol(), fixedBid * 80 / 100);
+    }
+
+    function test_Dispute_OnlyWinner() public {
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(3)));
+        vm.prank(address(0x7777));
+        vm.expectRevert(bytes("!WINNER"));
+        auction.dispute(bytes32(uint256(9)));
+    }
+
+    function test_Dispute_AndResolve_KolWon() public {
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(4)));
+        vm.prank(bidder);
+        auction.dispute(bytes32(uint256(9)));
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.DISPUTED));
+        // 非仲裁者不可裁定
+        vm.prank(address(0x7777));
+        vm.expectRevert(bytes("!ARBITRATOR"));
+        auction.resolveDispute(true);
+        // 仲裁判 KOL 胜 → 放款
+        reg.setArbitrator(address(this));
+        auction.resolveDispute(true);
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertEq(auction.pendingKol(), fixedBid * 80 / 100);
+    }
+
+    function test_Dispute_AndResolve_KolLost_FullRefund() public {
+        _bondKol();
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(5)));
+        vm.prank(bidder);
+        auction.dispute(bytes32(uint256(9)));
+        reg.setArbitrator(address(this));
+        auction.resolveDispute(false);
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        // 退款池 = 80% + 押金罚没（bidder 全部出价应全额退回，押金归平台/无人认领则留存）
+        uint256 kolShare = fixedBid * 80 / 100;
+        assertEq(auction.refundPool(), kolShare + 1 ether);
+        // bidder 领取 80% + 押金罚没份额（单一出价者 = 全额 80% + 1 MON 押金）
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertEq(bidder.balance - before, fixedBid * 80 / 100 + 1 ether);
+        // 防重复领取
+        vm.prank(bidder);
+        vm.expectRevert(bytes("CLAIMED"));
+        auction.claimRefund();
+    }
+
+    function test_Refund_WhenKolBreaches() public {
+        _bondKol();
+        _settleWithBid();
+        // KOL 未在 48h 内提交履约 → 竞拍者触发违约结算
+        vm.warp(block.timestamp + 48 hours + 1);
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        assertEq(bidder.balance - before, fixedBid * 80 / 100 + 1 ether); // 80% + 押金罚没
+        // KOL 押金被罚没（KolAuction 测试中 kol 未质押，slash 在 Registry 侧断言）
+    }
+
+    function test_Refund_Proportional_TwoBidders() public {
+        _bondKol();
+        address bidder2 = address(0x5678);
+        vm.deal(bidder2, 1000 ether);
+        vm.prank(bidder2);
+        pass.mint{value: 13.39 ether * 108 / 100}(1);
+        vm.startPrank(bidder);
+        auction.placeBid{value: fixedBid}();
+        auction.placeBid{value: fixedBid}();
+        vm.stopPrank();
+        vm.prank(bidder2);
+        auction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+        vm.warp(block.timestamp + 48 hours + 1);
+        // 违约退款按出价金额比例：bidder 2/3、bidder2 1/3（增量断言，与合约公式同构）
+        uint256 pool = 3 * fixedBid * 80 / 100 + 1 ether;
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        uint256 got1 = bidder.balance - before;
+        uint256 before2 = bidder2.balance;
+        vm.prank(bidder2);
+        auction.claimRefund();
+        uint256 got2 = bidder2.balance - before2;
+        assertEq(got1, 2 * fixedBid * pool / (3 * fixedBid));
+        assertEq(got2, fixedBid * pool / (3 * fixedBid));
+        assertLe(pool - (got1 + got2), 1); // 整除截断 ≤1 wei
+    }
+
+    function test_Refundable_Getter() public {
+        _bondKol();
+        _settleWithBid();
+        assertEq(auction.refundable(bidder), 0); // 未违约
+        vm.warp(block.timestamp + 48 hours + 1);
+        // 违约可退：80% 锁定资金 + 押金罚没（单一出价者拿全部份额）
+        assertEq(auction.refundable(bidder), fixedBid * 80 / 100 + 1 ether);
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertEq(auction.refundable(bidder), 0); // 已领
+    }
+
+    function test_Settle_NoBids_Completes() public {
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
+        assertTrue(auction.settled());
+        assertEq(auction.getAuction().winner, address(0));
+        assertEq(auction.pendingKol(), 0);
+    }
+
 
 // 拒收原生代币的合约（无 receive/fallback 收款路径 → call 失败）
+}
+
 contract RejectingKol {
     fallback() external payable { revert("REJECT"); }
     receive() external payable { revert("REJECT"); }
+
 }
+

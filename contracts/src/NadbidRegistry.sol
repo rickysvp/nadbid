@@ -134,6 +134,8 @@ contract NadbidRegistry {
     address public factory;
     address public owner;
     address public platformSigner;  // 平台签名公钥：注册 KOL 时的 followers 验证签名者
+    /// SP-2：仲裁者——KolAuction.resolveDispute 的权限方（平台运营地址，owner 可更换）
+    address public arbitrator;
     modifier onlyOwner() { require(msg.sender == owner, "!OWNER"); _; }
     constructor(uint256 minFollowers) {
         // 审计修复（D6）：粉丝门槛必须 > 0，防止误部署 0 门槛注册签名校验形同虚设
@@ -175,6 +177,36 @@ contract NadbidRegistry {
         Kol storage k = kols[kol];
         return k.registered && k.bonded && !k.bondRedeemPending && !banned[kol];
     }
+
+    /// SP-2：设置仲裁者（onlyOwner）。仲裁者调用 KolAuction.resolveDispute 裁定争议。
+    function setArbitrator(address _arbitrator) external onlyOwner {
+        require(_arbitrator != address(0), "ZERO_ARBITRATOR");
+        arbitrator = _arbitrator;
+        emit ArbitratorUpdated(_arbitrator);
+    }
+    event ArbitratorUpdated(address indexed arbitrator);
+
+    /// SP-2：押金罚没——仅 Factory 登记的拍卖合约可调（isAuction + auctionKol 绑定校验）。
+    /// 罚没金额（全额 1 MON）转账给调用合约（进入其退款池）；KOL 失去担保并冻结创建权限。
+    /// 违约冻结后如需复核解冻，由 owner 调用 setBanned(kol, false) 并重新质押。
+    function slashKolBond(address kol) external returns (uint256) {
+        require(isAuction[msg.sender], "!AUCTION");
+        require(auctionKol[msg.sender] == kol, "KOL_MISMATCH");
+        require(kols[kol].bonded, "NOT_BONDED");
+        require(!kols[kol].bondRedeemPending, "REDEEM_PENDING");
+        uint256 amount = kols[kol].bondAmount;
+        kols[kol].bonded = false;
+        kols[kol].bondAmount = 0;
+        kols[kol].bondRedeemPending = false;
+        // 违约罚没后冻结（同步 struct banned 与 mapping，保持 D4 一致性）
+        kols[kol].banned = true;
+        banned[kol] = true;
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "SEND_FAILED");
+        emit BondSlashed(kol, amount, msg.sender);
+        return amount;
+    }
+    event BondSlashed(address indexed kol, uint256 amount, address indexed to);
 }
 
 // 供 Registry 查询 KolAuction 结算状态（避免双向 import）

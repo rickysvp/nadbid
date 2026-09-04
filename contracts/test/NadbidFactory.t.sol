@@ -98,7 +98,7 @@ contract NadbidFactoryTest is Test {
         address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
         // 时间到 → settle 第 1 场
         vm.warp(block.timestamp + 200);
-        KolAuction(a1).settle();
+        KolAuction(payable(a1)).settle();
         // 履约完成后可创建第 2 场
         address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
         assertTrue(a2 != address(0));
