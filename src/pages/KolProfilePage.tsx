@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import { ArrowLeft, Info, Copy, ZoomIn } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
@@ -10,6 +11,8 @@ import { useToast } from '../hooks/useToast';
 import { CURVE_DEFAULTS } from '../utils/constants';
 import { useWalletStore } from '../stores/walletStore';
 import { useKolPass } from '../web3/hooks/useKolPass';
+import { useReadContract } from '../web3/hooks/useReadContract';
+import { kolPassAbi } from '../web3/contracts';
 import { useRegistry, type KolData } from '../web3/hooks/useRegistry';
 import { shortenAddress } from '../utils/format';
 
@@ -222,7 +225,7 @@ function resolveChainKol(handle: string | undefined): {
 
 export default function KolProfilePage() {
   const { handle } = useParams<{ handle: string }>();
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   // 债券曲线状态（供应量 / 价格）— 由页面统一维护，Mint/Burn 成功后通过
   // MintBurnPanel.onTradeSuccess 更新，驱动 Overview 卡片与曲线图联动。
@@ -250,6 +253,31 @@ export default function KolProfilePage() {
   }, [chainKolInfo]);
 
   const chainPass = useKolPass(passAddress, account);
+
+  // ---- F5 Pull 模式：KOL 本人可见的待领取手续费 + 领取入口 ----
+  // 手续费在 mint/burn 时记账到 pendingKolFees[kol]，不即时转账；本区块让 KOL
+  // 在个人主页直接领取。仅当访问者即该 KOL（钱包一致）时展示，他人不可见。
+  const isSelf = !!account && !!kolAddress && account.toLowerCase() === kolAddress.toLowerCase();
+  const { data: pendingFeesRaw } = useReadContract({
+    address: isSelf && passAddress ? passAddress : undefined,
+    abi: kolPassAbi,
+    functionName: 'pendingKolFees',
+    args: [kolAddress ?? '0x0000000000000000000000000000000000000000'],
+    query: { enabled: isSelf && passAddress !== undefined },
+  });
+  const pendingFees = pendingFeesRaw as bigint | undefined;
+  const queryClient = useQueryClient();
+  const handleClaimFees = async () => {
+    if (!passAddress) return;
+    info('Please confirm the claim in your wallet — signing in progress…');
+    const res = await chainPass.claimKolFees({
+      onSuccess: () => {
+        queryClient.invalidateQueries();
+        success('KOL fees claimed!');
+      },
+    });
+    if (!res && chainPass.error) error(chainPass.error);
+  };
 
   // 链上数据（wei → MON / 供应量整数）；undefined 时回退 mock 基线
   const chainSupply = chainPass.totalSupply !== undefined ? Number(chainPass.totalSupply) : undefined;
@@ -444,6 +472,42 @@ export default function KolProfilePage() {
               passAddress={passAddress}
               onTradeSuccess={handleTradeSuccess}
             />
+
+            {/* F5 Pull 模式：KOL 本人领取累计手续费（mint/burn 记账，不即时转账） */}
+            {isSelf && passAddress && (
+              <div className="mt-3 bg-[#161616] border border-white/[0.04] rounded-lg p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-white">
+                    Claim KOL Fees
+                  </h3>
+                  <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">
+                    Pull Mode
+                  </span>
+                </div>
+                <p className="text-white/40 text-xs mb-4 leading-relaxed">
+                  Fees earned from PASS mint/burn are held on the contract — claim them anytime.
+                </p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1">
+                      Available
+                    </div>
+                    <div className="font-mono text-lg font-bold text-[#3ec470]">
+                      {pendingFees !== undefined
+                        ? `${(Number(pendingFees) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 4 })} MON`
+                        : '…'}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleClaimFees}
+                    disabled={pendingFees === undefined || pendingFees === 0n || chainPass.isLoading}
+                    loading={chainPass.isLoading}
+                  >
+                    Claim
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Dividend Pool — 未上链，占位 */}
