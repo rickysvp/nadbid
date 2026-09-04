@@ -12,7 +12,12 @@ contract KolPass is ERC721Enumerable {
     uint256 public baseSupply = 1000;
     uint256 public exponent = 2;
     uint256 public basePrice;
-    uint256 public totalMinted;
+    /// tokenId 分配器：单调递增、永不回退（burn 后不递减）。
+    /// 修复前用 totalMinted 同时表示"存活供应量"与"下一个 tokenId"，
+    /// burn 后 totalMinted 回退会重新生成已存在 tokenId，导致后续 mint 永久 revert。
+    /// 现在 tokenId 分配与曲线定价解耦：tokenId 由 nextTokenId 分配，
+    /// 曲线按 ERC721Enumerable.totalSupply()（存活量）定价。
+    uint256 public nextTokenId;
     uint256 public feeKOL = 5;       // 5%
     uint256 public feePlatform = 3;  // 3%
     uint256 public constant FEE_DENOM = 100;
@@ -36,11 +41,11 @@ contract KolPass is ERC721Enumerable {
     }
 
     // price(supply) = basePrice * (supply / baseSupply)^2
-    // curvePrice() 返回「下一枚的实际成本」，即 curvePriceAt(totalMinted + 1)。
-    // 修复前 supply==0 时返回 basePrice（满额锚点价），与首枚实际成本 curvePriceAt(1)
-    // 相差 baseSupply^2 倍（100 万倍），误导前端显示并阻断余额充足用户 mint。
+    // curvePrice() 返回「下一枚的实际成本」，即 curvePriceAt(totalSupply() + 1)。
+    // 定价基于存活供应量（ERC721Enumerable.totalSupply()，burn 后自动递减）——
+    // 联合曲线随存活量上下浮动，burn 回购套利语义正确。
     function curvePrice() public view returns (uint256) {
-        return curvePriceAt(totalMinted + 1);
+        return curvePriceAt(totalSupply() + 1);
     }
 
     function curvePriceAt(uint256 nextSupply) public view returns (uint256) {
@@ -52,8 +57,9 @@ contract KolPass is ERC721Enumerable {
         require(quantity > 0, "ZERO_QTY");
         tokenIds = new uint256[](quantity);
         uint256 totalCost = 0;
+        uint256 supply = totalSupply(); // 存活供应量（burn 后递减，曲线定价基准）
         for (uint256 i = 0; i < quantity; i++) {
-            uint256 nextSupply = totalMinted + i + 1;
+            uint256 nextSupply = supply + i + 1;
             totalCost += curvePriceAt(nextSupply);
         }
         uint256 fee = totalCost * (feeKOL + feePlatform) / FEE_DENOM;
@@ -61,9 +67,9 @@ contract KolPass is ERC721Enumerable {
         require(msg.value >= pay, "INSUFFICIENT");
         // CEI：先更新供应量（重入 mint 会读到新 supply，按新价格计费，防止陈旧价格套利）
         for (uint256 i = 0; i < quantity; i++) {
-            totalMinted++;
-            _safeMint(msg.sender, totalMinted);
-            tokenIds[i] = totalMinted;
+            nextTokenId++; // 单调递增，burn 后绝不回退（修复 burn 后 mint 永久失败的 P0）
+            _safeMint(msg.sender, nextTokenId);
+            tokenIds[i] = nextTokenId;
         }
         // 手续费拆分（F5）：KOL 份额记账（Pull，claimKolFees 领取），平台份额即时转出（Push，地址自控）
         uint256 kolFee = totalCost * feeKOL / FEE_DENOM;
@@ -81,19 +87,19 @@ contract KolPass is ERC721Enumerable {
 
     function burn(uint256[] calldata tokenIds) external {
         uint256 refund = 0;
-        // 与 mint 严格镜像：mint 第 k 枚成本 = curvePriceAt(k)（k 从 1 起，总供应从 0→N）
-        // burn 第 k 枚返还 = curvePriceAt(N - k + 1)（k 从 1 起，总供应从 N→0）
+        // 与 mint 严格镜像：mint 第 k 枚成本 = curvePriceAt(k)（k 从 1 起，存活供应从 0→N）
+        // burn 第 k 枚返还 = curvePriceAt(N - k + 1)（k 从 1 起，存活供应从 N→0）
         // 即 supplyAfterBurn 从 N-1 递减到 0 时，对应返还 curvePriceAt(1) 而非 basePrice，
-        // 因此内部供应索引 iSupply 从 totalMinted 递减到 1，永不取 0（避免 curvePriceAt(0)=basePrice 套利）。
-        uint256 total = totalMinted;
+        // 因此内部供应索引 iSupply 从 totalSupply() 递减到 1，永不取 0（避免 curvePriceAt(0)=basePrice 套利）。
+        uint256 total = totalSupply(); // 存活量；totalSupply() 由 ERC721Enumerable 维护，burn 后自动递减
         for (uint256 i = 0; i < tokenIds.length; i++) {
             require(_ownerOf(tokenIds[i]) == msg.sender, "NOT_OWNER");
-            uint256 iSupply = total - i; // total..1，不会降到 0（tokenIds.length <= totalMinted 由 NOT_OWNER 保证）
+            uint256 iSupply = total - i; // total..1，不会降到 0（tokenIds.length <= totalSupply 由 NOT_OWNER 保证）
             refund += curvePriceAt(iSupply);
             _burn(tokenIds[i]);
         }
-        // CEI：先扣减 totalMinted（重入时读到最新供应，防止重入以陈旧 supply 多退）
-        totalMinted = totalMinted - tokenIds.length;
+        // CEI：_burn 已同步维护 ERC721Enumerable 内部记账（_allTokens/_ownedTokens），
+        // 重入 burn 会读到已扣减的 totalSupply()，按最新 supply 计算返还，阻断陈旧价格多退。
         // 扣 8% 手续费后返还（F5：KOL 份额记账 Pull，平台份额 Push）
         uint256 fee = refund * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 net = refund - fee;

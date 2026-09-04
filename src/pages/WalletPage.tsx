@@ -90,7 +90,19 @@ export default function WalletPage() {
               <Button variant="secondary" size="sm" onClick={handleCopyAddress}>
                 <Copy className="w-3.5 h-3.5" /> Copy
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => info('Opening explorer...')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  // Codex 审计：Explorer 按钮真正跳转 Monad 测试网区块浏览器（不再只弹 toast）
+                  if (!address) return;
+                  window.open(
+                    `https://testnet.monadexplorer.com/address/${address}`,
+                    '_blank',
+                    'noopener,noreferrer',
+                  );
+                }}
+              >
                 <ExternalLink className="w-3.5 h-3.5" /> Explorer
               </Button>
               <Button variant="danger" size="sm" onClick={handleDisconnect}>

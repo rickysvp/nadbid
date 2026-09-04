@@ -13,7 +13,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { privateKeyToAccount } from 'viem/accounts';
-import { keccak256, encodePacked, type Hex } from 'viem';
+import { keccak256, encodePacked, isAddress, type Hex } from 'viem';
 
 const router = express.Router();
 
@@ -172,8 +172,18 @@ function rateLimited(key: string): boolean {
  *  前端降级为默认头像 + 链上摘要。 */
 router.get('/meta', (req, res) => {
   const wallet = (req.query.wallet as string | undefined) ?? '';
+  // Codex 审计：严格校验 wallet 为合法地址（防非法值污染 state/ticket/签名流程）
+  if (!wallet || !isAddress(wallet)) {
+    res.status(400).json({ error: 'invalid wallet' });
+    return;
+  }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet' });
+    return;
+  }
+  // Codex 审计：严格校验 wallet 为合法地址（防非法值进入 ECDSA 签名流程抛未捕获异常）
+  if (!isAddress(wallet)) {
+    res.status(400).json({ error: 'invalid wallet' });
     return;
   }
   const local = readKolMeta()[wallet.toLowerCase()];
@@ -272,6 +282,11 @@ router.get('/x-auth-url', (req, res) => {
     return;
   }
   const wallet = (req.query.wallet as string | undefined) ?? '';
+  // Codex 审计：严格校验 wallet 为合法地址（防非法值污染 state/ticket/签名流程）
+  if (!wallet || !isAddress(wallet)) {
+    res.status(400).json({ error: 'invalid wallet' });
+    return;
+  }
   if (!wallet) {
     res.status(400).json({ error: 'missing wallet — connect your wallet first' });
     return;

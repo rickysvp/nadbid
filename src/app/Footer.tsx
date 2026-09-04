@@ -37,8 +37,36 @@ export function Footer() {
             <h4 className="font-semibold text-xs tracking-wider uppercase text-gray-400 mb-6">Resources</h4>
             <ul className="space-y-4 text-gray-500 text-sm">
               <li><a href="#" onClick={(e) => { e.preventDefault(); handleLink('Documentation'); }} className="hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="#" onClick={(e) => { e.preventDefault(); handleLink('Smart Contracts'); }} className="hover:text-white transition-colors">Smart Contracts</a></li>
-              <li><a href="#" onClick={(e) => { e.preventDefault(); handleLink('Brand Kit'); }} className="hover:text-white transition-colors">Brand Kit</a></li>
+              <li>
+                <a
+                  href="https://testnet.monadexplorer.com/address/0xe0eb2db5c15196f98d295d0991617a984228a5ec"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
+                  Registry Contract
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://testnet.monadexplorer.com/address/0xe4843d283513dd4af0c028767bf522e3663fe495"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
+                  Factory Contract
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://testnet.monadexplorer.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                >
+                  Monad Testnet Explorer
+                </a>
+              </li>
             </ul>
           </div>
           <div>

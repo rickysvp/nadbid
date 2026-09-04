@@ -52,6 +52,33 @@ contract NadbidRegistryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp - 1, _signRegistration(kol, "elonmusk", 150000000));
     }
 
+    // Codex 审计（纵深防御）回归：notifyAuctionSettled 必须由拍卖所属 KOL 回调。
+    // 用其他 KOL 地址回调必须 revert（KOL_MISMATCH），防止误登记/升级后恶意合约
+    // 传他人 kol 把 openAuctionCount 误减成负数。
+    function test_NotifySettled_KolMismatch() public {
+        address kolB = address(0xCAFE);
+        // 登记 kolA（=kol）与 kolB
+        registry.setFactory(address(this));
+        vm.startPrank(kol);
+        registry.registerKol("kolA", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "kolA", 150000000));
+        vm.stopPrank();
+        vm.startPrank(kolB);
+        registry.registerKol("kolB", 150000000, block.timestamp + 1 hours, _signRegistration(kolB, "kolB", 150000000));
+        vm.stopPrank();
+        // 登记一场属于 kol 的拍卖（msg.sender 必须是 factory = 测试合约）
+        address auction = address(0xA11CE);
+        registry.addAuctionContract(kol, auction);
+        assertEq(registry.openAuctionCount(kol), 1);
+        // 用 kolB 回调同一拍卖 → 必须 revert
+        vm.prank(auction);
+        vm.expectRevert(bytes("KOL_MISMATCH"));
+        registry.notifyAuctionSettled(kolB);
+        // 正确 KOL 回调 → 计数减一
+        vm.prank(auction);
+        registry.notifyAuctionSettled(kol);
+        assertEq(registry.openAuctionCount(kol), 0);
+    }
+
     function test_DepositBond_RequiresExactAmount() public {
         vm.startPrank(kol);
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));

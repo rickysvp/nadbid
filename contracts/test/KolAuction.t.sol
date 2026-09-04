@@ -9,6 +9,7 @@ import {NadbidRegistry} from "../src/NadbidRegistry.sol";
 contract KolAuctionTest is Test {
     KolPass pass;
     KolAuction auction;
+    NadbidRegistry reg;
     address kol = address(0xBEEF);
     address platform = address(0xCAFE);
     address bidder = address(0x1234);
@@ -18,7 +19,7 @@ contract KolAuctionTest is Test {
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
         // KolAuction 需传 registry（供 banned/factory 检查）；测试用独立 registry 实例
-        NadbidRegistry reg = new NadbidRegistry(1000);
+        reg = new NadbidRegistry(1000);
         // F6：KolAuction 构造要求 msg.sender == Registry.factory()；测试合约即 owner，
         // 把自己设为 factory 后直接 new（msg.sender = 测试合约）通过白名单校验
         reg.setFactory(address(this));
@@ -128,6 +129,23 @@ contract KolAuctionTest is Test {
         auction.placeBid{value: fixedBid}();
         vm.expectRevert();
         auction.settle();  // 还没到 endTime
+    }
+
+    // Codex 审计 P1 回归：封禁对象 = 拍卖所属 KOL（a.kol），而非出价者。
+    // 封禁 KOL 后其名下拍卖必须停止收款（出价 revert）；封禁普通竞拍者不应影响其出价。
+    function test_PlaceBid_BannedKol_BlocksBids() public {
+        reg.setBanned(kol, true);
+        vm.prank(bidder);
+        vm.expectRevert(bytes("BANNED"));
+        auction.placeBid{value: fixedBid}();
+    }
+
+    // Codex 审计 P1 对偶：封禁普通竞拍者（非 KOL）不得影响其出价（检查对象不是 msg.sender）
+    function test_PlaceBid_BanBidder_NotBlocked() public {
+        reg.setBanned(bidder, true); // 竞拍者被封禁（与业务无关），不得拦截
+        vm.prank(bidder);
+        auction.placeBid{value: fixedBid}();
+        assertEq(auction.totalBids(), 1);
     }
 
     // Pull 模式：settle 后平台/KOL 分别 claim 各自份额（20% / 80%）

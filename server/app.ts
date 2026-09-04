@@ -15,7 +15,18 @@ const ALLOWED_ORIGINS = [
 export function createApp() {
   const app = express();
 
-  app.use(express.json());
+  // Codex 审计：请求体大小限制（X 回调/票据均为小请求体，16kb 足够；
+  // 防止恶意超大 body 拖垮 serverless 实例）
+  app.use(express.json({ limit: '16kb' }));
+
+  // Codex 审计：基础安全响应头（无额外依赖，手写中间件）
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+    next();
+  });
 
   // CORS 中间件：仅允许白名单来源，避免任意站点跨域调用 API
   app.use((req, res, next) => {

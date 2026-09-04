@@ -171,6 +171,7 @@ contract KolPassReentrancyTest is Test {
     KolPass pass;
     address kol = address(0xBEEF);
     address platform = address(0xCAFE);
+    address buyer = address(0x1234);
 
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
@@ -203,5 +204,68 @@ contract KolPassReentrancyTest is Test {
         // 修复前（陈旧 supply 计价）会得到 curvePriceAt(2)*2 的多退，导致净退款显著偏高
         uint256 expected = (pass.curvePriceAt(2) + pass.curvePriceAt(1)) * 92 / 100;
         assertEq(netRefund, expected, "reentrant burn must price at updated supply (CEI)");
+    }
+
+    // Codex 审计 P0 回归：burn 非末尾 token 后重新 mint。
+    // 修复前 totalMinted 同时充当供应量与 tokenId 分配器，burn 后回退会重新生成
+    // 已存在的 tokenId → _safeMint 冲突 → 后续 mint 永久 revert（联合曲线断裂）。
+    // 修复后 tokenId 单调递增（nextTokenId 永不回退），burn 后 mint 必须成功。
+    function test_BurnNonTail_ThenMint_Regression() public {
+        vm.deal(buyer, 100 ether);
+        vm.startPrank(buyer);
+        uint256 cost2 = (pass.curvePriceAt(1) + pass.curvePriceAt(2)) * 108 / 100;
+        uint256[] memory mintIds = pass.mint{value: cost2}(2); // tokenId 1, 2
+        vm.stopPrank();
+        assertEq(pass.totalSupply(), 2);
+
+        // burn 第 1 个（非末尾 token）
+        uint256[] memory burnIds = new uint256[](1);
+        burnIds[0] = mintIds[0]; // tokenId 1
+        vm.prank(buyer);
+        pass.burn(burnIds);
+        assertEq(pass.totalSupply(), 1);
+
+        // 再次 mint：必须成功，且 tokenId 单调递增（不复用已 burn 的 id=2）
+        uint256 mintCost = pass.curvePriceAt(2) * 108 / 100;
+        vm.prank(buyer);
+        uint256[] memory newIds = pass.mint{value: mintCost}(1);
+        assertEq(newIds.length, 1);
+        assertEq(newIds[0], 3, "tokenId must be monotonic, never reuse burned ids");
+        assertEq(pass.totalSupply(), 2);
+        assertEq(pass.ownerOf(3), buyer);
+    }
+
+    // Codex 审计 P0 回归（连续 burn）：burn 后 mint → burn → 再 mint，tokenId 持续单调
+    function test_BurnMint_BurnMint_MonotonicIds() public {
+        vm.deal(buyer, 100 ether);
+        vm.startPrank(buyer);
+        pass.mint{value: pass.curvePriceAt(1) * 108 / 100}(1); // id=1
+        pass.mint{value: pass.curvePriceAt(2) * 108 / 100}(1); // id=2
+        vm.stopPrank();
+        assertEq(pass.totalSupply(), 2);
+
+        // burn id=1 → supply 1
+        uint256[] memory burnIds = new uint256[](1);
+        burnIds[0] = 1;
+        vm.prank(buyer);
+        pass.burn(burnIds);
+        // mint → id=3
+        uint256 mintCost3 = pass.curvePriceAt(2) * 108 / 100;
+        vm.prank(buyer);
+        uint256[] memory ids3 = pass.mint{value: mintCost3}(1);
+        assertEq(ids3[0], 3);
+        // burn id=2 → supply 1
+        uint256[] memory burnIds2 = new uint256[](1);
+        burnIds2[0] = 2;
+        vm.prank(buyer);
+        pass.burn(burnIds2);
+        // 再 mint → id=4（总存活 2）
+        uint256 mintCost4 = pass.curvePriceAt(2) * 108 / 100;
+        vm.prank(buyer);
+        uint256[] memory ids4 = pass.mint{value: mintCost4}(1);
+        assertEq(ids4[0], 4);
+        assertEq(pass.totalSupply(), 2);
+        assertEq(pass.ownerOf(3), buyer);
+        assertEq(pass.ownerOf(4), buyer);
     }
 }

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, ArrowRight } from 'lucide-react';
 import { ROUTES } from '../config/routes';
+import { useFactory } from '../web3/hooks/useFactory';
+import { formatMon } from '../utils/format';
 
 const marqueeWords = ['Monad', 'Nadbid.fun', 'Penny Auctions', 'Soulbound PASS', 'On-chain', 'KOL Service', 'Fixed Bid 99 MON'];
 
@@ -173,6 +175,9 @@ function PartnersMarquee() {
 
 /** 链上实时拍卖入口（无 mock 榜单，全部真实链上数据在 /auctions 展示） */
 function LiveAuctionsCTA() {
+  // Codex 审计：价格文案读链上 FIXED_BID_AMOUNT（测试网 0.1 / 主网 99），
+  // 不写死 99——避免误导用户资金预估
+  const { fixedBidAmount } = useFactory();
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
@@ -188,7 +193,7 @@ function LiveAuctionsCTA() {
           <div>
             <h2 className="text-white text-4xl md:text-5xl font-bold tracking-tight">LIVE AUCTIONS</h2>
             <p className="text-white/40 text-[14px] mt-3 max-w-xl leading-relaxed">
-              Real-time penny auctions from on-chain KOLs on Monad testnet. Each bid costs 99 MON and extends the countdown.
+              Real-time penny auctions from on-chain KOLs on Monad testnet. Each bid costs {formatMon(fixedBidAmount)} MON and extends the countdown.
             </p>
           </div>
           <form onSubmit={handleSearch} className="relative w-full md:w-80">

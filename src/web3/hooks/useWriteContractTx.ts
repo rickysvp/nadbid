@@ -83,6 +83,10 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   // P3-7：onSuccess 按 txHash 关联（Map），连续发起多笔交易时互不覆盖。
   // 之前单槽 ref 会被第二笔覆盖，导致第一笔确认时触发第二笔的 onSuccess 或丢失。
   const onSuccessMapRef = useRef<Map<Hash, (txHash: Hash, receipt: unknown) => void>>(new Map());
+  // Codex 审计：交易并发保护——hook 只有单 txHash + 单 receipt watcher，
+  // 并发第二笔会覆盖第一笔的监听导致其确认回调永不触发。业务上禁止并发：
+  // 一笔未结束（preparing→pending→confirming）时直接拒绝新交易。
+  const busyRef = useRef(false);
 
   // 等待交易收据
   const {
@@ -103,6 +107,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   // 收据查询失败（交易可能 revert）
   useEffect(() => {
     if (receiptError && status === 'confirming') {
+      busyRef.current = false;
       setStatus('error');
       const info = classifyWeb3Error(receiptError);
       setErrorMessage(info.message);
@@ -115,6 +120,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   useEffect(() => {
     if (receiptSuccess && receipt && receipt.status === 'reverted' && status === 'confirming') {
       setStatus('error');
+      busyRef.current = false;
       const msg = 'Transaction reverted on-chain';
       setErrorMessage(msg);
       toast.error(msg);
@@ -126,6 +132,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   useEffect(() => {
     if (receiptSuccess && receipt && receipt.status === 'success' && status === 'confirming') {
       setStatus('success');
+      busyRef.current = false;
       const cb = onSuccessMapRef.current.get(txHash!);
       if (cb) {
         onSuccessMapRef.current.delete(txHash!);
@@ -137,6 +144,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   // writeContract 错误（用户拒绝等，在 write 函数中已处理，这里兜底）
   useEffect(() => {
     if (writeError && status === 'preparing') {
+      busyRef.current = false;
       setStatus('error');
       const info = classifyWeb3Error(writeError);
       setErrorMessage(info.message);
@@ -154,6 +162,15 @@ export function useWriteContractTx(): UseWriteContractTxResult {
       } = args;
 
       const t = customToast ?? toast;
+      if (busyRef.current) {
+        // 并发保护：上一笔未确认完（含用户拒绝后的重置窗口）直接拒绝
+        setStatus('error');
+        const msg = 'A transaction is already in progress — please wait for it to confirm';
+        setErrorMessage(msg);
+        if (t.error) t.error(msg);
+        return null;
+      }
+      busyRef.current = true;
       setErrorMessage(null);
       setStatus('preparing');
 
@@ -169,6 +186,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
         // 状态从 pending → confirming → success 由 hook 顶部的副作用驱动
         return hash;
       } catch (err) {
+        busyRef.current = false;
         const info = handleWeb3Error(err, t);
         setStatus('error');
         setErrorMessage(info.message);
@@ -198,6 +216,7 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   useEffect(() => {
     if (status !== 'confirming' || !txHash) return;
     const timer = setTimeout(() => {
+      busyRef.current = false;
       setStatus('error');
       const msg = 'Transaction may still be pending — check your wallet for confirmation';
       setErrorMessage(msg);

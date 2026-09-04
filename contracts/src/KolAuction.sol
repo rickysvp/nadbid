@@ -85,7 +85,9 @@ contract KolAuction {
         require(block.timestamp >= a.startTime, "NOT_STARTED"); // 预约拍卖未到开始时间不可出价
         require(block.timestamp < a.endTime, "ENDED");
         require(KolPass(a.passContract).balanceOf(msg.sender) > 0, "!HOLDER");
-        require(!IRegistry(registry).isKolBanned(msg.sender), "BANNED");
+        // 封禁对象 = 拍卖所属 KOL（a.kol）而非出价者：封禁 KOL 后其既有拍卖停止收款。
+        // 修复前误查 msg.sender——封禁 KOL 不影响其拍卖、反而会误伤被封禁的普通竞拍者。
+        require(!IRegistry(registry).isKolBanned(a.kol), "BANNED");
         // 累计
         seq++;
         cumulativeBid[msg.sender] += msg.value;

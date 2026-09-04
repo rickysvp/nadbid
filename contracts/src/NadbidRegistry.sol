@@ -36,6 +36,9 @@ contract NadbidRegistry {
     mapping(address => uint256) public openAuctionCount;
     mapping(address => bool) private isAuction;          // Factory 登记的拍卖合约
     mapping(address => bool) private settlementNotified; // 防止同一拍卖重复回调减计数
+    /// 登记的拍卖合约 → 所属 KOL（纵深防御：notifyAuctionSettled 必须由该拍卖
+    /// 自己的 KOL 回调，防止误登记/升级后的恶意合约传他人 kol 误减计数）
+    mapping(address => address) public auctionKol;
 
     event KolRegistered(address indexed kol, string twitterHandle, uint256 followers);
     event BondDeposited(address indexed kol, uint256 amount);
@@ -112,14 +115,16 @@ contract NadbidRegistry {
         require(msg.sender == factory, "!FACTORY");
         kols[kol].auctionContracts.push(auctionContract);
         isAuction[auctionContract] = true;   // F2：登记为可信拍卖合约
+        auctionKol[auctionContract] = kol;   // 记录拍卖所属 KOL（结算回调绑定校验）
         openAuctionCount[kol]++;             // F2：进行中拍卖 +1
     }
 
     /// F2：KolAuction.settle() 回调——标记该拍卖已结算，对应 KOL 的进行中拍卖 -1。
-    /// 仅 Factory 登记的拍卖合约可调（isAuction），且每合约仅一次（settlementNotified），
-    /// 防止重复结算回调把计数减成负数或误减他人计数。
+    /// 仅 Factory 登记的拍卖合约可调（isAuction）、每合约仅一次（settlementNotified）、
+    /// 且必须由拍卖所属 KOL 回调（auctionKol 绑定，防误登记/升级后传他人 kol 误减计数）。
     function notifyAuctionSettled(address kol) external {
         require(isAuction[msg.sender], "!AUCTION");
+        require(auctionKol[msg.sender] == kol, "KOL_MISMATCH");
         require(!settlementNotified[msg.sender], "DUP_NOTIFY");
         settlementNotified[msg.sender] = true;
         require(openAuctionCount[kol] > 0, "ZERO_COUNT");
@@ -152,7 +157,8 @@ contract NadbidRegistry {
 
     /// 封禁 / 解封 KOL（onlyOwner）。封禁后：
     /// - canCreate 返回 false（不能创建新 PASS / 拍卖）
-    /// - KolAuction.placeBid 中的 BANNED 检查会拦截该地址的出价
+    /// - KolAuction.placeBid 中的 BANNED 检查会拦截该 KOL 名下所有拍卖的出价
+    ///   （检查对象为拍卖所属 a.kol；封禁后既有拍卖停止收款，普通竞拍者不受影响）
     function setBanned(address kol, bool bannedFlag) external onlyOwner {
         banned[kol] = bannedFlag;
         emit KolBanned(kol, bannedFlag);

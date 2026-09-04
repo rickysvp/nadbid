@@ -31,7 +31,8 @@ type FilterTab = 'ALL' | 'LIVE' | 'UPCOMING';
  */
 
 /** MVP：Registry.kolList 枚举上限（合约无 getKolCount，读越界返回 0x0 即忽略） */
-const MAX_REGISTRY_INDEX = 8;
+// 有界枚举上限（Registry 无 getKolCount；20 为 MVP 上限，超限需加 count getter 或 indexer）
+const MAX_REGISTRY_INDEX = 20;
 const ZERO_ADDRESS: `0x${string}` = '0x0000000000000000000000000000000000000000';
 
 // Countdown hook for auction cards
