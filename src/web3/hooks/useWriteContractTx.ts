@@ -212,15 +212,19 @@ export function useWriteContractTx(): UseWriteContractTxResult {
   }, [status, txHash, isConfirming]);
 
   // F8：confirming 超时兜底——交易提交后若 RPC 丢失/节点卡住，收据永远不会返回，
-  // 用户会无限期卡在 confirming。5 分钟后置 error 并提示用户自行检查钱包。
+  // 用户会无限期卡在 confirming。
+  // 审计修复（D8）：超时不再置 error / 释放并发锁。原实现置 error + busyRef=false 后，
+  // 若原交易稍后确认：(1) status 已是 error，成功副作用（receipt.status==='success' 且
+  // status==='confirming'）条件不满足 → onSuccess 永不触发、UI 永远显示失败；
+  // (2) 锁已释放 → 用户重复提交同一操作 → 重复花费（重复 mint/出价）。
+  // 现行为：锁保持、收据 watcher 继续监听；仅提示用户检查钱包。交易最终确认会照常
+  // 走到 success + onSuccess；用户确认放弃时调用 reset() 主动释放（提示文案已说明）。
   useEffect(() => {
     if (status !== 'confirming' || !txHash) return;
     const timer = setTimeout(() => {
-      busyRef.current = false;
-      setStatus('error');
-      const msg = 'Transaction may still be pending — check your wallet for confirmation';
-      setErrorMessage(msg);
-      toast.error(msg);
+      toast.info(
+        'Transaction is taking longer than expected — check your wallet. It may still confirm; you can wait, or reset to start a new one.',
+      );
     }, 5 * 60 * 1000);
     return () => clearTimeout(timer);
   }, [status, txHash, toast]);

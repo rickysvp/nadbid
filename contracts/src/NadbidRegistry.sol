@@ -136,6 +136,8 @@ contract NadbidRegistry {
     address public platformSigner;  // 平台签名公钥：注册 KOL 时的 followers 验证签名者
     modifier onlyOwner() { require(msg.sender == owner, "!OWNER"); _; }
     constructor(uint256 minFollowers) {
+        // 审计修复（D6）：粉丝门槛必须 > 0，防止误部署 0 门槛注册签名校验形同虚设
+        require(minFollowers > 0, "ZERO_MIN_FOLLOWERS");
         owner = msg.sender;
         MIN_FOLLOWERS = minFollowers;
     }
@@ -159,8 +161,13 @@ contract NadbidRegistry {
     /// - canCreate 返回 false（不能创建新 PASS / 拍卖）
     /// - KolAuction.placeBid 中的 BANNED 检查会拦截该 KOL 名下所有拍卖的出价
     ///   （检查对象为拍卖所属 a.kol；封禁后既有拍卖停止收款，普通竞拍者不受影响）
+    /// 审计修复（D4）：同步写 kols[kol].banned 结构体字段——否则 getKol() 返回的
+    /// banned 恒为 false，与 mapping 权限判定不一致（前端展示错误封禁状态）。
     function setBanned(address kol, bool bannedFlag) external onlyOwner {
         banned[kol] = bannedFlag;
+        if (kols[kol].registered) {
+            kols[kol].banned = bannedFlag;
+        }
         emit KolBanned(kol, bannedFlag);
     }
 

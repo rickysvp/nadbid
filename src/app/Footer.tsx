@@ -39,7 +39,7 @@ export function Footer() {
               <li><a href="#" onClick={(e) => { e.preventDefault(); handleLink('Documentation'); }} className="hover:text-white transition-colors">Documentation</a></li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0xe0eb2db5c15196f98d295d0991617a984228a5ec"
+                  href="https://testnet.monadexplorer.com/address/0x3d1e129ea17664ea31514beeaeb1b926dee6a0ad"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
@@ -49,7 +49,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0xe4843d283513dd4af0c028767bf522e3663fe495"
+                  href="https://testnet.monadexplorer.com/address/0xb634e5e4e7d98aab458dcf00aac58a86999ffcd7"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"

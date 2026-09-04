@@ -23,6 +23,9 @@ contract NadbidFactory {
     event KolAuctionCreated(address indexed kol, address auctionContract, address passContract, uint256 fixedBidAmount);
 
     constructor(address _registry, address _platformTreasury, uint256 _fixedBidAmount) {
+        // 审计修复（D6）：构造零地址校验——registry/treasury 为 0 会静默产生不可用合约
+        require(_registry != address(0), "ZERO_REGISTRY");
+        require(_platformTreasury != address(0), "ZERO_TREASURY");
         require(_fixedBidAmount > 0, "ZERO_FIXED_BID");
         registry = NadbidRegistry(_registry);
         platformTreasury = _platformTreasury;

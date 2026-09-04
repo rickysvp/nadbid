@@ -101,4 +101,24 @@ contract NadbidRegistryTest is Test {
         assertEq(kol.balance, 1 ether);
         vm.stopPrank();
     }
+
+    // 审计回归（D4）：setBanned 必须同步写结构体 banned 字段（getKol().banned）
+    function test_SetBanned_SyncsStructField() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
+        vm.stopPrank();
+        assertFalse(registry.getKol(kol).banned);
+        registry.setBanned(kol, true);
+        assertTrue(registry.getKol(kol).banned);
+        assertTrue(registry.isKolBanned(kol));
+        assertFalse(registry.canCreate(kol));
+        registry.setBanned(kol, false);
+        assertFalse(registry.getKol(kol).banned);
+    }
+
+    // 审计回归（D6）：构造拒绝 0 粉丝门槛
+    function test_Constructor_RejectsZeroMinFollowers() public {
+        vm.expectRevert(bytes("ZERO_MIN_FOLLOWERS"));
+        new NadbidRegistry(0);
+    }
 }

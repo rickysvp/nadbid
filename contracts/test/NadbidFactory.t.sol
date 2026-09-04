@@ -105,6 +105,14 @@ contract NadbidFactoryTest is Test {
         assertEq(registry.getKol(kol).auctionContracts.length, 2);
         vm.stopPrank();
     }
+
+    // 审计回归（D6）：Factory 构造拒绝零 registry / 零 treasury
+    function test_Constructor_RejectsBadArgs() public {
+        vm.expectRevert(bytes("ZERO_REGISTRY"));
+        new NadbidFactory(address(0), address(0xCAFE), 99 ether);
+        vm.expectRevert(bytes("ZERO_TREASURY"));
+        new NadbidFactory(address(registry), address(0), 99 ether);
+    }
 }
 
 // 模拟攻击者伪造的 PASS：kol() 返回攻击者，但 factory() 不是本 NadbidFactory

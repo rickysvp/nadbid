@@ -336,6 +336,7 @@ router.get('/x-oauth-callback', async (req, res) => {
 
   try {
     // 3. code + verifier → access_token（Basic Auth: client_id:client_secret）
+    //    审计修复：外部请求加 10s 超时，防止上游卡住长期占用 serverless 实例
     const basic = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
     const tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {
       method: 'POST',
@@ -349,6 +350,7 @@ router.get('/x-oauth-callback', async (req, res) => {
         redirect_uri: CALLBACK_URL,
         code_verifier: verifier,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!tokenRes.ok) {
       const t = await tokenRes.text();
@@ -372,9 +374,10 @@ router.get('/x-oauth-callback', async (req, res) => {
     }
 
     // 4. /2/users/me → 本人 username / id / 简介 / 头像（此端点免费 0 积分）
+    //    审计修复：外部请求加 10s 超时
     const meRes = await fetch(
       'https://api.twitter.com/2/users/me?user.fields=username,public_metrics,name,description,profile_image_url',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(10_000) }
     );
     if (!meRes.ok) {
       const t = await meRes.text();
@@ -400,12 +403,37 @@ router.get('/x-oauth-callback', async (req, res) => {
     const bio = me?.data?.description ?? '';
     const avatar = me?.data?.profile_image_url ?? '';
 
+    // 审计修复（D10）：校验 X 返回数据再签发 ticket——拒绝空/畸形 username、
+    // 非数值或越界 followers、超长 bio、非 http(s) avatar。X 官方 username 规则：
+    // 字母/数字/下划线，1-30 字符（数字开头除外）。非法数据一律视为流程失败。
+    const USERNAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,29}$/;
+    if (!USERNAME_RE.test(username)) {
+      res.redirect(
+        `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=usersme&message=${encodeURIComponent(
+          'Invalid username returned by X'
+        )}`
+      );
+      return;
+    }
+    if (!Number.isFinite(followers) || followers < 0 || followers > 1_000_000_000) {
+      res.redirect(
+        `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=usersme&message=${encodeURIComponent(
+          'Invalid followers count returned by X'
+        )}`
+      );
+      return;
+    }
+    // bio / avatar 为非关键字段：超长截断，非法 URL 置空（不阻断流程）
+    const safeBio = bio.length > 400 ? bio.slice(0, 400) : bio;
+    const safeAvatar =
+      /^https:\/\//.test(avatar) && avatar.length <= 500 ? avatar : '';
+
     // 5. 签发一次性验证票据（绑定申请者钱包，防止多钱包冒用同一 X 身份；
     //    不把 username/followers/verified 明文放 URL，防伪造）
     //    前端用 ticket 调 /api/kol/verify-ticket 换取可信结果。
     //    F5：ticket 改放 URL fragment（#ticket=...）——fragment 不随 HTTP 请求头发送、
     //    不进入服务器/Vercel 访问日志，避免 ticket 泄露被中间人抢先消费。
-    const ticket = signTicket(username, followers, wallet, bio, avatar);
+    const ticket = signTicket(username, followers, wallet, safeBio, safeAvatar);
     res.redirect(
       `${FRONTEND_URL}/kol/onboarding#xoauth=success&ticket=${encodeURIComponent(ticket)}`
     );

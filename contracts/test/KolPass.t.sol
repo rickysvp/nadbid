@@ -268,4 +268,26 @@ contract KolPassReentrancyTest is Test {
         assertEq(pass.ownerOf(3), buyer);
         assertEq(pass.ownerOf(4), buyer);
     }
+
+    // 审计回归（D5）：mint 单笔数量超过 MAX_MINT_QUANTITY 必须 revert（gas 保护）
+    function test_Mint_RejectsOverMaxQuantity() public {
+        vm.deal(buyer, 1000 ether);
+        vm.prank(buyer);
+        vm.expectRevert(bytes("QTY_TOO_LARGE"));
+        pass.mint{value: 1000 ether}(51);
+    }
+
+    // 审计回归（D6）：KolPass 构造拒绝零 KOL 地址 / 零价 / 零 treasury / 零 factory
+    function test_Constructor_RejectsBadArgs() public {
+        vm.expectRevert(bytes("ZERO_KOL"));
+        new KolPass(address(0), 1 ether, platform, address(0xAAAA));
+        vm.expectRevert(bytes("BAD_BASE_PRICE"));
+        new KolPass(kol, 0, platform, address(0xAAAA));
+        vm.expectRevert(bytes("BAD_BASE_PRICE"));
+        new KolPass(kol, 2_000_000 ether, platform, address(0xAAAA)); // > MAX_BASE_PRICE
+        vm.expectRevert(bytes("ZERO_TREASURY"));
+        new KolPass(kol, 1 ether, address(0), address(0xAAAA));
+        vm.expectRevert(bytes("ZERO_FACTORY"));
+        new KolPass(kol, 1 ether, platform, address(0));
+    }
 }

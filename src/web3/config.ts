@@ -1,5 +1,4 @@
 import { http, createConfig } from 'wagmi';
-import { sepolia } from 'wagmi/chains';
 import { injected, walletConnect } from 'wagmi/connectors';
 import type { Chain } from 'viem';
 import { contractAddresses, registryAbi, factoryAbi } from './contracts';
@@ -24,8 +23,9 @@ export const monadTestnet = {
   testnet: true,
 } as const satisfies Chain;
 
-/** 应用支持的链列表（默认链为 Monad Testnet） */
-export const supportedChains = [monadTestnet, sepolia] as const;
+/** 应用支持的链列表（审计修复：仅 Monad Testnet。移除 Sepolia 后钱包不再提供切到其他链的入口，
+ *  错误网络态只会在钱包侧手动连接其他链时出现，WalletGuard 会阻断业务渲染） */
+export const supportedChains = [monadTestnet] as const;
 
 /**
  * wagmi 全局配置
@@ -49,7 +49,6 @@ export const wagmiConfig = createConfig({
   ],
   transports: {
     [monadTestnet.id]: http(),
-    [sepolia.id]: http(),
   },
 });
 

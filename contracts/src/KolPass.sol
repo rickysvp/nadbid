@@ -12,6 +12,13 @@ contract KolPass is ERC721Enumerable {
     uint256 public baseSupply = 1000;
     uint256 public exponent = 2;
     uint256 public basePrice;
+    // 审计修复（D5）：单笔 mint 数量上限与总供应上限——防止超大 quantity 循环
+    // gas 爆炸（用户损失 gas）以及供应量过大后价格乘法溢出 revert 导致 mint 永久失败。
+    // 曲线定价 basePrice * supply² 在 supply <= MAX_SUPPLY 且 basePrice 有界时无溢出。
+    uint256 public constant MAX_MINT_QUANTITY = 50;
+    uint256 public constant MAX_SUPPLY = 100_000; // 100× baseSupply，远超单 KOL 实际 PASS 需求
+    // 审计修复（D6）：basePrice 上限（1,000,000 MON），防误传巨大值导致曲线价溢出。
+    uint256 public constant MAX_BASE_PRICE = 1_000_000 ether;
     /// tokenId 分配器：单调递增、永不回退（burn 后不递减）。
     /// 修复前用 totalMinted 同时表示"存活供应量"与"下一个 tokenId"，
     /// burn 后 totalMinted 回退会重新生成已存在 tokenId，导致后续 mint 永久 revert。
@@ -34,6 +41,11 @@ contract KolPass is ERC721Enumerable {
     constructor(address _kol, uint256 _basePrice, address _platformTreasury, address _factory)
         ERC721(string.concat("Nadbid-", _toString(address(this))), "NPASS")
     {
+        // 审计修复（D6）：构造零地址 / 参数范围校验——防部署出不可用或价格溢出的 PASS
+        require(_kol != address(0), "ZERO_KOL");
+        require(_basePrice > 0 && _basePrice <= MAX_BASE_PRICE, "BAD_BASE_PRICE");
+        require(_platformTreasury != address(0), "ZERO_TREASURY");
+        require(_factory != address(0), "ZERO_FACTORY");
         kol = _kol;
         basePrice = _basePrice;
         platformTreasury = _platformTreasury;
@@ -55,6 +67,9 @@ contract KolPass is ERC721Enumerable {
 
     function mint(uint256 quantity) external payable returns (uint256[] memory tokenIds) {
         require(quantity > 0, "ZERO_QTY");
+        // 审计修复（D5）：单笔上限 + 总供应上限（gas 保护 / 溢出保护）
+        require(quantity <= MAX_MINT_QUANTITY, "QTY_TOO_LARGE");
+        require(totalSupply() + quantity <= MAX_SUPPLY, "SUPPLY_CAP");
         tokenIds = new uint256[](quantity);
         uint256 totalCost = 0;
         uint256 supply = totalSupply(); // 存活供应量（burn 后递减，曲线定价基准）

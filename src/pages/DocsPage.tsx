@@ -19,23 +19,27 @@ const docSections: DocSection[] = [
     content: [
       {
         question: 'How do KOL auctions work?',
-        answer: 'KOLs list exclusive access passes, experiences, or services for auction. Users bid with $MON tokens. The highest bidder at auction end wins the PASS NFT and associated benefits. Outbid amounts are automatically refunded.',
+        answer: 'nadbid runs fixed-bid penny auctions. Every bid costs the same fixed amount (0.1 MON on testnet, 99 MON on mainnet) and every bid is kept — being outbid never refunds your bid. When the countdown expires with no new bid, the last bidder wins the KOL\u2019s fulfillment.',
       },
       {
-        question: 'What is the minimum bid increment?',
-        answer: 'The minimum bid increment is 5% of the current highest bid. This prevents trivial 1-cent bids and ensures meaningful price discovery.',
+        question: 'How much does a bid cost?',
+        answer: 'The bid amount is fixed by the platform and identical for every bid in an auction. You pay exactly that amount per bid, and it is charged on-chain with every bid you place.',
       },
       {
-        question: 'What happens if I get outbid?',
-        answer: 'Your bid amount is automatically refunded to your wallet upon being outbid. Refunds are instant and incur no gas fees.',
+        question: 'What happens when I place a bid?',
+        answer: 'You must hold at least one PASS of that KOL to bid. Each bid resets the auction countdown to 40 seconds. When 40 seconds pass with no new bid, the auction ends and the last bidder is the winner.',
       },
       {
         question: 'Can I cancel my bid?',
-        answer: 'No, all bids are final and cannot be reversed once confirmed on-chain. This ensures auction integrity and prevents bid manipulation.',
+        answer: 'No. All bids are final and kept. There is no outbid refund and no bid cancellation — the auction model is "every bid counts".',
       },
       {
-        question: 'What is auction extension?',
-        answer: 'If a bid is placed within the last 5 minutes of an auction, the auction time is automatically extended by 5 minutes. This prevents last-second sniping and gives all bidders a fair chance.',
+        question: 'How is an auction settled?',
+        answer: 'After the auction ends, anyone can trigger settlement. 80% of the total volume goes to the KOL and 20% is the platform fee. Both sides claim their share via pull payments — settlement never blocks on either party.',
+      },
+      {
+        question: 'Can a KOL run more than one auction at a time?',
+        answer: 'No. A KOL can only have one active (unsettled) auction. The next auction can be created only after the current one is settled.',
       },
     ],
   },
@@ -46,19 +50,23 @@ const docSections: DocSection[] = [
     content: [
       {
         question: 'What is a PASS NFT?',
-        answer: 'A PASS NFT represents ownership of a KOL access pass. Each PASS grants the holder specific benefits defined by the KOL, such as private group access, alpha calls, 1-on-1 sessions, or exclusive content.',
+        answer: 'A PASS is a soulbound token issued by a KOL. Holding it is required to bid in that KOL\u2019s auctions, and it represents access to the KOL\u2019s fulfillment (private group, content, sessions, etc.).',
       },
       {
         question: 'How does the bonding curve work?',
-        answer: 'PASS tokens use a quadratic bonding curve: price = basePrice × (supply / referenceSupply)². As more PASS are minted, the price increases. Burning PASS reduces supply and lowers the price. A 3% spread applies to burns.',
+        answer: 'PASS price follows a quadratic curve: price = basePrice × (supply / 1000)². As more PASS are minted the price rises; burning PASS reduces the live supply and lowers the price, enabling curve-based buyback.',
       },
       {
-        question: 'What is the protocol fee for minting?',
-        answer: 'A 3% protocol fee applies to all mint transactions. This fee supports platform development, security audits, and ecosystem growth.',
+        question: 'What fees apply to minting and burning?',
+        answer: 'A total 8% fee applies to both mint and burn: 5% goes to the KOL (claimed via pull payments) and 3% to the platform. Refund amounts on burn are computed on-chain at execution time.',
       },
       {
         question: 'Can I transfer my PASS?',
-        answer: 'Yes, PASS NFTs are fully transferable on-chain. You can send them to any wallet address or list them on secondary markets.',
+        answer: 'No. PASS is soulbound and non-transferable by design — it cannot be sent, sold, or listed on secondary markets.',
+      },
+      {
+        question: 'Can a KOL mint more than one PASS contract?',
+        answer: 'No. Each KOL can create exactly one PASS contract. Additional auctions reuse the same PASS.',
       },
     ],
   },
@@ -68,20 +76,12 @@ const docSections: DocSection[] = [
     icon: Coins,
     content: [
       {
-        question: 'How does staking work?',
-        answer: 'Stake your PASS tokens to earn a share of the KOL\'s auction revenue. Staked PASS generates yield based on the KOL\'s revenue share percentage and total auction volume.',
+        question: 'Is staking available?',
+        answer: 'Not yet. Staking is planned for a future release. The Staking page is currently a placeholder and no staking functionality exists on-chain.',
       },
       {
-        question: 'What is the activation period?',
-        answer: 'New stakes require a 24-hour activation period before they begin earning yield. This prevents flash-staking attacks and ensures fair yield distribution.',
-      },
-      {
-        question: 'What is the unlock period?',
-        answer: 'When you unstake, there is a 7-day cooldown period before your PASS is returned. During this time, your PASS continues to earn yield. This prevents market manipulation from sudden mass unstaking.',
-      },
-      {
-        question: 'How is yield calculated?',
-        answer: 'Yield is calculated daily based on: (your staked PASS / total staked PASS) × KOL auction revenue × revenue share percentage. Yield is distributed every 24 hours and can be claimed from the Claim page.',
+        question: 'When will staking launch?',
+        answer: 'Staking is part of the post-MVP roadmap. Watch the docs and announcements for a launch date.',
       },
     ],
   },
@@ -91,20 +91,20 @@ const docSections: DocSection[] = [
     icon: Zap,
     content: [
       {
-        question: 'What rewards can I claim?',
-        answer: 'You can claim staking yields, auction refunds, and referral bonuses. All rewards are denominated in $MON tokens.',
+        question: 'What can KOLs claim?',
+        answer: 'After an auction settles, the KOL claims 80% of the auction volume (pull payment). KOLs also accumulate 5% of PASS mint/burn fees on their own PASS contract and can claim those at any time.',
+      },
+      {
+        question: 'What can the platform claim?',
+        answer: 'The platform claims 20% of settled auction volume and 3% of PASS mint/burn fees. Both are pull payments from the respective contracts.',
+      },
+      {
+        question: 'How do I get my bond back?',
+        answer: 'KOLs deposit a 1 MON bond to create PASS and auctions. After requesting redemption and a 48-hour cooldown (with no unsettled auctions), the bond is returned.',
       },
       {
         question: 'Is there a claim fee?',
-        answer: 'A 1% protocol fee applies to all claimed yields. This fee supports the Monad ecosystem and platform operations. Auction refunds have no fee.',
-      },
-      {
-        question: 'Is there a minimum claim amount?',
-        answer: 'No, there is no minimum balance requirement for claiming rewards. You can claim any amount at any time.',
-      },
-      {
-        question: 'When are staking rewards distributed?',
-        answer: 'Staking rewards are calculated and unlocked every 24 hours based on the previous day\'s active staked PASS volume. Rewards become claimable immediately after distribution.',
+        answer: 'No. Claiming your share or bond costs only the gas for the claim transaction.',
       },
     ],
   },
@@ -114,24 +114,12 @@ const docSections: DocSection[] = [
     icon: Scale,
     content: [
       {
-        question: 'What is the arbitration system?',
-        answer: 'Arbitration is a decentralized dispute resolution mechanism. If a KOL fails to fulfill auction promises, the winner can raise a dispute. PASS holders then vote on whether to slash (return funds to winner) or release (pay KOL).',
+        question: 'Is arbitration available?',
+        answer: 'Not yet. Dispute resolution, evidence submission, and KOL-collateral slashing are part of the post-MVP roadmap. On the current testnet build, settlement happens automatically when an auction ends.',
       },
       {
-        question: 'Who can vote?',
-        answer: 'Only holders of the relevant KOL\'s PASS tokens can vote on disputes for that KOL. Voting power is proportional to the number of PASS held (1 PASS = 1 vote).',
-      },
-      {
-        question: 'How long does voting last?',
-        answer: 'The voting period lasts 48 hours from when the dispute is raised. During this time, PASS holders can cast their votes.',
-      },
-      {
-        question: 'What happens to slashed funds?',
-        answer: 'If the vote results in a slash, the KOL\'s staked collateral is slashed and returned to the auction winner. Any excess goes to the platform treasury.',
-      },
-      {
-        question: 'What if the vote is tied?',
-        answer: 'If the vote is tied (50/50), the dispute goes to manual review by the platform team. The team will review all evidence and make a final decision within 72 hours.',
+        question: 'What will arbitration cover?',
+        answer: 'Planned scope: the auction winner confirms KOL fulfillment, or raises a dispute; PASS holders vote; a slash result refunds the winner from the KOL\u2019s bond. Nothing here is live yet.',
       },
     ],
   },
@@ -141,20 +129,12 @@ const docSections: DocSection[] = [
     icon: BookOpen,
     content: [
       {
-        question: 'What are points used for?',
-        answer: 'Points are used for airdrop weighting. Users with more points receive a larger share of future token airdrops. Points do not have monetary value and cannot be traded or transferred.',
+        question: 'Are points live?',
+        answer: 'Not yet. Points, seasons, and the referral program are planned for a future release and do not exist on-chain today.',
       },
       {
-        question: 'How do I earn points?',
-        answer: 'You earn points through: minting PASS, bidding activity, referral bonuses, staking multipliers, and auction wins. Each activity has a different points multiplier.',
-      },
-      {
-        question: 'How does the referral system work?',
-        answer: 'Share your unique referral link. When someone signs up using your link, both you and your friend earn a 5% bonus on their base point generation. This bonus is ongoing as long as they remain active.',
-      },
-      {
-        question: 'Do points expire?',
-        answer: 'Points are tracked by season. At the end of each season, points are snapshot for airdrop calculation. New seasons reset the points balance, but historical rankings are preserved.',
+        question: 'What is planned?',
+        answer: 'Earning points through minting, bidding, and referrals; seasonal snapshots for airdrop weighting. Details will be published when the program launches.',
       },
     ],
   },
@@ -180,7 +160,8 @@ export default function DocsPage() {
           </div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-3">Documentation & Rules</h1>
           <p className="text-white/50 text-[15px] max-w-2xl mx-auto">
-            Everything you need to know about nadbid.fun auctions, PASS tokens, staking, and the decentralized arbitration system.
+            How nadbid.fun auctions, PASS tokens, and settlement actually work on-chain. Features marked "not yet"
+            are roadmap items and are not live on the testnet build.
           </p>
         </div>
 
@@ -279,9 +260,8 @@ export default function DocsPage() {
         {/* Footer CTA */}
         <div className="mt-16 bg-gradient-to-r from-[#3ec470]/10 to-transparent border border-[#3ec470]/30 rounded-2xl p-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">Still have questions?</h3>
-          <p className="text-white/50 text-[14px] mb-6">Join our community or reach out to support for more help.</p>
+          <p className="text-white/50 text-[14px] mb-6">Reach out on X for help with auctions, PASS, or settlement.</p>
           <div className="flex justify-center gap-4">
-            <Button>Join Discord</Button>
             <Button variant="secondary">Contact Support</Button>
           </div>
         </div>
