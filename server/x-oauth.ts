@@ -24,8 +24,9 @@ const CALLBACK_URL =
   process.env.X_CALLBACK_URL || 'http://localhost:3001/api/kol/x-oauth-callback';
 // 前端地址：OAuth 成功后跳回（本地开发默认 localhost:3000，生产用 X_FRONTEND_URL）
 const FRONTEND_URL = process.env.X_FRONTEND_URL || 'http://localhost:3000';
-// 粉丝门槛：测试网 1000（Vercel X_FOLLOWERS_THRESHOLD），主网正式值部署时配置
-const FOLLOWERS_THRESHOLD = Number(process.env.X_FOLLOWERS_THRESHOLD) || 5000;
+// 粉丝门槛：测试网 1000（Vercel X_FOLLOWERS_THRESHOLD 已配 1000）。
+// 默认值与测试网合约 MIN_FOLLOWERS=1000 对齐；主网正式值部署时显式配置覆盖。
+const FOLLOWERS_THRESHOLD = Number(process.env.X_FOLLOWERS_THRESHOLD) || 1000;
 // state / ticket 签名密钥：生产必须配置（随机长串），缺失时拒绝启动（防止用公开默认值伪造）
 const STATE_SECRET: string = process.env.X_STATE_SECRET ?? '';
 if (!STATE_SECRET) {
@@ -267,9 +268,11 @@ router.get('/x-oauth-callback', async (req, res) => {
 
 /**
  * 3. 验证票据（POST，body: { ticket, wallet }）
- *    出参：{ verified, username, followers, signature }
+ *    出参：{ verified, username, followers, threshold, signature }
+ *      - threshold：当前粉丝门槛（server 配置值，前端展示文案用）
  *      - signature：平台对 (wallet, username, followers) 的 ECDSA 注册签名
  *        （P2-2），前端 registerKol 时随 handle/followers 一起上链验签。
+ *        **仅 verified=true 时签发**（F1：签名即平台背书，粉丝不足不签发）。
  *    一次性：短 TTL（5min）+ wallet 绑定；ticket 使用后标记（尽力而为的单实例
  *    消费集合；Vercel 多实例下无法强一致，故以短时效 + 钱包绑定为主防线）。
  *    改 POST：避免 ticket 出现在 URL/访问日志。
@@ -304,6 +307,23 @@ router.post('/verify-ticket', async (req, res) => {
     res.status(503).json({ error: 'PLATFORM_SIGNER_PRIVATE_KEY not configured' });
     return;
   }
+  // 粉丝门槛判定（F1/F3）：verified=false 时**不签发注册签名** ——
+  // 平台签名是注册的硬前提，签名一经签发即代表平台背书该账号已达门槛；
+  // 若仍照常签发，当合约 MIN_FOLLOWERS < server 阈值时，攻击者可绕过前端
+  // 直接拿签名调合约 registerKol，让 server 的更高门槛形同虚设。
+  // 同时返回 threshold，供前端展示真实门槛文案。
+  const verified = result.followers >= FOLLOWERS_THRESHOLD;
+  if (!verified) {
+    usedTickets.add(ticket); // 结果已确定，一次性标记（无需重试）
+    res.json({
+      verified: false,
+      username: result.username,
+      followers: result.followers,
+      threshold: FOLLOWERS_THRESHOLD,
+      signature: null,
+    });
+    return;
+  }
   const hash = keccak256(
     encodePacked(['address', 'string', 'uint256'], [wallet as Hex, result.username, BigInt(result.followers)])
   );
@@ -313,9 +333,10 @@ router.post('/verify-ticket', async (req, res) => {
   // 一次性：使用后标记（单实例尽力而为；放在签名成功之后，避免配置错误浪费 ticket）
   usedTickets.add(ticket);
   res.json({
-    verified: result.followers >= FOLLOWERS_THRESHOLD,
+    verified: true,
     username: result.username,
     followers: result.followers,
+    threshold: FOLLOWERS_THRESHOLD,
     signature,
   });
 });

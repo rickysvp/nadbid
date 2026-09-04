@@ -201,6 +201,7 @@ export default function KolOnboardingPage() {
           username?: string;
           followers?: number;
           signature?: string;
+          threshold?: number;
           error?: string;
         };
         if (r.ok && data.verified && data.username) {
@@ -209,14 +210,31 @@ export default function KolOnboardingPage() {
           setTwitterFollowers(data.followers ?? 0);
           // P2-2：缓存平台注册签名（registerKol 上链时随 handle/followers 一起验签）
           setRegisterSignature(data.signature ?? null);
+          // F4：会话级持久化（页面刷新恢复，关闭标签页即失效）。签名绑定签发时的
+          // 钱包，换钱包不恢复；注册上链成功后清除（签名使命完成）。
+          try {
+            sessionStorage.setItem(
+              'nadbid_xverify',
+              JSON.stringify({
+                wallet: address,
+                username: data.username,
+                followers: data.followers ?? 0,
+                signature: data.signature,
+              }),
+            );
+          } catch {
+            /* 存储失败仅影响刷新恢复，不阻塞验证流程 */
+          }
           success(
             `X account @${data.username} verified — ${(data.followers ?? 0).toLocaleString()} followers`,
           );
         } else if (r.ok && data.username) {
           setTwitterHandle(data.username);
           setTwitterFollowers(data.followers ?? 0);
+          // F3：门槛文案用 server 返回的真实 threshold，不写死 1000
+          const threshold = data.threshold ?? 1000;
           toastError(
-            `@${data.username} has ${(data.followers ?? 0).toLocaleString()} followers — need 1,000+ to become a KOL`,
+            `@${data.username} has ${(data.followers ?? 0).toLocaleString()} followers — need ${threshold.toLocaleString()}+ to become a KOL`,
           );
         } else {
           toastError(`X verification failed: ${data.error || 'invalid ticket'}`);
@@ -227,6 +245,38 @@ export default function KolOnboardingPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
+
+  // F4：刷新页面后从 sessionStorage 恢复已验证状态（X 验证结果 + 平台注册签名
+  // 在票据 TTL 内仍有效），避免用户每次刷新都要重新走完整 X OAuth。
+  // 安全约束：签名绑定签发时的钱包地址，换钱包不恢复；有票据在途时优先走票流程。
+  useEffect(() => {
+    if (!address || twitterVerified) return;
+    if (pendingTicketRef.current) return;
+    try {
+      const raw = sessionStorage.getItem('nadbid_xverify');
+      if (!raw) return;
+      const stored = JSON.parse(raw) as {
+        wallet?: string;
+        username?: string;
+        followers?: number;
+        signature?: string;
+      };
+      if (!stored.wallet || !stored.username || !stored.signature) return;
+      if (stored.wallet.toLowerCase() !== address.toLowerCase()) return;
+      setTwitterHandle(stored.username);
+      setTwitterFollowers(stored.followers ?? 0);
+      setTwitterVerified(true);
+      setRegisterSignature(stored.signature as `0x${string}`);
+    } catch {
+      // 损坏数据：清除后按未验证处理
+      try {
+        sessionStorage.removeItem('nadbid_xverify');
+      } catch {
+        /* ignore */
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, twitterVerified]);
 
   const allDone = currentStep >= STEPS.length;
   const contractsMissing = registry.isAddressMissing || factory.isAddressMissing;
@@ -300,6 +350,12 @@ export default function KolOnboardingPage() {
     await registry.registerKol(handle, BigInt(twitterFollowers), registerSignature as `0x${string}`, {
       onSuccess: () => {
         success('KOL registered on-chain!');
+        // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
+        try {
+          sessionStorage.removeItem('nadbid_xverify');
+        } catch {
+          /* ignore */
+        }
         invalidateAll();
       },
     });
@@ -315,12 +371,17 @@ export default function KolOnboardingPage() {
       return;
     }
     promptWalletConfirm();
-    await registry.depositBond({
+    const res = await registry.depositBond({
       onSuccess: () => {
         success('Bond deposited — you are now a verified KOL!');
         invalidateAll();
       },
     });
+    // F7：depositBond 在 BOND_AMOUNT 尚未读到时返回 null 且无 error——不能静默无反馈
+    if (!res) {
+      if (registry.error) toastError(registry.error);
+      else toastError('Bond amount still loading — please retry in a moment.');
+    }
   };
 
   // ==========================================================================
@@ -330,6 +391,11 @@ export default function KolOnboardingPage() {
   const handleCreatePass = async () => {
     if (factory.isAddressMissing) {
       toastError('Factory contract not deployed. Set VITE_CONTRACT_FACTORY in .env');
+      return;
+    }
+    // 前端预校验（合约有 ZERO_PRICE 兜底，提前提示避免链上 revert）
+    if (!(Number(mintPrice) > 0)) {
+      toastError('Enter a valid PASS mint price (greater than 0 MON)');
       return;
     }
     const price = parseEther(mintPrice || '0');
