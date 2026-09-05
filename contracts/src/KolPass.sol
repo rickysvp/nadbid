@@ -4,8 +4,9 @@ pragma solidity ^0.8.28;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract KolPass is ERC721Enumerable {
+contract KolPass is ERC721Enumerable, ReentrancyGuard {
     address public kol;
     address public platformTreasury;
     address public factory;          // 签发本 PASS 的 NadbidFactory（createKolAuction 校验合法 passContract）
@@ -65,7 +66,10 @@ contract KolPass is ERC721Enumerable {
         return basePrice * nextSupply * nextSupply / (baseSupply * baseSupply);
     }
 
-    function mint(uint256 quantity) external payable returns (uint256[] memory tokenIds) {
+    // 审计修复（P1-1）：nonReentrant 阻断 _safeMint 接收回调重入 mint。
+    // 修复前：恶意接收合约可在 onERC721Received 中重入 mint()，推进 nextTokenId，
+    // 使外层 tokenIds 返回值与实际铸造 token 错位、快照计费与实际铸造序列不一致。
+    function mint(uint256 quantity) external payable nonReentrant returns (uint256[] memory tokenIds) {
         require(quantity > 0, "ZERO_QTY");
         // 审计修复（D5）：单笔上限 + 总供应上限（gas 保护 / 溢出保护）
         require(quantity <= MAX_MINT_QUANTITY, "QTY_TOO_LARGE");
@@ -83,8 +87,9 @@ contract KolPass is ERC721Enumerable {
         // CEI：先更新供应量（重入 mint 会读到新 supply，按新价格计费，防止陈旧价格套利）
         for (uint256 i = 0; i < quantity; i++) {
             nextTokenId++; // 单调递增，burn 后绝不回退（修复 burn 后 mint 永久失败的 P0）
-            _safeMint(msg.sender, nextTokenId);
-            tokenIds[i] = nextTokenId;
+            uint256 tid = nextTokenId; // 局部保存：回调返回后本次返回值不受任何重入影响
+            _safeMint(msg.sender, tid);
+            tokenIds[i] = tid;
         }
         // 手续费拆分（F5）：KOL 份额记账（Pull，claimKolFees 领取），平台份额即时转出（Push，地址自控）
         uint256 kolFee = totalCost * feeKOL / FEE_DENOM;

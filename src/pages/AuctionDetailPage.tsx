@@ -394,6 +394,8 @@ function ChainAuctionDetail({ address }: { address: string }) {
       onSuccess: () => {
         refetchAuction();
         setTimeout(refetchAuction, 1500);
+        // 审计修复（P2-2）：交易成功（确认/争议/退款/领取）后统一刷新真实余额
+        void wallet.refreshBalance();
       },
     };
     switch (action) {
@@ -770,16 +772,48 @@ function ChainAuctionDetail({ address }: { address: string }) {
                       <button
                         onClick={() => handleFulfillmentAction('autoconfirm')}
                         disabled={txLoading}
-                        className="w-full bg-white/[0.06] border border-white/10 text-white/70 font-bold text-[11px] py-2.5 rounded hover:bg-white/10 transition-colors uppercase"
+                        className="w-full bg-white/[0.06] border border-white/10 text-white/70 font-bold text-x] py-2.5 rounded hover:bg-white/10 transition-colors uppercase"
                       >
                         {txLoading ? 'Confirming...' : 'Auto Confirm (window expired)'}
                       </button>
                     )}
+                  </div>
+                )}
 
-                    {fulfillmentExpired && !kolSubmitted && (
-                      <div className="text-[#ff8a8c] text-[10px] font-bold leading-relaxed">
-                        KOL 未在期限内提交履约 → 已违约。任意出价者可点击 Claim Refund 触发违约结算（80% 资金 + 押金罚没进入退款池）。
+                {/* SP-2（审计 P1-3）：SETTLED + KOL 超时未履约 → 违约态。
+                    修复前：违约提示被错误放在 AWAITING 块内（违约时 status 恒为 1，提示永不显示），
+                    且 SETTLED 状态无退款触发入口，普通用户无法在产品内启动违约结算。 */}
+                {auctionStatus === 1 && (
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-white/[0.06] rounded-lg p-4 text-left space-y-3">
+                    <div className="text-x] font-bold uppercase tracking-[0.15em] text-white/60">
+                      ⚖️ Settled — {kolSubmitted ? 'KOL submitted' : 'Awaiting KOL fulfillment'}
+                    </div>
+                    {!kolSubmitted && !fulfillmentExpired && (
+                      <div className="text-white/40 text-x] leading-relaxed">
+                        Auction settled. Winner locked. KOL must submit fulfillment evidence within the
+                        fulfillment window.
                       </div>
+                    )}
+                    {!kolSubmitted && fulfillmentExpired && (
+                      <>
+                        <div className="text-[#ff8a8c] text-x] font-bold leading-relaxed">
+                          KOL 未在期限内提交履约 → 已违约。竞拍者可点击下方按钮触发违约结算
+                          （80% 拍卖资金 + KOL 押金罚没进入退款池），并同步领取本人应退份额。
+                        </div>
+                        {account && refundable !== undefined && refundable > 0n ? (
+                          <button
+                            onClick={() => handleFulfillmentAction('refund')}
+                            disabled={txLoading}
+                            className="w-full bg-[#ea6668] text-black font-black text-x] py-2.5 rounded hover:bg-[#ff8a8c] transition-colors uppercase"
+                          >
+                            {txLoading ? 'Processing...' : `Trigger Refund & Claim (${formatMonWei(refundable)} MON)`}
+                          </button>
+                        ) : (
+                          <div className="text-white/30 text-x]">
+                            需要先作为竞拍者出过价，才能触发违约结算（链上退款按出价比例分配）。
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

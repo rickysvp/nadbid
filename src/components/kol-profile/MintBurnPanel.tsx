@@ -110,11 +110,23 @@ export function MintBurnPanel({
    * 链上路径的精确成本（wei，含 8% 手续费缓冲）：与链上 mint 实际扣款一致。
    * 曲线参数未加载时 undefined。burn 路径：按当前曲线价×选中数估算返还。
    */
+  /** 曲线配置（链上读取），burn 预估需按递减曲线逐枚计算 */
+  const curveCfg = chain.curveConfig;
   const chainCostWei = isQtyValid
     ? isMint
       ? chain.estimateMintCost(BigInt(qtyNum))
-      : chainPrice !== undefined
-        ? BigInt(Math.floor(chainPrice * burnQty * 1e18))
+      : curveCfg && effectiveSupply > 0
+        ? (() => {
+            // 审计修复（P2-5）：burn 预估与链上严格一致——逐枚按递减曲线
+            // Σ curvePriceAt(supply - i)，再扣 8% 手续费（feeKOL 5% + feePlatform 3%）。
+            // 修复前用「单枚当前价 × 数量」估算，与链上递减+扣费不符，页面返还偏大。
+            let sum = 0n;
+            for (let i = 0; i < burnQty; i++) {
+              const step = BigInt(effectiveSupply - i);
+              sum += (curveCfg.basePrice * step * step) / (curveCfg.baseSupply * curveCfg.baseSupply);
+            }
+            return sum - (sum * 8n) / 100n;
+          })()
         : undefined
     : undefined;
   /** 链上精确成本 → MON（显示用） */
@@ -124,7 +136,6 @@ export function MintBurnPanel({
   const newSupply = isMint ? supplyAfterMint(effectiveSupply, qtyNum) : supplyAfterBurn(effectiveSupply, qtyNum);
   /** P3-10：精确的"下一枚"价 = basePrice*(newSupply+1)²/baseSupply²（bigint 计算，
    *  避免 Number(wei) 大数精度损失；与链上 curvePriceAt 整数除法一致） */
-  const curveCfg = chain.curveConfig;
   const newPrice =
     curveCfg && effectiveSupply > 0
       ? Number(
@@ -213,8 +224,10 @@ export function MintBurnPanel({
       chainPrice !== undefined && effectiveSupply > 0
         ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
         : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
-    // burn 返还按曲线价（链上实际到账额），用于刷新余额
-    await wallet.refreshBalance(burnAmt * (chainPrice ?? 0));
+    // 审计修复（P2-2）：burn 是入账，delta 传负数（mock 路径方向正确）。
+    // real 模式走 balanceLoader 链上真实查询，忽略 delta。仅作为兜底估算。
+    const refundMon = burnAmt * (chainPrice ?? 0);
+    await wallet.refreshBalance(-refundMon);
     onTradeSuccess?.({ action: 'burn', amount: burnAmt, newSupply, newPrice });
     toastSuccess(`Burned ${burnAmt} ${kolName} PASS`);
   };

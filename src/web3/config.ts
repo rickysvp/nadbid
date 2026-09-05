@@ -6,16 +6,20 @@ import { contractAddresses, registryAbi, factoryAbi } from './contracts';
 /**
  * Monad 测试网链配置
  * Chain ID: 10143
- * RPC: https://testnet-rpc.monad.xyz
+ * RPC: 默认 https://testnet-rpc.monad.xyz，可被 VITE_MONAD_RPC_URL 覆盖（审计修复 P2-7：
+ * 此前 .env 声明了该变量但 wagmi 从未读取，修改 env 无效）。
  * Explorer: https://testnet.monadexplorer.com
  */
+const monadRpcUrl =
+  import.meta.env.VITE_MONAD_RPC_URL?.trim() || 'https://testnet-rpc.monad.xyz';
+
 export const monadTestnet = {
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.monad.xyz'] },
-    public: { http: ['https://testnet-rpc.monad.xyz'] },
+    default: { http: [monadRpcUrl] },
+    public: { http: [monadRpcUrl] },
   },
   blockExplorers: {
     default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },

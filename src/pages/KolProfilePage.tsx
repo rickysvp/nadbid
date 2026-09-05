@@ -575,7 +575,7 @@ export default function KolProfilePage() {
               <span className="text-[8px] font-bold uppercase tracking-wider text-white/30 bg-white/[0.04] border border-white/[0.04] px-1.5 py-0.5 rounded">Coming Soon</span>
               <Info className="w-3.5 h-3.5 text-white/30" />
             </div>
-            <p className="text-white/50 text-[12px] mb-6">20% of auction revenue is distributed to PASS holders. On-chain distribution is not yet live.</p>
+            <p className="text-white/50 text-x] mb-6">The 20% platform fee is auto-credited to the protocol treasury at settlement (not distributed to PASS holders). A future PASS-holder revenue share is a separate roadmap item, not yet live.</p>
             <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-5 text-center">
               <p className="text-white/30 text-[11px] font-mono">Awaiting on-chain distribution contract</p>
             </div>

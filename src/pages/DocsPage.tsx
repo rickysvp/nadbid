@@ -35,7 +35,7 @@ const docSections: DocSection[] = [
       },
       {
         question: 'How is an auction settled?',
-        answer: 'After the auction ends, anyone can trigger settlement. The winner is locked and 80% of the total volume is held in escrow while the KOL must submit proof of fulfillment (48h window). The winner then confirms (48h window) or raises a dispute. Only after the auction reaches Completed — via winner confirmation, auto-confirmation, or an arbitration ruling in the KOL\u2019s favor — can the KOL claim the 80%. The 20% platform fee is automatically credited to the treasury at settlement (no manual claim). In case of a KOL breach (no fulfillment) or a dispute ruled against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed to bidders pro-rata as refunds.',
+        answer: 'After the auction ends, anyone can trigger settlement. The winner is locked and 80% of the total volume is held in escrow while the KOL must submit proof of fulfillment (48h window). The winner then confirms (48h window) or raises a dispute; if the winner takes no action within the window, the fulfillment is auto-confirmed (inactivity counts as default confirmation). Only after the auction reaches Completed — via winner confirmation, auto-confirmation, or an arbitration ruling in the KOL\u2019s favor — can the KOL claim the 80%. The 20% platform fee is automatically credited to the treasury at settlement (no manual claim). In case of a KOL breach (no fulfillment) or a dispute ruled against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed to bidders pro-rata as refunds.',
       },
       {
         question: 'Can a KOL run more than one auction at a time?',
@@ -115,7 +115,7 @@ const docSections: DocSection[] = [
     content: [
       {
         question: 'Is arbitration available?',
-        answer: 'Not yet. Dispute resolution, evidence submission, and KOL-collateral slashing are part of the post-MVP roadmap. On the current testnet build, settlement happens automatically when an auction ends.',
+        answer: 'Live on-chain. The winner can raise a dispute within the confirmation window (48h) by submitting evidence; funds stay locked while an arbitrator (currently the platform, single-admin testnet design) rules. If the ruling goes against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed pro-rata as refunds. Arbitration is a centralized single-admin process on testnet; a decentralized model is planned for mainnet.',
       },
       {
         question: 'What will arbitration cover?',

@@ -160,21 +160,16 @@ contract KolAuction {
         require(a.status == AuctionStatus.ACTIVE, "!ACTIVE");
         require(!a.settled, "SETTLED");
         require(block.timestamp >= a.endTime, "NOT_ENDED");
+        // 审计修复（P2-1）CEI：先把全部状态写完整（settled/winner/deadline/status），
+        // 再做外部转账——修复前平台费转账早于 winner/status 写入，
+        // treasury 重入时仍读到 ACTIVE 的不一致中间态。
         a.settled = true;
-        uint256 platformFee = a.totalVolume * PLATFORM_SETTLE_PCT / PCT_DENOM;
-        // SP-2（审计 P1）：平台 20% 结算时自动转账入国库，无需平台主动领取。
-        // platformTreasury 为平台控制地址（EOA/可接收合约），部署时保证可接收；
-        // 转账失败则整体 revert（结算状态与资金归属保持一致，杜绝"已结算但未入账"）。
-        if (platformFee > 0) {
-            (bool okT, ) = payable(platformTreasury).call{value: platformFee}("");
-            require(okT, "TREASURY_SEND_FAILED");
-        }
         if (a.totalBids == 0) {
             // 无出价：无资金、无履约需求，直接终态（无需履约流程）
             a.status = AuctionStatus.COMPLETED;
             // SP-2（P0）：终态才释放计数（无出价场次无履约流程，立即终态）
             IRegistry(registry).notifyAuctionClosed(a.kol);
-            emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, platformFee, 0, block.number);
+            emit AuctionSettled(a.id, a.lastBidder, a.totalVolume, 0, 0, block.number);
             return;
         }
         // 固化中标者 + 锁定 80% + 开启履约窗口
@@ -182,6 +177,15 @@ contract KolAuction {
         a.winnerTotalSpent = cumulativeBid[a.lastBidder];
         a.fulfillmentDeadline = block.timestamp + FULFILLMENT_DEADLINE;
         a.status = AuctionStatus.SETTLED;
+        uint256 platformFee = a.totalVolume * PLATFORM_SETTLE_PCT / PCT_DENOM;
+        // SP-2（审计 P1）：平台 20% 结算时自动转账入国库，无需平台主动领取。
+        // platformTreasury 为平台控制地址（EOA/可接收合约），部署时保证可接收；
+        // 转账失败则整体 revert（结算状态与资金归属保持一致，杜绝"已结算但未入账"）。
+        // 注：状态已全部写入，转账在最后（CEI）；settled=true 已阻断 settle 重入。
+        if (platformFee > 0) {
+            (bool okT, ) = payable(platformTreasury).call{value: platformFee}("");
+            require(okT, "TREASURY_SEND_FAILED");
+        }
         // SP-2（P0）：此处【不再】通知 Registry 释放计数/押金闸门——拍卖仍处于履约流程，
         // KOL 不得在完成履约前开新拍卖或赎回押金；计数在 COMPLETED/REFUNDED 终态释放。
         emit AuctionSettled(a.id, a.winner, a.totalVolume, platformFee, a.totalVolume - platformFee, block.number);

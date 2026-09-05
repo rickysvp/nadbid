@@ -167,6 +167,35 @@ contract ReentrantBurner {
     }
 }
 
+// ===== 审计 P1-1：mint 重入攻击测试合约 =====
+// mint 第 1 枚时在 onERC721Received 回调中重入 mint 第 2 枚。
+// 修复前（无 nonReentrant）：重入推进 nextTokenId 并成功铸造，外层 tokenIds 返回值
+// 与实际铸造 token 错位、快照计费与实际铸造序列不一致。
+// 修复后（nonReentrant）：重入被拒绝 → 回调 revert → 外层 mint 整体回滚，铸造不发生。
+contract ReentrantMinter {
+    KolPass pass;
+    bool entered;
+
+    constructor(KolPass _pass) { pass = _pass; }
+
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        returns (bytes4)
+    {
+        if (!entered) {
+            entered = true;
+            // 重入 mint：给足 value（若 nonReentrant 缺失，此处会成功铸造第 2 枚）
+            pass.mint{value: 100 ether}(1);
+        }
+        return this.onERC721Received.selector;
+    }
+
+    function mintFirst() external payable returns (uint256[] memory) {
+        entered = false;
+        return pass.mint{value: msg.value}(1);
+    }
+}
+
 contract KolPassReentrancyTest is Test {
     KolPass pass;
     address kol = address(0xBEEF);
@@ -175,6 +204,18 @@ contract KolPassReentrancyTest is Test {
 
     function setUp() public {
         pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
+    }
+
+    function test_Mint_Reentrancy_Blocked() public {
+        ReentrantMinter minter = new ReentrantMinter(pass);
+        vm.deal(address(minter), 1000 ether);
+        // 外层 mint 第 1 枚 → _safeMint 回调 onERC721Received → 重入 mint
+        // 修复后：nonReentrant 拒绝重入 → 回调 revert → 外层 mint 整体回滚，无一枚铸造
+        vm.expectRevert();
+        minter.mintFirst{value: 100 ether}();
+        assertEq(pass.balanceOf(address(minter)), 0, "reentrant mint must be blocked");
+        assertEq(pass.totalSupply(), 0, "no token should be minted");
+        assertEq(pass.nextTokenId(), 0, "token id counter must not advance");
     }
 
     function test_Burn_Reentrancy_BlockedByCEI() public {

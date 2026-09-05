@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAccount, useBalance, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
-import { useWalletStore } from '../stores/walletStore';
+import { useWalletStore, setBalanceLoader } from '../stores/walletStore';
 
 /**
  * WalletStateSyncer — 将 wagmi 响应式状态镜像到 Zustand walletStore。
@@ -23,10 +23,24 @@ import { useWalletStore } from '../stores/walletStore';
 export function WalletStateSyncer() {
   const { address, status, connector } = useAccount();
   const chainId = useChainId();
-  const { data: balanceData } = useBalance({
+  const { data: balanceData, refetch: refetchBalance } = useBalance({
     address: address ?? undefined,
     chainId,
   });
+
+  // 审计修复（P2-2）：把 wagmi 真实余额查询注册为 walletStore 的 balanceLoader，
+  // 使 refreshBalance() 在 real 模式走链上真实查询（此前 loader 从未注册，
+  // 本地 delta 推算 burn 方向错误、claim/refund 后余额不刷新）。
+  useEffect(() => {
+    if (!address) return;
+    const loader = async () => {
+      const r = await refetchBalance();
+      if (!r.data) return 0;
+      return parseFloat(formatUnits(r.data.value, r.data.decimals));
+    };
+    setBalanceLoader(loader);
+    return () => setBalanceLoader(null);
+  }, [address, refetchBalance]);
 
   /** 追踪是否曾通过 wagmi 真实连接过，用于断开时判断是否需要重置 */
   const wasWagmiConnected = useRef(false);
