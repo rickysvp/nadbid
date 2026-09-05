@@ -19,16 +19,10 @@ import { shortenAddress } from '../utils/format';
 import { contractAddresses, registryAbi, kolAuctionAbi } from '../web3/contracts';
 import { useReadContract } from '../web3/hooks/useReadContract';
 import { useAuction } from '../web3/hooks/useAuction';
-import type { AuctionData } from '../web3/hooks/useAuction';
 import { normalizeKolData, type KolData } from '../web3/hooks/useRegistry';
+import { deriveChainStatus } from '../utils/auctionStatus';
 
 type FilterTab = 'ALL' | 'LIVE' | 'UPCOMING';
-
-/**
- * 首页拍卖列表 — 全部来自 Monad 测试网链上真实数据：
- * NadbidRegistry 索引（kolList → getKol().auctionContracts）+ 各 KolAuction 状态。
- * 无任何 mock 数据。Registry 地址未配置时显示「合约未部署」提示。
- */
 
 /** MVP：Registry.kolList 枚举上限（合约无 getKolCount，读越界返回 0x0 即忽略） */
 // 有界枚举上限（Registry 无 getKolCount；20 为 MVP 上限，超限需加 count getter 或 indexer）
@@ -54,22 +48,6 @@ function useCountdown(targetDate: number) {
   const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
   return { timeString, totalSeconds };
-}
-
-/** 链上拍卖展示状态派生（SP-2）：按履约状态机 status 区分终态；未终态按 endTime / startTime 判定 */
-function deriveChainStatus(data: AuctionData): 'LIVE' | 'UPCOMING' | 'ENDED' | 'SETTLED' | 'AWAITING' | 'COMPLETED' | 'DISPUTED' | 'REFUNDED' {
-  switch (data.status) {
-    case 2: return 'AWAITING';   // AWAITING_CONFIRMATION
-    case 3: return 'COMPLETED';
-    case 4: return 'DISPUTED';
-    case 5: return 'REFUNDED';
-    default: break;
-  }
-  if (data.settled) return 'SETTLED';
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (nowSec >= Number(data.endTime)) return 'ENDED';
-  if (nowSec < Number(data.startTime)) return 'UPCOMING';
-  return 'LIVE';
 }
 
 /* ============================================================================
