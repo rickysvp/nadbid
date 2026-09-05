@@ -37,7 +37,12 @@ export interface AuctionData {
   fulfillmentDeadline: bigint;
   fulfillmentTime: bigint;
   autoConfirmDeadline: bigint;
-  evidenceHash: `0x${string}`;
+  /** KOL 履约证据哈希（SP-2 与争议证据分离） */
+  fulfillmentEvidenceHash: `0x${string}`;
+  /** winner 争议证据哈希 */
+  disputeEvidenceHash: `0x${string}`;
+  /** 仲裁裁定理由哈希（可为零，optional） */
+  arbitrationNote: `0x${string}`;
 }
 
 /** 写入交易的通用选项 */
@@ -60,10 +65,8 @@ export interface UseAuctionResult {
   lastBidderCumulative: bigint | undefined;
   /** 最后出价人（当前领先者）的出价次数 */
   lastBidderBidCount: bigint | undefined;
-  /** KOL 待领取的 80% 收益（仅 COMPLETED 后可领） */
+  /** KOL 待领取的 80% 收益（仅 COMPLETED 后可领；平台 20% 已自动入国库） */
   pendingKol: bigint | undefined;
-  /** 平台待领取的 20% 手续费 */
-  pendingPlatform: bigint | undefined;
   /** 当前账户可领的退款额（0 = 不可领或已领） */
   refundable: bigint | undefined;
   /** KOL 是否已违约（超时未提交履约） */
@@ -74,7 +77,7 @@ export interface UseAuctionResult {
    * value 默认取链上 auctionData.fixedBidAmount；调用方也可通过 opts.value 显式传入。
    */
   placeBid: (opts?: { value?: bigint } & AuctionTxOptions) => Promise<Hash | null>;
-  /** settle()：结束拍卖（锁定 80% 收益 + 固化 winner） */
+  /** settle()：结束拍卖（20% 平台费自动入国库 + 锁定 80% + 固化 winner） */
   settle: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** submitFulfillment(evidenceHash)：KOL 提交履约证据 */
   submitFulfillment: (evidenceHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
@@ -84,14 +87,12 @@ export interface UseAuctionResult {
   autoConfirm: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** dispute(evidenceHash)：中标者在窗口内发起争议 */
   dispute: (evidenceHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
-  /** resolveDispute(kolWon)：仲裁角色裁定 */
-  resolveDispute: (kolWon: boolean, opts?: AuctionTxOptions) => Promise<Hash | null>;
+  /** resolveDispute(kolWon, reasonHash?)：仲裁角色裁定（reasonHash 为裁定理由哈希，可传 0x0） */
+  resolveDispute: (kolWon: boolean, reasonHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** claimRefund()：违约退款领取 */
   claimRefund: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** claimKol()：KOL 领取 80% 收益（仅 COMPLETED） */
   claimKol: (opts?: AuctionTxOptions) => Promise<Hash | null>;
-  /** claimPlatform()：平台领取 20% 手续费 */
-  claimPlatform: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   // ---- 交易状态（所有写入共享同一状态机） ----
   status: TxStatus;
   txHash: Hash | null;
@@ -156,11 +157,6 @@ export function useAuction(
     abi: kolAuctionAbi,
     functionName: 'pendingKol',
   });
-  const pendingPlatformRes = useReadContract({
-    address: auctionAddress,
-    abi: kolAuctionAbi,
-    functionName: 'pendingPlatform',
-  });
   const refundableRes = useReadContract({
     address: auctionAddress,
     abi: kolAuctionAbi,
@@ -184,13 +180,12 @@ export function useAuction(
     lastBidderCumulativeRes.refetch();
     lastBidderBidCountRes.refetch();
     pendingKolRes.refetch();
-    pendingPlatformRes.refetch();
     refundableRes.refetch();
     kolBreachedRes.refetch();
   }, [
     auctionRes, cumulativeRes, bidCountRes,
     lastBidderCumulativeRes, lastBidderBidCountRes,
-    pendingKolRes, pendingPlatformRes, refundableRes, kolBreachedRes,
+    pendingKolRes, refundableRes, kolBreachedRes,
   ]);
 
   useWatchContractEvent({
@@ -341,13 +336,13 @@ export function useAuction(
   );
 
   const resolveDispute = useCallback(
-    (kolWon: boolean, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
+    (kolWon: boolean, reasonHash: `0x${string}`, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
       if (!auctionAddress) return Promise.resolve(null);
       return write({
         address: auctionAddress,
         abi: kolAuctionAbi,
         functionName: 'resolveDispute',
-        args: [kolWon],
+        args: [kolWon, reasonHash],
         onSuccess: opts.onSuccess,
         toast: opts.toast,
       });
@@ -385,21 +380,6 @@ export function useAuction(
     [write, auctionAddress],
   );
 
-  const claimPlatform = useCallback(
-    (opts: AuctionTxOptions = {}): Promise<Hash | null> => {
-      if (!auctionAddress) return Promise.resolve(null);
-      return write({
-        address: auctionAddress,
-        abi: kolAuctionAbi,
-        functionName: 'claimPlatform',
-        args: [],
-        onSuccess: opts.onSuccess,
-        toast: opts.toast,
-      });
-    },
-    [write, auctionAddress],
-  );
-
   return {
     auctionData: auctionRes.data as AuctionData | undefined,
     cumulativeBid: cumulativeRes.data as bigint | undefined,
@@ -407,7 +387,6 @@ export function useAuction(
     lastBidderCumulative: lastBidderCumulativeRes.data as bigint | undefined,
     lastBidderBidCount: lastBidderBidCountRes.data as bigint | undefined,
     pendingKol: pendingKolRes.data as bigint | undefined,
-    pendingPlatform: pendingPlatformRes.data as bigint | undefined,
     refundable: refundableRes.data as bigint | undefined,
     kolBreached: kolBreachedRes.data as boolean | undefined,
     placeBid,
@@ -419,7 +398,6 @@ export function useAuction(
     resolveDispute,
     claimRefund,
     claimKol,
-    claimPlatform,
     status,
     txHash,
     error,

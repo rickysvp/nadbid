@@ -18,7 +18,8 @@ interface DisputedAuction {
   winner: `0x${string}`;
   winnerTotalSpent: bigint;
   totalVolume: bigint;
-  evidenceHash: `0x${string}`;
+  fulfillmentEvidenceHash: `0x${string}`;
+  disputeEvidenceHash: `0x${string}`;
   fulfillmentTime: bigint;
 }
 
@@ -93,7 +94,8 @@ export default function ArbitrationPage() {
               winner: `0x${string}`;
               winnerTotalSpent: bigint;
               totalVolume: bigint;
-              evidenceHash: `0x${string}`;
+              fulfillmentEvidenceHash: `0x${string}`;
+              disputeEvidenceHash: `0x${string}`;
               fulfillmentTime: bigint;
             };
             if (data.status === 4) {
@@ -104,7 +106,8 @@ export default function ArbitrationPage() {
                 winner: data.winner,
                 winnerTotalSpent: data.winnerTotalSpent,
                 totalVolume: data.totalVolume,
-                evidenceHash: data.evidenceHash,
+                fulfillmentEvidenceHash: data.fulfillmentEvidenceHash,
+                disputeEvidenceHash: data.disputeEvidenceHash,
                 fulfillmentTime: data.fulfillmentTime,
               });
             }
@@ -200,14 +203,25 @@ function DisputeCard({
   isArbitrator: boolean;
   onResolved: () => void;
 }) {
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
   const { auctionData, resolveDispute, isLoading, refetchAuction, error: txError } = useAuction(dispute.address);
   const [busy, setBusy] = useState(false);
+  const [reasonInput, setReasonInput] = useState('');
 
   const handleResolve = async (kolWon: boolean) => {
     if (busy) return;
     setBusy(true);
-    await resolveDispute(kolWon, {
+    // reasonHash：可选，空则 0x0；非空须为 0x + 64 位十六进制
+    let reasonHash: `0x${string}` = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    if (reasonInput.trim() !== '') {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(reasonInput.trim())) {
+        toastError('Reason hash 须为 0x + 64 位十六进制，或留空');
+        setBusy(false);
+        return;
+      }
+      reasonHash = reasonInput.trim() as `0x${string}`;
+    }
+    await resolveDispute(kolWon, reasonHash, {
       onSuccess: () => {
         success(kolWon ? 'Ruled in favor of KOL — funds released.' : 'Ruled against KOL — refund pool + bond slashed.');
         refetchAuction();
@@ -252,28 +266,50 @@ function DisputeCard({
         </div>
       </div>
 
+      <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-3 break-all">
+        <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Fulfillment Evidence (KOL)</div>
+        <div className="font-mono text-[10px] text-white/70">{dispute.fulfillmentEvidenceHash}</div>
+      </div>
       <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-5 break-all">
-        <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Dispute Evidence</div>
-        <div className="font-mono text-[10px] text-white/70">{dispute.evidenceHash}</div>
+        <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Dispute Evidence (Winner)</div>
+        <div className="font-mono text-[10px] text-white/70">{dispute.disputeEvidenceHash}</div>
       </div>
 
       {auctionData?.status === 4 && isArbitrator && (
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={() => handleResolve(false)}
-            disabled={busy || isLoading}
-            className="flex-1 bg-[#7a2d2d]/50 border border-[#ea6668]/50 text-[#ff8a8c] font-black text-[11px] py-2.5 rounded hover:bg-[#7a2d2d]/70 transition-colors uppercase"
-          >
-            {busy ? 'Ruling...' : 'Rule Against KOL — Refund + Slash Bond'}
-          </button>
-          <button
-            onClick={() => handleResolve(true)}
-            disabled={busy || isLoading}
-            className="flex-1 bg-[#3ec470] text-black font-black text-[11px] py-2.5 rounded hover:bg-[#4ade80] transition-colors uppercase"
-          >
-            {busy ? 'Ruling...' : 'Rule for KOL — Release Funds'}
-          </button>
-        </div>
+        <>
+          <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-3">
+            <label className="block text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">
+              Ruling note (reason hash, optional) — 0x + 64 hex
+            </label>
+            <input
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              placeholder="0x0000…（留空则不记录）"
+              className="w-full bg-black border border-white/10 rounded px-3 py-2 font-mono text-[11px] text-white placeholder-white/25 outline-none focus:border-[#3ec470]/60"
+            />
+            {auctionData.arbitrationNote && auctionData.arbitrationNote !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+              <div className="mt-2 text-white/35 text-[9px] font-mono break-all">
+                Previous ruling note: {auctionData.arbitrationNote}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => handleResolve(false)}
+              disabled={busy || isLoading}
+              className="flex-1 bg-[#7a2d2d]/50 border border-[#ea6668]/50 text-[#ff8a8c] font-black text-[11px] py-2.5 rounded hover:bg-[#7a2d2d]/70 transition-colors uppercase"
+            >
+              {busy ? 'Ruling...' : 'Rule Against KOL — Refund + Slash Bond'}
+            </button>
+            <button
+              onClick={() => handleResolve(true)}
+              disabled={busy || isLoading}
+              className="flex-1 bg-[#3ec470] text-black font-black text-[11px] py-2.5 rounded hover:bg-[#4ade80] transition-colors uppercase"
+            >
+              {busy ? 'Ruling...' : 'Rule for KOL — Release Funds'}
+            </button>
+          </div>
+        </>
       )}
 
       {auctionData?.status === 4 && !isArbitrator && (

@@ -230,7 +230,6 @@ function ChainAuctionDetail({ address }: { address: string }) {
     lastBidderCumulative,
     lastBidderBidCount,
     pendingKol,
-    pendingPlatform,
     refundable,
     kolBreached,
     placeBid,
@@ -807,12 +806,11 @@ function ChainAuctionDetail({ address }: { address: string }) {
                       </button>
                     )}
                     <div className="flex justify-between text-white/40 text-[10px] font-mono">
-                      <span>KOL pending</span>
+                      <span>KOL earnings</span>
                       <span className="text-white font-bold">{formatMonWei(pendingKol)} MON</span>
                     </div>
-                    <div className="flex justify-between text-white/40 text-[10px] font-mono">
-                      <span>Platform fee</span>
-                      <span className="text-white font-bold">{formatMonWei(pendingPlatform)} MON</span>
+                    <div className="text-white/30 text-[9px] font-mono">
+                      Platform 20% fee was auto-credited to treasury at settlement.
                     </div>
                   </div>
                 )}

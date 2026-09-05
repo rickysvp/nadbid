@@ -148,26 +148,25 @@ contract KolAuctionTest is Test {
         assertEq(auction.totalBids(), 1);
     }
 
-    // Pull 模式：settle 后平台/KOL 分别 claim 各自份额（20% / 80%）
-    function test_Settle_PullMode_ClaimWorks() public {
+    // 平台 20% 自动入国库 + KOL 80% 履约锁定：settle 即转账 20% 给 treasury，
+    // 80% 留在合约锁定，COMPLETED 后 KOL 才可领取。
+    function test_Settle_PlatformAutoCredited_AndKolLocked() public {
         vm.prank(bidder);
         auction.placeBid{value: fixedBid}();
         vm.warp(block.timestamp + 1000);
+        uint256 platformBefore = platform.balance;
         vm.prank(kol);
         auction.settle();
 
         uint256 platformFee = fixedBid * 20 / 100;
         uint256 kolShare = fixedBid - platformFee;
 
-        // 平台领取 20%（platform 在 setUp mint 时已收到 3% 手续费，按增量断言）
-        uint256 platformBefore = platform.balance;
-        vm.prank(platform);
-        auction.claimPlatform();
-        assertEq(auction.pendingPlatform(), 0);
+        // 平台 20% 已自动入国库（无需 claimPlatform）
         assertEq(platform.balance - platformBefore, platformFee);
 
         // SP-2：settle 后 80% 锁定，KOL 不能立即领取
         assertEq(auction.pendingKol(), 0);
+        assertEq(address(auction).balance, kolShare);
         vm.prank(kol);
         vm.expectRevert(bytes("!COMPLETED"));
         auction.claimKol();
@@ -197,17 +196,12 @@ contract KolAuctionTest is Test {
         rejAuction.placeBid{value: fixedBid}();
         vm.warp(block.timestamp + 1000);
 
-        // settle 不因 KOL 拒收而 revert
+        // settle 不因 KOL 拒收而 revert；平台 20% 自动入国库（增量断言）
+        uint256 platformFee = fixedBid * 20 / 100;
+        uint256 platformBefore = platform.balance;
         vm.prank(address(rejectKol));
         rejAuction.settle();
         assertTrue(rejAuction.settled());
-
-        // 平台仍可领取 20%（platform 在 setUp mint 时已收到 3% 手续费，按增量断言）
-        uint256 platformFee = fixedBid * 20 / 100;
-        uint256 platformBefore = platform.balance;
-        vm.prank(platform);
-        rejAuction.claimPlatform();
-        assertEq(rejAuction.pendingPlatform(), 0);
         assertEq(platform.balance - platformBefore, platformFee);
 
         // SP-2：80% 锁定在合约余额（不进入 pendingKol），拒收 KOL 无法在履约前领取；
@@ -249,10 +243,9 @@ contract KolAuctionTest is Test {
         // winner 固化
         assertEq(auction.getAuction().winner, bidder);
         assertEq(auction.getAuction().winnerTotalSpent, fixedBid);
-        // 80% 锁定：pendingKol 为 0，资金留在合约
+        // 80% 锁定：pendingKol 为 0；合约余额 = 80%（20% 平台费已自动入国库）
         assertEq(auction.pendingKol(), 0);
-        // settle 后全部资金仍在合约（20% 平台待领 + 80% 锁定）
-        assertEq(address(auction).balance, fixedBid);
+        assertEq(address(auction).balance, fixedBid * 80 / 100);
         assertEq(auction.getAuction().fulfillmentDeadline, block.timestamp + 48 hours);
     }
 
@@ -323,12 +316,13 @@ contract KolAuctionTest is Test {
         // 非仲裁者不可裁定
         vm.prank(address(0x7777));
         vm.expectRevert(bytes("!ARBITRATOR"));
-        auction.resolveDispute(true);
-        // 仲裁判 KOL 胜 → 放款
+        auction.resolveDispute(true, bytes32(0));
+        // 仲裁判 KOL 胜 → 放款（带裁定理由 hash 记录）
         reg.setArbitrator(address(this));
-        auction.resolveDispute(true);
+        auction.resolveDispute(true, bytes32(uint256(0xCAFE)));
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
         assertEq(auction.pendingKol(), fixedBid * 80 / 100);
+        assertEq(auction.getAuction().arbitrationNote, bytes32(uint256(0xCAFE)));
     }
 
     function test_Dispute_AndResolve_KolLost_FullRefund() public {
@@ -339,7 +333,7 @@ contract KolAuctionTest is Test {
         vm.prank(bidder);
         auction.dispute(bytes32(uint256(9)));
         reg.setArbitrator(address(this));
-        auction.resolveDispute(false);
+        auction.resolveDispute(false, bytes32(uint256(0xDEAD)));
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
         // 退款池 = 80% + 押金罚没（bidder 全部出价应全额退回，押金归平台/无人认领则留存）
         uint256 kolShare = fixedBid * 80 / 100;
@@ -476,6 +470,40 @@ contract KolAuctionTest is Test {
         // 终态后 KOL 可正常赎回押金（未违约）
         vm.prank(kol);
         reg.requestBondRedeem();
+    }
+
+    // 审计 P2：链上拒绝零证据 hash（防绕过前端直接提交空证据）
+    function test_SubmitFulfillment_RejectsZeroHash() public {
+        _settleWithBid();
+        vm.prank(kol);
+        vm.expectRevert(bytes("ZERO_HASH"));
+        auction.submitFulfillment(bytes32(0));
+    }
+
+    function test_Dispute_RejectsZeroHash() public {
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        vm.prank(bidder);
+        vm.expectRevert(bytes("ZERO_HASH"));
+        auction.dispute(bytes32(0));
+    }
+
+    // 审计 P2：仲裁裁定记录理由 hash（arbitrationNote），双方证据哈希互不覆盖
+    function test_Arbitration_RecordsReasonAndSeparateEvidence() public {
+        _bondKol();
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xF1)));
+        vm.prank(bidder);
+        auction.dispute(bytes32(uint256(0xD1)));
+        reg.setArbitrator(address(this));
+        auction.resolveDispute(false, bytes32(uint256(0xCAFE)));
+        KolAuction.Auction memory a = auction.getAuction();
+        assertEq(a.fulfillmentEvidenceHash, bytes32(uint256(0xF1)));  // 履约证据保留
+        assertEq(a.disputeEvidenceHash, bytes32(uint256(0xD1)));      // 争议证据保留
+        assertEq(a.arbitrationNote, bytes32(uint256(0xCAFE)));        // 裁定理由记录
+        assertEq(uint256(a.status), uint256(KolAuction.AuctionStatus.REFUNDED));
     }
 
 

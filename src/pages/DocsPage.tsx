@@ -35,7 +35,7 @@ const docSections: DocSection[] = [
       },
       {
         question: 'How is an auction settled?',
-        answer: 'After the auction ends, anyone can trigger settlement. The winner is locked and 80% of the total volume is held in escrow while the KOL must submit proof of fulfillment (48h window). The winner then confirms (48h window) or raises a dispute. Only after the auction reaches Completed — via winner confirmation, auto-confirmation, or an arbitration ruling in the KOL\u2019s favor — can the KOL claim the 80%. The 20% platform fee is claimable by the treasury right after settlement. In case of a KOL breach (no fulfillment) or a dispute ruled against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed to bidders pro-rata as refunds.',
+        answer: 'After the auction ends, anyone can trigger settlement. The winner is locked and 80% of the total volume is held in escrow while the KOL must submit proof of fulfillment (48h window). The winner then confirms (48h window) or raises a dispute. Only after the auction reaches Completed — via winner confirmation, auto-confirmation, or an arbitration ruling in the KOL\u2019s favor — can the KOL claim the 80%. The 20% platform fee is automatically credited to the treasury at settlement (no manual claim). In case of a KOL breach (no fulfillment) or a dispute ruled against the KOL, the locked 80% plus the KOL\u2019s 1 MON bond are distributed to bidders pro-rata as refunds.',
       },
       {
         question: 'Can a KOL run more than one auction at a time?',
@@ -96,7 +96,7 @@ const docSections: DocSection[] = [
       },
       {
         question: 'What can the platform claim?',
-        answer: 'The platform claims 20% of settled auction volume (claimable right after settlement) and 3% of PASS mint/burn fees. Both are pull payments from the respective contracts.',
+        answer: 'The platform receives 20% of settled auction volume — auto-credited to the treasury at settlement — and 3% of PASS mint/burn fees (pull payments from the respective contracts).',
       },
       {
         question: 'How do I get my bond back?',

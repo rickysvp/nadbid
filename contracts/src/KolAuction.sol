@@ -37,6 +37,7 @@ contract KolAuction {
         uint256 autoConfirmDeadline;       // winner 确认/争议截止（submit + AUTO_CONFIRM_WINDOW）
         bytes32 fulfillmentEvidenceHash;   // KOL 履约证据哈希（SP-2 P1：与争议证据分离）
         bytes32 disputeEvidenceHash;       // winner 争议证据哈希（不被履约证据覆盖）
+        bytes32 arbitrationNote;           // 仲裁裁定备注哈希（reasonHash，可为零——optional）
     }
 
     Auction public auction;
@@ -48,10 +49,9 @@ contract KolAuction {
     uint256 public lastBidderCumulative;
     uint256 public lastBidderBidCount;
 
-    // Pull 结算：settle 只记录待领金额，platformTreasury / kol 分别 claim。
-    // 避免 settle 依赖外部转账成功——若某一方是拒收合约，另一方仍可正常领取，
-    // 拍卖结算状态也不被阻塞（Registry 的担保赎回检查依赖 settled()）。
-    uint256 public pendingPlatform;   // 20% 平台费：settle 后即可领
+    // 资金归属（SP-2）：平台 20% 在 settle() 时【自动转账】入 platformTreasury（不再
+    // pending + claim，减少一次手动领取）；KOL 80% 在 COMPLETED 后可 claimKol() 领取
+    // （履约期间锁定在合约内）。
     uint256 public pendingKol;        // 80% KOL 收入：仅 COMPLETED 后可领（SP-2 锁定）
 
     // ---- SP-2 退款池 ----
@@ -82,7 +82,7 @@ contract KolAuction {
     event FulfillmentSubmitted(uint256 auctionId, address indexed winner, bytes32 fulfillmentEvidenceHash, uint256 timestamp);
     event FulfillmentConfirmed(uint256 auctionId, address indexed winner, uint256 timestamp);
     event DisputeRaised(uint256 auctionId, address indexed winner, bytes32 disputeEvidenceHash, uint256 timestamp);
-    event DisputeResolved(uint256 auctionId, bool kolWon, uint256 timestamp);
+    event DisputeResolved(uint256 auctionId, bool kolWon, bytes32 reasonHash, uint256 timestamp);
     event AuctionRefunded(uint256 auctionId, uint256 lockedAmount, uint256 slashedBond, uint256 timestamp);
     event RefundClaimed(address indexed bidder, uint256 amount);
 
@@ -114,7 +114,8 @@ contract KolAuction {
             fulfillmentTime: 0,
             autoConfirmDeadline: 0,
             fulfillmentEvidenceHash: bytes32(0),
-            disputeEvidenceHash: bytes32(0)
+            disputeEvidenceHash: bytes32(0),
+            arbitrationNote: bytes32(0)
         });
         platformTreasury = _platformTreasury;
         registry = _registry;
@@ -161,7 +162,13 @@ contract KolAuction {
         require(block.timestamp >= a.endTime, "NOT_ENDED");
         a.settled = true;
         uint256 platformFee = a.totalVolume * PLATFORM_SETTLE_PCT / PCT_DENOM;
-        pendingPlatform += platformFee;
+        // SP-2（审计 P1）：平台 20% 结算时自动转账入国库，无需平台主动领取。
+        // platformTreasury 为平台控制地址（EOA/可接收合约），部署时保证可接收；
+        // 转账失败则整体 revert（结算状态与资金归属保持一致，杜绝"已结算但未入账"）。
+        if (platformFee > 0) {
+            (bool okT, ) = payable(platformTreasury).call{value: platformFee}("");
+            require(okT, "TREASURY_SEND_FAILED");
+        }
         if (a.totalBids == 0) {
             // 无出价：无资金、无履约需求，直接终态（无需履约流程）
             a.status = AuctionStatus.COMPLETED;
@@ -180,18 +187,9 @@ contract KolAuction {
         emit AuctionSettled(a.id, a.winner, a.totalVolume, platformFee, a.totalVolume - platformFee, block.number);
     }
 
-    /// 平台方领取 20% 结算手续费（settle 后由 platformTreasury 调用）
-    function claimPlatform() external {
-        require(msg.sender == platformTreasury, "!TREASURY");
-        uint256 amount = pendingPlatform;
-        require(amount > 0, "NO_BALANCE");
-        pendingPlatform = 0;
-        (bool ok, ) = payable(msg.sender).call{value: amount}("");
-        require(ok, "CLAIM_FAIL");
-    }
-
     /// KOL 领取 80% 拍卖收入——SP-2：仅 COMPLETED（履约经确认/仲裁通过）后可领，
     /// 修复原"settle 后立即可提 80%"的 P0 资金风险。
+    /// （平台 20% 已在 settle() 时自动入国库，无 claimPlatform。）
     function claimKol() external {
         require(msg.sender == auction.kol, "!KOL");
         require(auction.status == AuctionStatus.COMPLETED, "!COMPLETED");
@@ -203,12 +201,14 @@ contract KolAuction {
     }
 
     /// SP-2：KOL 提交履约证据（evidenceHash 为履约内容/链接的哈希）。仅 KOL、
-    /// 仅 SETTLED、须在 fulfillmentDeadline 内。
+    /// 仅 SETTLED、须在 fulfillmentDeadline 内。链上拒绝零 hash（审计 P2：防绕过前端
+    /// 直接提交空证据）。
     function submitFulfillment(bytes32 evidenceHash) external {
         Auction storage a = auction;
         require(msg.sender == a.kol, "!KOL");
         require(a.status == AuctionStatus.SETTLED, "!SETTLED");
         require(block.timestamp <= a.fulfillmentDeadline, "TOO_LATE");
+        require(evidenceHash != bytes32(0), "ZERO_HASH");
         a.fulfillmentTime = block.timestamp;
         a.autoConfirmDeadline = block.timestamp + AUTO_CONFIRM_WINDOW;
         a.fulfillmentEvidenceHash = evidenceHash;
@@ -233,28 +233,31 @@ contract KolAuction {
         _releaseToKol();
     }
 
-    /// SP-2：中标者在确认窗口内发起争议（证据哈希上链），资金保持锁定等待仲裁
+    /// SP-2：中标者在确认窗口内发起争议（证据哈希上链，非零），资金保持锁定等待仲裁
     function dispute(bytes32 evidenceHash) external {
         Auction storage a = auction;
         require(msg.sender == a.winner, "!WINNER");
         require(a.status == AuctionStatus.AWAITING_CONFIRMATION, "!AWAITING");
         require(block.timestamp <= a.autoConfirmDeadline, "TOO_LATE");
+        require(evidenceHash != bytes32(0), "ZERO_HASH");
         a.disputeEvidenceHash = evidenceHash;  // 与履约证据分离，仲裁可同时查看双方证据
         a.status = AuctionStatus.DISPUTED;
         emit DisputeRaised(a.id, a.winner, evidenceHash, block.timestamp);
     }
 
-    /// SP-2：平台仲裁。kolWon=true → 放款给 KOL；false → 退款（80% + KOL 押金罚没）
-    function resolveDispute(bool kolWon) external {
+    /// SP-2：平台仲裁。kolWon=true → 放款给 KOL；false → 退款（80% + KOL 押金罚没）。
+    /// reasonHash 为裁定理由/依据的哈希（可为零，optional）——记录审计信息。
+    function resolveDispute(bool kolWon, bytes32 reasonHash) external {
         require(msg.sender == IRegistry(registry).arbitrator(), "!ARBITRATOR");
         Auction storage a = auction;
         require(a.status == AuctionStatus.DISPUTED, "!DISPUTED");
+        a.arbitrationNote = reasonHash;
         if (kolWon) {
             _releaseToKol();
         } else {
             _initiateRefund();
         }
-        emit DisputeResolved(a.id, kolWon, block.timestamp);
+        emit DisputeResolved(a.id, kolWon, reasonHash, block.timestamp);
     }
 
     /// SP-2：竞拍者领取违约退款（按出价金额占总额比例）。
