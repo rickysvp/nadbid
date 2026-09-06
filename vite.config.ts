@@ -11,6 +11,16 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    // P2-10：配置 manualChunks，将 wagmi/viem/React Query 拆分为独立 chunk，减小主包体积
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'wagmi-core': ['wagmi', 'viem', '@wagmi/core', '@tanstack/react-query'],
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
