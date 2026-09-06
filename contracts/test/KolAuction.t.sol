@@ -88,10 +88,11 @@ contract KolAuctionTest is Test {
 
     // 预约拍卖：开始时间未到不可出价，到点后正常出价
     function test_PlaceBid_NotStartedBeforeStartTime() public {
-        NadbidRegistry reg = new NadbidRegistry(1000);
-        reg.setFactory(address(this)); // F6 白名单
+        // P2-11：局部变量改名 testReg，避免遮蔽状态变量 reg（消除 Warning 2519）
+        NadbidRegistry testReg = new NadbidRegistry(1000);
+        testReg.setFactory(address(this)); // F6 白名单
         uint256 start = block.timestamp + 1000;
-        KolAuction sched = new KolAuction(kol, address(pass), fixedBid, duration, "scheduled", platform, address(reg), start);
+        KolAuction sched = new KolAuction(kol, address(pass), fixedBid, duration, "scheduled", platform, address(testReg), start);
         // 未到开始时间：出价必须 revert
         vm.prank(bidder);
         vm.expectRevert();
@@ -109,10 +110,11 @@ contract KolAuctionTest is Test {
 
     // F6 回归：非官方 Factory 直接 new KolAuction 必须 revert（否则可绕过"同时一场拍卖"软约束）
     function test_Constructor_RejectsNonFactory() public {
-        NadbidRegistry reg = new NadbidRegistry(1000);
+        // P2-11：局部变量改名 testReg，避免遮蔽状态变量 reg
+        NadbidRegistry testReg = new NadbidRegistry(1000);
         // 未 setFactory（factory = 0）→ 白名单校验失败，构造 revert
         vm.expectRevert(bytes("NOT_FACTORY"));
-        new KolAuction(kol, address(pass), fixedBid, duration, "bad factory", platform, address(reg), block.timestamp);
+        new KolAuction(kol, address(pass), fixedBid, duration, "bad factory", platform, address(testReg), block.timestamp);
     }
 
     function test_Settle_AfterEnd() public {
@@ -186,12 +188,13 @@ contract KolAuctionTest is Test {
     // Pull 模式：KOL 为拒收合约时 settle 不阻塞，平台仍可领取（资金不卡死）
     function test_Settle_RejectingKol_DoesNotBlock() public {
         RejectingKol rejectKol = new RejectingKol();
-        NadbidRegistry reg = new NadbidRegistry(1000);
-        reg.setFactory(address(this)); // F6 白名单
+        // P2-11：局部变量改名 testReg，避免遮蔽状态变量 reg
+        NadbidRegistry testReg = new NadbidRegistry(1000);
+        testReg.setFactory(address(this)); // F6 白名单
         // 用拒收 KOL 重建拍卖（复用同一 pass，bidder 已持有）
-        KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(reg), block.timestamp);
+        KolAuction rejAuction = new KolAuction(address(rejectKol), address(pass), fixedBid, duration, "reject test", platform, address(testReg), block.timestamp);
         // F2：登记为可信拍卖（settle 回调需要）
-        reg.addAuctionContract(address(rejectKol), address(rejAuction));
+        testReg.addAuctionContract(address(rejectKol), address(rejAuction));
         vm.prank(bidder);
         rejAuction.placeBid{value: fixedBid}();
         vm.warp(block.timestamp + 1000);

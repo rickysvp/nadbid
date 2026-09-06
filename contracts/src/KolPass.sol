@@ -153,8 +153,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     // ===== Soulbound =====
     // OZ 5.3.0: 3-arg safeTransferFrom 非 virtual 不可 override；其内部调用 4-arg virtual 版本，
     // 由下方 4-arg override 统一 revert，等价阻断所有 transferFrom/safeTransferFrom 调用。
-    function transferFrom(address, address, uint256) public override(ERC721, IERC721) { revert("SOULBOUND"); }
-    function safeTransferFrom(address, address, uint256, bytes memory) public override(ERC721, IERC721) { revert("SOULBOUND"); }
+    // P2-11：函数不读取/修改状态，可声明为 pure（消除编译器 Warning 2018）
+    function transferFrom(address, address, uint256) public pure override(ERC721, IERC721) { revert("SOULBOUND"); }
+    function safeTransferFrom(address, address, uint256, bytes memory) public pure override(ERC721, IERC721) { revert("SOULBOUND"); }
 
     // totalSupply / tokenOfOwnerByIndex / tokenByIndex 由 ERC721Enumerable 提供
     // （burn 为联合曲线核心需求，前端需通过 tokenOfOwnerByIndex 枚举持有 token 以供选择）
@@ -165,8 +166,10 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
 
     function _toString(address a) internal pure returns (string memory) {
         bytes memory s = new bytes(40);
+        // P2-11：使用 bytes20 索引访问，避免 uint160→uint8 转换的 unsafe-typecast 警告
+        bytes20 addrBytes = bytes20(a);
         for (uint256 i = 0; i < 20; i++) {
-            bytes1 b = bytes1(uint8(uint160(a) >> (8 * (19 - i))));
+            bytes1 b = addrBytes[i];
             bytes1 hi = bytes1(uint8(b) / 16);
             bytes1 lo = bytes1(uint8(b) % 16);
             s[2 * i] = char(hi);
