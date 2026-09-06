@@ -36,7 +36,9 @@ contract KolAuction {
         uint256 fulfillmentTime;           // KOL 实际提交时间（0 = 未提交）
         uint256 autoConfirmDeadline;       // winner 确认/争议截止（submit + AUTO_CONFIRM_WINDOW）
         bytes32 fulfillmentEvidenceHash;   // KOL 履约证据哈希（SP-2 P1：与争议证据分离）
+        string fulfillmentEvidenceUri;      // P1-2：KOL 履约证据 URI（IPFS/HTTPS，仲裁者可下载查看）
         bytes32 disputeEvidenceHash;       // winner 争议证据哈希（不被履约证据覆盖）
+        string disputeEvidenceUri;          // P1-2：winner 争议证据 URI（IPFS/HTTPS）
         bytes32 arbitrationNote;           // 仲裁裁定备注哈希（reasonHash，可为零——optional）
     }
 
@@ -114,7 +116,9 @@ contract KolAuction {
             fulfillmentTime: 0,
             autoConfirmDeadline: 0,
             fulfillmentEvidenceHash: bytes32(0),
+            fulfillmentEvidenceUri: "",
             disputeEvidenceHash: bytes32(0),
+            disputeEvidenceUri: "",
             arbitrationNote: bytes32(0)
         });
         platformTreasury = _platformTreasury;
@@ -204,10 +208,11 @@ contract KolAuction {
         require(ok, "CLAIM_FAIL");
     }
 
-    /// SP-2：KOL 提交履约证据（evidenceHash 为履约内容/链接的哈希）。仅 KOL、
-    /// 仅 SETTLED、须在 fulfillmentDeadline 内。链上拒绝零 hash（审计 P2：防绕过前端
-    /// 直接提交空证据）。
-    function submitFulfillment(bytes32 evidenceHash) external {
+    /// SP-2：KOL 提交履约证据（evidenceHash 为履约内容/链接的哈希，evidenceUri 为证据
+    /// 可访问地址如 IPFS CID / HTTPS URL）。仅 KOL、仅 SETTLED、须在 fulfillmentDeadline 内。
+    /// 链上拒绝零 hash（审计 P2：防绕过前端直接提交空证据）。P1-2：增加 URI 使仲裁者
+    /// 可实际下载查看证据内容，而非仅凭哈希判断。
+    function submitFulfillment(bytes32 evidenceHash, string calldata evidenceUri) external {
         Auction storage a = auction;
         require(msg.sender == a.kol, "!KOL");
         require(a.status == AuctionStatus.SETTLED, "!SETTLED");
@@ -216,6 +221,7 @@ contract KolAuction {
         a.fulfillmentTime = block.timestamp;
         a.autoConfirmDeadline = block.timestamp + AUTO_CONFIRM_WINDOW;
         a.fulfillmentEvidenceHash = evidenceHash;
+        a.fulfillmentEvidenceUri = evidenceUri;
         a.status = AuctionStatus.AWAITING_CONFIRMATION;
         emit FulfillmentSubmitted(a.id, a.winner, evidenceHash, block.timestamp);
     }
@@ -237,14 +243,16 @@ contract KolAuction {
         _releaseToKol();
     }
 
-    /// SP-2：中标者在确认窗口内发起争议（证据哈希上链，非零），资金保持锁定等待仲裁
-    function dispute(bytes32 evidenceHash) external {
+    /// SP-2：中标者在确认窗口内发起争议（证据哈希+URI 上链，非零），资金保持锁定等待仲裁。
+    /// P1-2：增加 evidenceUri 使仲裁者可实际下载查看争议证据内容。
+    function dispute(bytes32 evidenceHash, string calldata evidenceUri) external {
         Auction storage a = auction;
         require(msg.sender == a.winner, "!WINNER");
         require(a.status == AuctionStatus.AWAITING_CONFIRMATION, "!AWAITING");
         require(block.timestamp <= a.autoConfirmDeadline, "TOO_LATE");
         require(evidenceHash != bytes32(0), "ZERO_HASH");
         a.disputeEvidenceHash = evidenceHash;  // 与履约证据分离，仲裁可同时查看双方证据
+        a.disputeEvidenceUri = evidenceUri;
         a.status = AuctionStatus.DISPUTED;
         emit DisputeRaised(a.id, a.winner, evidenceHash, block.timestamp);
     }
@@ -279,6 +287,17 @@ contract KolAuction {
         (bool ok, ) = payable(msg.sender).call{value: share}("");
         require(ok, "CLAIM_FAIL");
         emit RefundClaimed(msg.sender, share);
+    }
+
+    /// P2-8 修复：退款池整数除法尾差清扫。按比例退款时，除法截断会留下少量 dust
+    /// 永久留在合约中。任何人可在 REFUNDED 终态调用此函数，将尾差归集到平台国库。
+    /// 仅在 REFUNDED 状态下可调用，防止误转其他状态下的锁定资金。
+    function sweepRefundDust() external {
+        require(auction.status == AuctionStatus.REFUNDED, "!REFUNDED");
+        uint256 dust = address(this).balance;
+        require(dust > 0, "NO_DUST");
+        (bool ok, ) = payable(platformTreasury).call{value: dust}("");
+        require(ok, "SWEEP_FAIL");
     }
 
     /// 内部：将锁定的 80% 释放为 KOL 待领，状态 → COMPLETED（终态：释放计数/押金闸门）

@@ -40,7 +40,7 @@ contract IntegrationTest is Test {
         registry.depositBond{value: 1 ether}();
         // 2. 创建 PASS + 拍卖
         address passAddr = factory.createKolPass(13.39 ether);
-        address auctionAddr = factory.createKolAuction(passAddr, 99 ether, 120, "1v1 live");
+        address auctionAddr = factory.createKolAuction(passAddr, 99 ether, 40, "1v1 live");
         vm.stopPrank();
 
         // 3. 用户 mint PASS

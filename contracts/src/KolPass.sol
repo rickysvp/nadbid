@@ -20,6 +20,10 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     uint256 public constant MAX_SUPPLY = 100_000; // 100× baseSupply，远超单 KOL 实际 PASS 需求
     // 审计修复（D6）：basePrice 上限（1,000,000 MON），防误传巨大值导致曲线价溢出。
     uint256 public constant MAX_BASE_PRICE = 1_000_000 ether;
+    // P2-7 修复：最小 basePrice——确保 curvePriceAt(1) = basePrice / baseSupply² >= 1 wei，
+    // 防止整数除法导致早期 PASS 价格为 0（用户可免费铸造，破坏联合曲线经济模型）。
+    // MIN_BASE_PRICE = baseSupply² = 1,000,000 wei ≈ 0.000000000001 MON
+    uint256 public constant MIN_BASE_PRICE = 1_000_000;
     /// tokenId 分配器：单调递增、永不回退（burn 后不递减）。
     /// 修复前用 totalMinted 同时表示"存活供应量"与"下一个 tokenId"，
     /// burn 后 totalMinted 回退会重新生成已存在 tokenId，导致后续 mint 永久 revert。
@@ -43,8 +47,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
         ERC721(string.concat("Nadbid-", _toString(address(this))), "NPASS")
     {
         // 审计修复（D6）：构造零地址 / 参数范围校验——防部署出不可用或价格溢出的 PASS
+        // P2-7：增加 MIN_BASE_PRICE 下限，防整数除法导致早期曲线价为 0
         require(_kol != address(0), "ZERO_KOL");
-        require(_basePrice > 0 && _basePrice <= MAX_BASE_PRICE, "BAD_BASE_PRICE");
+        require(_basePrice >= MIN_BASE_PRICE && _basePrice <= MAX_BASE_PRICE, "BAD_BASE_PRICE");
         require(_platformTreasury != address(0), "ZERO_TREASURY");
         require(_factory != address(0), "ZERO_FACTORY");
         kol = _kol;
@@ -63,7 +68,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
 
     function curvePriceAt(uint256 nextSupply) public view returns (uint256) {
         if (nextSupply == 0) return 0;
-        return basePrice * nextSupply * nextSupply / (baseSupply * baseSupply);
+        // P2-7：最小价格保护——整数除法结果为 0 时返回 1 wei，防止免费铸造
+        uint256 price = basePrice * nextSupply * nextSupply / (baseSupply * baseSupply);
+        return price == 0 ? 1 : price;
     }
 
     // 审计修复（P1-1）：nonReentrant 阻断 _safeMint 接收回调重入 mint。

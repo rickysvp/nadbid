@@ -57,7 +57,7 @@ contract NadbidFactoryTest is Test {
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
-        address auction = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
+        address auction = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         assertTrue(auction != address(0));
         assertEq(registry.getKol(kol).auctionContracts.length, 1);
         vm.stopPrank();
@@ -82,10 +82,10 @@ contract NadbidFactoryTest is Test {
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
-        factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");  // 第 1 场，未 settle
+        factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");  // 第 1 场，未 settle
         // 上一场未结算 → 拒绝创建第 2 场
         vm.expectRevert("ACTIVE_AUCTION_EXISTS");
-        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        factory.createKolAuction(pass, 99 ether, 40, "second auction");
         vm.stopPrank();
     }
 
@@ -97,7 +97,7 @@ contract NadbidFactoryTest is Test {
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
-        address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
+        address a1 = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         vm.stopPrank();
         // winner 出价（有出价 → settle 进入 SETTLED 履约流程，计数保持锁定）
         address winner = address(0x1234);
@@ -114,16 +114,16 @@ contract NadbidFactoryTest is Test {
         // settle 后计数未释放 → 创建第 2 场必须被拒
         vm.prank(kol);
         vm.expectRevert("ACTIVE_AUCTION_EXISTS");
-        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        factory.createKolAuction(pass, 99 ether, 40, "second auction");
         // 完成履约（KOL 提交 + winner 确认）→ COMPLETED 终态 → 可创建第 2 场
         vm.prank(kol);
-        KolAuction(payable(a1)).submitFulfillment(bytes32(uint256(0xABC)));
+        KolAuction(payable(a1)).submitFulfillment(bytes32(uint256(0xABC)), "");
         vm.prank(winner);
         KolAuction(payable(a1)).confirmFulfillment();
         assertEq(uint256(KolAuction(payable(a1)).getAuction().status), uint256(KolAuction.AuctionStatus.COMPLETED));
         assertEq(registry.openAuctionCount(kol), 0);
         vm.prank(kol);
-        address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        address a2 = factory.createKolAuction(pass, 99 ether, 40, "second auction");
         assertTrue(a2 != address(0));
         assertEq(registry.getKol(kol).auctionContracts.length, 2);
     }
@@ -136,7 +136,7 @@ contract NadbidFactoryTest is Test {
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         address pass = factory.createKolPass(13.39 ether);
-        address a1 = factory.createKolAuction(pass, 99 ether, 120, "1v1 live chat 30min");
+        address a1 = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         vm.stopPrank();
         address winner = address(0x1234);
         vm.deal(winner, 1000 ether);
@@ -156,13 +156,13 @@ contract NadbidFactoryTest is Test {
         assertFalse(registry.canCreate(kol));            // 但违约 KOL 已被封禁冻结
         vm.prank(kol);
         vm.expectRevert("!CAN_CREATE");
-        factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        factory.createKolAuction(pass, 99 ether, 40, "second auction");
         // owner 解封 + 重新质押后可创建下一场
         registry.setBanned(kol, false);
         vm.startPrank(kol);
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address a2 = factory.createKolAuction(pass, 99 ether, 120, "second auction");
+        address a2 = factory.createKolAuction(pass, 99 ether, 40, "second auction");
         assertTrue(a2 != address(0));
         vm.stopPrank();
     }

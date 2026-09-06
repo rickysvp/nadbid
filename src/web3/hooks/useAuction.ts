@@ -39,8 +39,12 @@ export interface AuctionData {
   autoConfirmDeadline: bigint;
   /** KOL 履约证据哈希（SP-2 与争议证据分离） */
   fulfillmentEvidenceHash: `0x${string}`;
+  /** P1-2：KOL 履约证据 URI（IPFS/HTTPS/data URI，仲裁者可下载查看） */
+  fulfillmentEvidenceUri: string;
   /** winner 争议证据哈希 */
   disputeEvidenceHash: `0x${string}`;
+  /** P1-2：winner 争议证据 URI */
+  disputeEvidenceUri: string;
   /** 仲裁裁定理由哈希（可为零，optional） */
   arbitrationNote: `0x${string}`;
 }
@@ -79,14 +83,14 @@ export interface UseAuctionResult {
   placeBid: (opts?: { value?: bigint } & AuctionTxOptions) => Promise<Hash | null>;
   /** settle()：结束拍卖（20% 平台费自动入国库 + 锁定 80% + 固化 winner） */
   settle: (opts?: AuctionTxOptions) => Promise<Hash | null>;
-  /** submitFulfillment(evidenceHash)：KOL 提交履约证据 */
-  submitFulfillment: (evidenceHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
+  /** submitFulfillment(evidenceHash, evidenceUri)：KOL 提交履约证据（P1-2：增加 URI 使仲裁者可下载查看） */
+  submitFulfillment: (evidenceHash: `0x${string}`, evidenceUri: string, opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** confirmFulfillment()：中标者确认已履约 */
   confirmFulfillment: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** autoConfirm()：窗口超时后任何人可触发自动确认 */
   autoConfirm: (opts?: AuctionTxOptions) => Promise<Hash | null>;
-  /** dispute(evidenceHash)：中标者在窗口内发起争议 */
-  dispute: (evidenceHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
+  /** dispute(evidenceHash, evidenceUri)：中标者在窗口内发起争议（P1-2：增加 URI） */
+  dispute: (evidenceHash: `0x${string}`, evidenceUri: string, opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** resolveDispute(kolWon, reasonHash?)：仲裁角色裁定（reasonHash 为裁定理由哈希，可传 0x0） */
   resolveDispute: (kolWon: boolean, reasonHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** claimRefund()：违约退款领取 */
@@ -276,13 +280,13 @@ export function useAuction(
   );
 
   const submitFulfillment = useCallback(
-    (evidenceHash: `0x${string}`, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
+    (evidenceHash: `0x${string}`, evidenceUri: string, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
       if (!auctionAddress) return Promise.resolve(null);
       return write({
         address: auctionAddress,
         abi: kolAuctionAbi,
         functionName: 'submitFulfillment',
-        args: [evidenceHash],
+        args: [evidenceHash, evidenceUri],
         onSuccess: opts.onSuccess,
         toast: opts.toast,
       });
@@ -321,13 +325,13 @@ export function useAuction(
   );
 
   const dispute = useCallback(
-    (evidenceHash: `0x${string}`, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
+    (evidenceHash: `0x${string}`, evidenceUri: string, opts: AuctionTxOptions = {}): Promise<Hash | null> => {
       if (!auctionAddress) return Promise.resolve(null);
       return write({
         address: auctionAddress,
         abi: kolAuctionAbi,
         functionName: 'dispute',
-        args: [evidenceHash],
+        args: [evidenceHash, evidenceUri],
         onSuccess: opts.onSuccess,
         toast: opts.toast,
       });

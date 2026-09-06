@@ -13,9 +13,12 @@ contract NadbidFactory {
     /// 防止 KOL 自行填写任意价破坏"固定出价"规则。
     uint256 public immutable FIXED_BID_AMOUNT;
 
-    // 内容与时长上限（防止链上存储膨胀 / 永不结束的拍卖）
+    // 内容上限（防止链上存储膨胀）
     uint256 public constant MAX_CONTENT_LENGTH = 200;
-    uint256 public constant MAX_DURATION = 24 hours;
+    /// P1-1 修复：拍卖时长固定 40 秒（便士拍卖规则：首笔出价后启动 40 秒倒计时，
+    /// 每次出价重置 40 秒）。Factory 强制 duration == FIXED_DURATION，
+    /// 防止 KOL 传入任意时长破坏"固定 40 秒"规则。
+    uint256 public constant FIXED_DURATION = 40 seconds;
     // 预约开始的最大提前量（防止把拍卖排到遥不可及的未来）
     uint256 public constant MAX_START_DELAY = 30 days;
 
@@ -63,8 +66,7 @@ contract NadbidFactory {
         require(KolPass(passContract).factory() == address(this), "NOT_FACTORY_PASS");
         require(KolPass(passContract).kol() == msg.sender, "NOT_OWN_PASS");
         require(fixedBidAmount == FIXED_BID_AMOUNT, "WRONG_FIXED_BID");
-        require(duration > 0, "ZERO_DURATION");
-        require(duration <= MAX_DURATION, "DURATION_TOO_LONG");
+        require(duration == FIXED_DURATION, "DURATION_MUST_BE_40S");
         require(bytes(content).length > 0, "EMPTY_CONTENT");
         require(bytes(content).length <= MAX_CONTENT_LENGTH, "CONTENT_TOO_LONG");
         KolAuction auction = new KolAuction(msg.sender, passContract, fixedBidAmount, duration, content, platformTreasury, address(registry), block.timestamp);
@@ -90,8 +92,7 @@ contract NadbidFactory {
         require(KolPass(passContract).factory() == address(this), "NOT_FACTORY_PASS");
         require(KolPass(passContract).kol() == msg.sender, "NOT_OWN_PASS");
         require(fixedBidAmount == FIXED_BID_AMOUNT, "WRONG_FIXED_BID");
-        require(duration > 0, "ZERO_DURATION");
-        require(duration <= MAX_DURATION, "DURATION_TOO_LONG");
+        require(duration == FIXED_DURATION, "DURATION_MUST_BE_40S");
         require(bytes(content).length > 0, "EMPTY_CONTENT");
         require(bytes(content).length <= MAX_CONTENT_LENGTH, "CONTENT_TOO_LONG");
         KolAuction auction = new KolAuction(msg.sender, passContract, fixedBidAmount, duration, content, platformTreasury, address(registry), startTime);

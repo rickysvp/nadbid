@@ -173,7 +173,7 @@ contract KolAuctionTest is Test {
 
         // KOL 提交履约 → 中标者确认 → COMPLETED 后可领取
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        auction.submitFulfillment(bytes32(uint256(0xABC)), "");
         vm.prank(bidder);
         auction.confirmFulfillment();
         uint256 kolBefore = kol.balance;
@@ -209,7 +209,7 @@ contract KolAuctionTest is Test {
         assertEq(rejAuction.pendingKol(), 0);
         assertEq(address(rejAuction).balance, fixedBid - platformFee);
         vm.prank(address(rejectKol));
-        rejAuction.submitFulfillment(bytes32(uint256(0xDEF)));
+        rejAuction.submitFulfillment(bytes32(uint256(0xDEF)), "");
         vm.warp(block.timestamp + 48 hours + 1);
         rejAuction.autoConfirm();
         assertEq(rejAuction.pendingKol(), fixedBid - platformFee);
@@ -260,13 +260,13 @@ contract KolAuctionTest is Test {
         _settleWithBid();
         vm.prank(bidder);
         vm.expectRevert(bytes("!KOL"));
-        auction.submitFulfillment(bytes32(uint256(1)));
+        auction.submitFulfillment(bytes32(uint256(1)), "");
     }
 
     function test_Fulfillment_ConfirmByWinner() public {
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        auction.submitFulfillment(bytes32(uint256(0xABC)), "");
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.AWAITING_CONFIRMATION));
         assertEq(auction.getAuction().autoConfirmDeadline, block.timestamp + 48 hours);
         // 非中标者不能确认
@@ -285,7 +285,7 @@ contract KolAuctionTest is Test {
     function test_Fulfillment_AutoConfirm() public {
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(2)));
+        auction.submitFulfillment(bytes32(uint256(2)), "");
         // 未到窗口：不可自动确认
         vm.warp(block.timestamp + 48 hours - 1);
         vm.expectRevert(bytes("NOT_READY"));
@@ -300,18 +300,18 @@ contract KolAuctionTest is Test {
     function test_Dispute_OnlyWinner() public {
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(3)));
+        auction.submitFulfillment(bytes32(uint256(3)), "");
         vm.prank(address(0x7777));
         vm.expectRevert(bytes("!WINNER"));
-        auction.dispute(bytes32(uint256(9)));
+        auction.dispute(bytes32(uint256(9)), "");
     }
 
     function test_Dispute_AndResolve_KolWon() public {
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(4)));
+        auction.submitFulfillment(bytes32(uint256(4)), "");
         vm.prank(bidder);
-        auction.dispute(bytes32(uint256(9)));
+        auction.dispute(bytes32(uint256(9)), "");
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.DISPUTED));
         // 非仲裁者不可裁定
         vm.prank(address(0x7777));
@@ -329,9 +329,9 @@ contract KolAuctionTest is Test {
         _bondKol();
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(5)));
+        auction.submitFulfillment(bytes32(uint256(5)), "");
         vm.prank(bidder);
-        auction.dispute(bytes32(uint256(9)));
+        auction.dispute(bytes32(uint256(9)), "");
         reg.setArbitrator(address(this));
         auction.resolveDispute(false, bytes32(uint256(0xDEAD)));
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
@@ -428,7 +428,7 @@ contract KolAuctionTest is Test {
         reg.requestBondRedeem();
         // 完成履约 → COMPLETED → 闸门释放
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        auction.submitFulfillment(bytes32(uint256(0xABC)), "");
         vm.prank(bidder);
         auction.confirmFulfillment();
         assertEq(reg.openAuctionCount(kol), 0);
@@ -477,16 +477,16 @@ contract KolAuctionTest is Test {
         _settleWithBid();
         vm.prank(kol);
         vm.expectRevert(bytes("ZERO_HASH"));
-        auction.submitFulfillment(bytes32(0));
+        auction.submitFulfillment(bytes32(0), "");
     }
 
     function test_Dispute_RejectsZeroHash() public {
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(0xABC)));
+        auction.submitFulfillment(bytes32(uint256(0xABC)), "");
         vm.prank(bidder);
         vm.expectRevert(bytes("ZERO_HASH"));
-        auction.dispute(bytes32(0));
+        auction.dispute(bytes32(0), "");
     }
 
     // 审计 P2：仲裁裁定记录理由 hash（arbitrationNote），双方证据哈希互不覆盖
@@ -494,9 +494,9 @@ contract KolAuctionTest is Test {
         _bondKol();
         _settleWithBid();
         vm.prank(kol);
-        auction.submitFulfillment(bytes32(uint256(0xF1)));
+        auction.submitFulfillment(bytes32(uint256(0xF1)), "");
         vm.prank(bidder);
-        auction.dispute(bytes32(uint256(0xD1)));
+        auction.dispute(bytes32(uint256(0xD1)), "");
         reg.setArbitrator(address(this));
         auction.resolveDispute(false, bytes32(uint256(0xCAFE)));
         KolAuction.Auction memory a = auction.getAuction();

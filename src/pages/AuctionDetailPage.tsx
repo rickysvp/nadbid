@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatUnits } from 'viem';
+import { formatUnits, keccak256 } from 'viem';
 import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown, Sparkles } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
@@ -316,6 +316,44 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const confirmWindowOpen = !!auctionData && Number(auctionData.autoConfirmDeadline) > nowSec2;
   const fulfillmentExpired = !!auctionData && !kolSubmitted && Number(auctionData.fulfillmentDeadline) > 0 && Number(auctionData.fulfillmentDeadline) <= nowSec2;
   const [evidenceInput, setEvidenceInput] = useState('');
+  // P1-2：证据文件上传——自动计算 keccak256 哈希 + base64 data URI，
+  // 仲裁者可通过 URI 下载查看证据内容，而非仅凭哈希判断。
+  const [evidenceFileName, setEvidenceFileName] = useState('');
+  const [evidenceFileHash, setEvidenceFileHash] = useState<`0x${string}` | ''>('');
+  const [evidenceFileUri, setEvidenceFileUri] = useState('');
+  const [evidenceFileLoading, setEvidenceFileLoading] = useState(false);
+
+  /** P1-2：证据文件上传处理——读取文件 → 计算 keccak256 → 生成 base64 data URI */
+  const handleEvidenceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEvidenceFileLoading(true);
+    setEvidenceFileName(file.name);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      // 计算文件内容的 keccak256 哈希（与链上校验一致）
+      const hash = keccak256(uint8);
+      setEvidenceFileHash(hash);
+      setEvidenceInput(hash);
+      // 生成 base64 data URI 作为 evidenceUri（简单方案，链上存储可访问地址）
+      // 大文件建议使用 IPFS，此处 base64 适用于测试网的图片/文档证据
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setEvidenceFileUri(base64);
+    } catch (err) {
+      console.error('Evidence file processing failed:', err);
+      setEvidenceFileName('');
+      setEvidenceFileHash('');
+      setEvidenceFileUri('');
+    } finally {
+      setEvidenceFileLoading(false);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -402,10 +440,12 @@ function ChainAuctionDetail({ address }: { address: string }) {
       case 'submit': {
         const hash = evidenceInput.trim();
         if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
-          error('请粘贴 0x + 64 位十六进制证据哈希（如 keccak256(证据内容)）');
+          error('请先上传证据文件或粘贴 0x + 64 位十六进制证据哈希');
           return;
         }
-        await submitFulfillment(hash as `0x${string}`, { onSuccess: () => { success('Fulfillment submitted!'); toastCfg.onSuccess(); } });
+        // P1-2：优先使用上传文件的 URI；手动粘贴哈希时 URI 为空（链上允许空 URI）
+        const uri = evidenceFileHash === hash ? evidenceFileUri : '';
+        await submitFulfillment(hash as `0x${string}`, uri, { onSuccess: () => { success('Fulfillment submitted!'); toastCfg.onSuccess(); } });
         break;
       }
       case 'confirm':
@@ -417,10 +457,11 @@ function ChainAuctionDetail({ address }: { address: string }) {
       case 'dispute': {
         const hash = evidenceInput.trim();
         if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
-          error('请粘贴 0x + 64 位十六进制证据哈希（如 keccak256(争议证据)）');
+          error('请先上传争议证据文件或粘贴 0x + 64 位十六进制证据哈希');
           return;
         }
-        await dispute(hash as `0x${string}`, { onSuccess: () => { success('Dispute raised. Awaiting arbitration.'); toastCfg.onSuccess(); } });
+        const uri = evidenceFileHash === hash ? evidenceFileUri : '';
+        await dispute(hash as `0x${string}`, uri, { onSuccess: () => { success('Dispute raised. Awaiting arbitration.'); toastCfg.onSuccess(); } });
         break;
       }
       case 'refund':
@@ -722,6 +763,28 @@ function ChainAuctionDetail({ address }: { address: string }) {
 
                     {isKol && !kolSubmitted && !fulfillmentExpired && (
                       <>
+                        {/* P1-2：证据文件上传——自动计算哈希 + 生成 URI，仲裁者可下载查看 */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-white/40">
+                            Upload Evidence File (auto-calculates hash)
+                          </label>
+                          <input
+                            type="file"
+                            onChange={handleEvidenceFileUpload}
+                            disabled={evidenceFileLoading}
+                            className="w-full text-[10px] text-white/60 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#3ec470]/15 file:text-[#3ec470] file:text-[10px] file:font-bold hover:file:bg-[#3ec470]/25 cursor-pointer"
+                          />
+                          {evidenceFileLoading && (
+                            <div className="text-[10px] text-[#3ec470]">Processing file...</div>
+                          )}
+                          {evidenceFileName && evidenceFileHash && (
+                            <div className="bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 space-y-1">
+                              <div className="text-[10px] text-white/60 truncate">📎 {evidenceFileName}</div>
+                              <div className="text-[9px] font-mono text-[#3ec470]/80 truncate">{evidenceFileHash}</div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-[9px] text-white/30 text-center">— or manually paste hash —</div>
                         <input
                           value={evidenceInput}
                           onChange={(e) => setEvidenceInput(e.target.value)}
@@ -743,6 +806,18 @@ function ChainAuctionDetail({ address }: { address: string }) {
                         <div className="text-white/40 text-[10px] leading-relaxed">
                           KOL 已提交履约证据。请确认履约质量，或提交争议证据发起仲裁（48h 窗口内）。
                         </div>
+                        {/* P1-2：显示 KOL 履约证据链接（如有 URI） */}
+                        {auctionData?.fulfillmentEvidenceUri && (
+                          <a
+                            href={auctionData.fulfillmentEvidenceUri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
+                          >
+                            <div className="text-[10px] text-[#3ec470] font-bold">📎 View KOL Fulfillment Evidence</div>
+                            <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.fulfillmentEvidenceHash}</div>
+                          </a>
+                        )}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleFulfillmentAction('confirm')}
@@ -758,6 +833,24 @@ function ChainAuctionDetail({ address }: { address: string }) {
                           >
                             Dispute
                           </button>
+                        </div>
+                        {/* P1-2：争议证据文件上传 */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-white/40">
+                            Upload Dispute Evidence File
+                          </label>
+                          <input
+                            type="file"
+                            onChange={handleEvidenceFileUpload}
+                            disabled={evidenceFileLoading}
+                            className="w-full text-[10px] text-white/60 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#ea6668]/15 file:text-[#ff8a8c] file:text-[10px] file:font-bold hover:file:bg-[#ea6668]/25 cursor-pointer"
+                          />
+                          {evidenceFileName && evidenceFileHash && (
+                            <div className="bg-[#161616] border border-[#ea6668]/30 rounded px-2.5 py-2 space-y-1">
+                              <div className="text-[10px] text-white/60 truncate">📎 {evidenceFileName}</div>
+                              <div className="text-[9px] font-mono text-[#ff8a8c]/80 truncate">{evidenceFileHash}</div>
+                            </div>
+                          )}
                         </div>
                         <input
                           value={evidenceInput}
@@ -819,11 +912,39 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 )}
 
                 {auctionStatus === 4 && (
-                  <div className="w-full mt-4 bg-[#0f0f0f] border border-[#ea6668]/30 rounded-lg p-4 text-left">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ff8a8c] mb-2">⚖️ Disputed</div>
+                  <div className="w-full mt-4 bg-[#0f0f0f] border border-[#ea6668]/30 rounded-lg p-4 text-left space-y-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ff8a8c]">⚖️ Disputed</div>
                     <div className="text-white/40 text-[10px] leading-relaxed">
-                      争议已提交仲裁。资金保持锁定，等待平台仲裁结果。中标者可在此页面跟踪裁定结果。
+                      争议已提交仲裁。资金保持锁定，等待平台仲裁结果。双方证据如下：
                     </div>
+                    {/* P1-2：显示 KOL 履约证据链接 */}
+                    {auctionData?.fulfillmentEvidenceUri ? (
+                      <a
+                        href={auctionData.fulfillmentEvidenceUri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
+                      >
+                        <div className="text-[10px] text-[#3ec470] font-bold">📎 KOL Fulfillment Evidence</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.fulfillmentEvidenceHash}</div>
+                      </a>
+                    ) : (
+                      <div className="text-[9px] text-white/30">KOL fulfillment evidence: {auctionData?.fulfillmentEvidenceHash ?? 'N/A'}</div>
+                    )}
+                    {/* P1-2：显示 winner 争议证据链接 */}
+                    {auctionData?.disputeEvidenceUri ? (
+                      <a
+                        href={auctionData.disputeEvidenceUri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block bg-[#161616] border border-[#ea6668]/30 rounded px-2.5 py-2 hover:bg-[#ea6668]/5 transition-colors"
+                      >
+                        <div className="text-[10px] text-[#ff8a8c] font-bold">📎 Winner Dispute Evidence</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.disputeEvidenceHash}</div>
+                      </a>
+                    ) : (
+                      <div className="text-[9px] text-white/30">Dispute evidence: {auctionData?.disputeEvidenceHash ?? 'N/A'}</div>
+                    )}
                   </div>
                 )}
 

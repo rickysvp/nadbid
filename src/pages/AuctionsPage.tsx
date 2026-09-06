@@ -335,7 +335,7 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
   // F1：固定出价由合约强制（FIXED_BID_AMOUNT immutable：测试网 0.1 / 主网 99 MON），
   // 初始为空，链上值读取后自动填充；输入框只读，防止 KOL 填任意价导致 WRONG_FIXED_BID revert。
   const [fixedBid, setFixedBid] = useState('');
-  const [duration, setDuration] = useState('120');
+  const [duration, setDuration] = useState('40');
   const [content, setContent] = useState('');
   const [startAt, setStartAt] = useState(() => toLocalInputValue(new Date()));
   const [passAddr, setPassAddr] = useState<`0x${string}` | ''>('');
@@ -412,8 +412,8 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
     if (!(fixedBidNum > 0)) { toastError('Fixed bid loading — try again in a moment'); return; }
     if (fixedBidNum > 10000) { toastError('Fixed bid too large (max 10,000 MON)'); return; }
     if (!(durationNum > 0)) { toastError('Enter a valid duration'); return; }
-    // P3-6：与合约 MAX_DURATION(24h)/MAX_START_DELAY(30d) 对齐的前端预校验，避免等到链上 revert
-    if (durationNum > 86400) { toastError('Duration too long (max 24h)'); return; }
+    // P1-1：与合约 FIXED_DURATION(40s) 对齐的前端预校验，避免等到链上 revert
+    if (durationNum !== 40) { toastError('Duration must be 40 seconds (fixed auction rule)'); return; }
     const startMs = new Date(startAt).getTime();
     if (Number.isNaN(startMs)) { toastError('Invalid start time'); return; }
     const startSec = Math.floor(startMs / 1000);
