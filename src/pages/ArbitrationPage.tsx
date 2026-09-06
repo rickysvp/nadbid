@@ -9,7 +9,7 @@ import { useAuction } from '../web3/hooks/useAuction';
 import { useToast } from '../hooks/useToast';
 import { auctionDetailPath } from '../config/routes';
 
-const MAX_REGISTRY_INDEX = 20;
+/** P2-4：使用 Registry.kolCount() 动态获取 KOL 总数，替代固定前 20 个的硬编码限制 */
 
 interface DisputedAuction {
   address: `0x${string}`;
@@ -57,7 +57,7 @@ export default function ArbitrationPage() {
       .catch(() => setArbitrator(undefined));
   }, [publicClient]);
 
-  // 枚举 Registry 前 MAX_REGISTRY_INDEX 个 KOL → auctionContracts → DISPUTED 拍卖
+  // P2-4：先获取 KOL 总数，再枚举所有 KOL → auctionContracts → DISPUTED 拍卖
   useEffect(() => {
     const registry = contractAddresses.registry;
     if (!registry || !publicClient) return;
@@ -65,8 +65,14 @@ export default function ArbitrationPage() {
     setScanning(true);
     (async () => {
       try {
+        // 先获取 KOL 总数
+        const kolCount = Number(await publicClient.readContract({
+          address: registry,
+          abi: registryAbi,
+          functionName: 'kolCount',
+        }));
         const auctions: DisputedAuction[] = [];
-        for (let i = 0; i < MAX_REGISTRY_INDEX; i++) {
+        for (let i = 0; i < kolCount; i++) {
           const kolAddr = await publicClient.readContract({
             address: registry,
             abi: registryAbi,

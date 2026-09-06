@@ -24,9 +24,7 @@ import { deriveChainStatus } from '../utils/auctionStatus';
 
 type FilterTab = 'ALL' | 'LIVE' | 'UPCOMING';
 
-/** MVP：Registry.kolList 枚举上限（合约无 getKolCount，读越界返回 0x0 即忽略） */
-// 有界枚举上限（Registry 无 getKolCount；20 为 MVP 上限，超限需加 count getter 或 indexer）
-const MAX_REGISTRY_INDEX = 20;
+/** P2-4：使用 Registry.kolCount() 动态获取 KOL 总数，替代固定前 20 个的硬编码限制 */
 const ZERO_ADDRESS: `0x${string}` = '0x0000000000000000000000000000000000000000';
 
 // Countdown hook for auction cards
@@ -282,6 +280,15 @@ function ChainKolSlot({ index, filter, search, onVisibility }: ChainKolSlotProps
 function ChainAuctionsView({ filter, search }: { filter: FilterTab; search: string }) {
   const [visibleKeys, setVisibleKeys] = useState<ReadonlySet<string>>(new Set());
 
+  // P2-4：动态获取 KOL 总数，替代固定前 20 个的硬编码限制
+  const kolCountRes = useReadContract({
+    address: contractAddresses.registry,
+    abi: registryAbi,
+    functionName: 'kolCount',
+  });
+  const kolCount = kolCountRes.data ? Number(kolCountRes.data) : 0;
+  const isLoading = kolCountRes.isLoading;
+
   const onVisibility = useCallback((key: string, visible: boolean) => {
     setVisibleKeys((prev) => {
       const next = new Set(prev);
@@ -294,12 +301,16 @@ function ChainAuctionsView({ filter, search }: { filter: FilterTab; search: stri
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {Array.from({ length: MAX_REGISTRY_INDEX }, (_, i) => (
-          <ChainKolSlot key={i} index={i} filter={filter} search={search} onVisibility={onVisibility} />
-        ))}
+        {isLoading ? (
+          <div className="col-span-full text-center py-12 text-white/40">Loading auctions...</div>
+        ) : (
+          Array.from({ length: kolCount }, (_, i) => (
+            <ChainKolSlot key={i} index={i} filter={filter} search={search} onVisibility={onVisibility} />
+          ))
+        )}
       </div>
 
-      {visibleKeys.size === 0 && (
+      {!isLoading && visibleKeys.size === 0 && (
         <div className="text-center py-24 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
           <AlertCircle className="w-12 h-12 text-white/20 mx-auto mb-4" />
           <p className="text-white/40 font-medium">No on-chain auctions found yet.</p>

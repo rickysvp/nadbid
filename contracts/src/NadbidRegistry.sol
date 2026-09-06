@@ -105,6 +105,8 @@ contract NadbidRegistry {
     function hasBond(address wallet) external view returns (bool) { return kols[wallet].bonded; }
     function isKolBanned(address wallet) external view returns (bool) { return banned[wallet]; }
     function getKol(address wallet) external view returns (Kol memory) { return kols[wallet]; }
+    /// P2-4：返回已注册 KOL 总数，供前端动态扫描（替代固定前 20 个的硬编码限制）
+    function kolCount() external view returns (uint256) { return kolList.length; }
 
     // 供 Factory 调用：写入创建的合约索引
     function addPassContract(address kol, address passContract) external {

@@ -42,6 +42,7 @@ export const registryAbi =
   {"type": "function","name": "arbitrator","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
   {"type": "function","name": "setArbitrator","inputs": [{"name": "_arbitrator","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "kolList","inputs": [{"name": "","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
+  {"type": "function","name": "kolCount","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "BOND_AMOUNT","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "BOND_REDEEM_COOLDOWN","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "MIN_FOLLOWERS","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},

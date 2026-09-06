@@ -127,8 +127,9 @@ export function useKolPass(
   const curveConfig = curveConfigRes.data as CurveConfig | undefined;
 
   // ===== 枚举用户持有的 tokenId（ERC721Enumerable.tokenOfOwnerByIndex）=====
-  // 链上不得一次性枚举过多，读取上限与 MVP 单次 mint 数量一致（20），超出部分截断
-  const MAX_ENUM_TOKENS = 20;
+  // P2-4：移除前 20 个的硬编码限制，使用完整的 balanceOf 作为枚举数量。
+  // 为防止极端情况下 RPC 响应过大，设置 100 个的软上限（测试网场景足够）。
+  const MAX_ENUM_TOKENS = 100;
   const holdingCount =
     account !== undefined ? (balanceOfRes.data as bigint | undefined) : undefined;
   const enumCount =
