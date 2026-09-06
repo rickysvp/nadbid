@@ -239,6 +239,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
     autoConfirm,
     dispute,
     claimRefund,
+    finalizeBreach,
     claimKol,
     isLoading: txLoading,
     refetchAuction,
@@ -422,7 +423,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
   };
 
   /** SP-2 履约动作分发：根据当前身份/状态执行对应链上调用 */
-  const handleFulfillmentAction = async (action: 'submit' | 'confirm' | 'autoconfirm' | 'dispute' | 'refund' | 'claimkol') => {
+  const handleFulfillmentAction = async (action: 'submit' | 'confirm' | 'autoconfirm' | 'dispute' | 'finalize' | 'refund' | 'claimkol') => {
     if (!auctionData || txLoading) return;
     if (!wallet.isConnected) {
       setConnectOpen(true);
@@ -464,6 +465,9 @@ function ChainAuctionDetail({ address }: { address: string }) {
         await dispute(hash as `0x${string}`, uri, { onSuccess: () => { success('Dispute raised. Awaiting arbitration.'); toastCfg.onSuccess(); } });
         break;
       }
+      case 'finalize':
+        await finalizeBreach({ onSuccess: () => { success('Breach settled! Refund pool created. Bidders can now claim.'); toastCfg.onSuccess(); } });
+        break;
       case 'refund':
         await claimRefund({ onSuccess: () => { success('Refund claimed!'); toastCfg.onSuccess(); } });
         break;
@@ -890,22 +894,19 @@ function ChainAuctionDetail({ address }: { address: string }) {
                     {!kolSubmitted && fulfillmentExpired && (
                       <>
                         <div className="text-[#ff8a8c] text-sm font-bold leading-relaxed">
-                          KOL 未在期限内提交履约 → 已违约。竞拍者可点击下方按钮触发违约结算
-                          （80% 拍卖资金 + KOL 押金罚没进入退款池），并同步领取本人应退份额。
+                          KOL 未在期限内提交履约 → 已违约。任何人可点击下方按钮触发违约结算
+                          （80% 拍卖资金 + KOL 押金罚没进入退款池），结算后竞拍者各自领取应退份额。
                         </div>
-                        {account && refundable !== undefined && refundable > 0n ? (
-                          <button
-                            onClick={() => handleFulfillmentAction('refund')}
-                            disabled={txLoading}
-                            className="w-full bg-[#ea6668] text-black font-black text-sm py-2.5 rounded hover:bg-[#ff8a8c] transition-colors uppercase"
-                          >
-                            {txLoading ? 'Processing...' : `Trigger Refund & Claim (${formatMonWei(refundable)} MON)`}
-                          </button>
-                        ) : (
-                          <div className="text-white/30 text-sm">
-                            需要先作为竞拍者出过价，才能触发违约结算（链上退款按出价比例分配）。
-                          </div>
-                        )}
+                        <button
+                          onClick={() => handleFulfillmentAction('finalize')}
+                          disabled={txLoading}
+                          className="w-full bg-[#ea6668] text-black font-black text-sm py-2.5 rounded hover:bg-[#ff8a8c] transition-colors uppercase"
+                        >
+                          {txLoading ? 'Processing...' : 'Trigger Breach Settlement'}
+                        </button>
+                        <div className="text-white/30 text-[10px]">
+                          触发结算后，状态将变为 Refunded，竞拍者可在下方领取本人应退份额。
+                        </div>
                       </>
                     )}
                   </div>

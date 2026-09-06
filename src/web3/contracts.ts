@@ -104,6 +104,8 @@ export const kolAuctionAbi =
   {"type": "function","name": "dispute","inputs": [{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"},{"name": "evidenceUri","type": "string","internalType": "string"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "resolveDispute","inputs": [{"name": "kolWon","type": "bool","internalType": "bool"},{"name": "reasonHash","type": "bytes32","internalType": "bytes32"}],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "claimRefund","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "finalizeBreach","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
+  {"type": "function","name": "sweepRefundDust","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "claimKol","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
   {"type": "function","name": "refundable","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
   {"type": "function","name": "kolBreached","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},

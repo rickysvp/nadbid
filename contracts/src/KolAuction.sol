@@ -273,12 +273,20 @@ contract KolAuction {
     }
 
     /// SP-2：竞拍者领取违约退款（按出价金额占总额比例）。
-    /// 首次调用触发违约结算（KOL 超时未履约）：罚没押金 + 固化退款池 + 进入 REFUNDED。
+    /// P1-3 修复：任何人可触发违约结算（KOL 超时未履约）。
+    /// 将"触发违约结算"与"领取退款"分离，避免第一个领取者承担额外 gas，
+    /// 也便于前端/keeper 自动触发结算后，竞拍者各自领取退款。
+    /// 仅可触发一次（_initiateRefund 内部校验状态）。
+    function finalizeBreach() external {
+        Auction storage a = auction;
+        require(a.status == AuctionStatus.SETTLED && a.fulfillmentTime == 0 && block.timestamp > a.fulfillmentDeadline, "NOT_BREACHED");
+        _initiateRefund();
+    }
+
+    /// 领取违约退款。P1-3 修复后：不再自动触发违约结算，只负责领取。
+    /// 必须先由任何人调用 finalizeBreach() 触发结算（状态 → REFUNDED），然后竞拍者各自领取。
     function claimRefund() external {
         Auction storage a = auction;
-        if (a.status == AuctionStatus.SETTLED && a.fulfillmentTime == 0 && block.timestamp > a.fulfillmentDeadline) {
-            _initiateRefund();
-        }
         require(a.status == AuctionStatus.REFUNDED, "!REFUNDED");
         require(!refundClaimed[msg.sender], "CLAIMED");
         uint256 share = cumulativeBid[msg.sender] * refundPool / a.totalVolume;

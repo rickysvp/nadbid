@@ -352,12 +352,15 @@ contract KolAuctionTest is Test {
     function test_Refund_WhenKolBreaches() public {
         _bondKol();
         _settleWithBid();
-        // KOL 未在 48h 内提交履约 → 竞拍者触发违约结算
+        // KOL 未在 48h 内提交履约 → 任何人触发违约结算（P1-3：finalizeBreach 与 claimRefund 分离）
         vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(bidder);
+        auction.finalizeBreach();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        // 竞拍者领取退款
         uint256 before = bidder.balance;
         vm.prank(bidder);
         auction.claimRefund();
-        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
         assertEq(bidder.balance - before, fixedBid * 80 / 100 + 1 ether); // 80% + 押金罚没
         // KOL 押金被罚没（KolAuction 测试中 kol 未质押，slash 在 Registry 侧断言）
     }
@@ -378,6 +381,9 @@ contract KolAuctionTest is Test {
         vm.prank(kol);
         auction.settle();
         vm.warp(block.timestamp + 48 hours + 1);
+        // P1-3：先触发违约结算，再各自领取退款
+        vm.prank(bidder);
+        auction.finalizeBreach();
         // 违约退款按出价金额比例：bidder 2/3、bidder2 1/3（增量断言，与合约公式同构）
         uint256 pool = 3 * fixedBid * 80 / 100 + 1 ether;
         uint256 before = bidder.balance;
@@ -400,6 +406,9 @@ contract KolAuctionTest is Test {
         vm.warp(block.timestamp + 48 hours + 1);
         // 违约可退：80% 锁定资金 + 押金罚没（单一出价者拿全部份额）
         assertEq(auction.refundable(bidder), fixedBid * 80 / 100 + 1 ether);
+        // P1-3：先触发违约结算，再领取退款
+        vm.prank(bidder);
+        auction.finalizeBreach();
         vm.prank(bidder);
         auction.claimRefund();
         assertEq(auction.refundable(bidder), 0); // 已领
@@ -447,7 +456,9 @@ contract KolAuctionTest is Test {
         _bondKol();
         _settleWithBid();
         vm.warp(block.timestamp + 48 hours + 1);
-        // 违约触发退款：押金罚没成功（锁定期内 KOL 无法赎回）
+        // P1-3：先触发违约结算（押金罚没成功——锁定期内 KOL 无法赎回），再领取退款
+        vm.prank(bidder);
+        auction.finalizeBreach();
         vm.prank(bidder);
         auction.claimRefund();
         assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));

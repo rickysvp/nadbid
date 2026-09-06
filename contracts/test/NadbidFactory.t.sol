@@ -147,8 +147,10 @@ contract NadbidFactoryTest is Test {
         vm.warp(block.timestamp + 200);
         vm.prank(kol);
         KolAuction(payable(a1)).settle();
-        // KOL 超时未履约 → 竞拍者触发违约结算（REFUNDED）
+        // KOL 超时未履约 → 竞拍者触发违约结算（P1-3：finalizeBreach 与 claimRefund 分离）
         vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(winner);
+        KolAuction(payable(a1)).finalizeBreach();
         vm.prank(winner);
         KolAuction(payable(a1)).claimRefund();
         assertEq(uint256(KolAuction(payable(a1)).getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));

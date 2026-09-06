@@ -95,6 +95,8 @@ export interface UseAuctionResult {
   resolveDispute: (kolWon: boolean, reasonHash: `0x${string}`, opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** claimRefund()：违约退款领取 */
   claimRefund: (opts?: AuctionTxOptions) => Promise<Hash | null>;
+  /** P1-3：finalizeBreach()：任何人可触发违约结算（KOL 超时未履约） */
+  finalizeBreach: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   /** claimKol()：KOL 领取 80% 收益（仅 COMPLETED） */
   claimKol: (opts?: AuctionTxOptions) => Promise<Hash | null>;
   // ---- 交易状态（所有写入共享同一状态机） ----
@@ -369,6 +371,22 @@ export function useAuction(
     [write, auctionAddress],
   );
 
+  /// P1-3：任何人可触发违约结算（KOL 超时未履约）。与 claimRefund 分离。
+  const finalizeBreach = useCallback(
+    (opts: AuctionTxOptions = {}): Promise<Hash | null> => {
+      if (!auctionAddress) return Promise.resolve(null);
+      return write({
+        address: auctionAddress,
+        abi: kolAuctionAbi,
+        functionName: 'finalizeBreach',
+        args: [],
+        onSuccess: opts.onSuccess,
+        toast: opts.toast,
+      });
+    },
+    [write, auctionAddress],
+  );
+
   const claimKol = useCallback(
     (opts: AuctionTxOptions = {}): Promise<Hash | null> => {
       if (!auctionAddress) return Promise.resolve(null);
@@ -401,6 +419,7 @@ export function useAuction(
     dispute,
     resolveDispute,
     claimRefund,
+    finalizeBreach,
     claimKol,
     status,
     txHash,
