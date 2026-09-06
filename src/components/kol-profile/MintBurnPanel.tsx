@@ -224,9 +224,18 @@ export function MintBurnPanel({
       chainPrice !== undefined && effectiveSupply > 0
         ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
         : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
-    // 审计修复（P2-2）：burn 是入账，delta 传负数（mock 路径方向正确）。
-    // real 模式走 balanceLoader 链上真实查询，忽略 delta。仅作为兜底估算。
-    const refundMon = burnAmt * (chainPrice ?? 0);
+    // 审计修复（P2-2/P1）：burn 是入账，delta 传负数；兜底金额与链上严格一致——
+    // 逐枚递减曲线 Σ curvePriceAt(supply - i) 再扣 8% 手续费（feeKOL 5% + feePlatform 3%）。
+    // 修复前用单枚价×数量，偏大；真实钱包已连接时 refreshBalance 直接走链上查询，此值仅本地兜底。
+    let refundWei = 0n;
+    if (curveCfg && effectiveSupply > 0) {
+      for (let i = 0; i < burnAmt; i++) {
+        const step = BigInt(effectiveSupply - i);
+        refundWei += (curveCfg.basePrice * step * step) / (curveCfg.baseSupply * curveCfg.baseSupply);
+      }
+      refundWei -= (refundWei * 8n) / 100n;
+    }
+    const refundMon = Number(refundWei) / 1e18;
     await wallet.refreshBalance(-refundMon);
     onTradeSuccess?.({ action: 'burn', amount: burnAmt, newSupply, newPrice });
     toastSuccess(`Burned ${burnAmt} ${kolName} PASS`);
