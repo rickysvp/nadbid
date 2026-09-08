@@ -15,6 +15,10 @@ contract NadbidRegistry {
         address wallet;
         string twitterHandle;
         uint256 followers;
+        // P2-5 链上 meta（方案A）：X 授权时刻的简介/头像快照，存链上永不丢失。
+        // 头像存 X profile_image_url 引用（零成本）；换头像后 KOL 可重新授权刷新。
+        string bio;
+        string avatar;
         bool registered;
         bool bonded;
         uint256 bondAmount;
@@ -41,6 +45,7 @@ contract NadbidRegistry {
     mapping(address => address) public auctionKol;
 
     event KolRegistered(address indexed kol, string twitterHandle, uint256 followers);
+    event KolProfileUpdated(address indexed kol, string bio, string avatar);
     event BondDeposited(address indexed kol, uint256 amount);
     event BondRedeemRequested(address indexed kol);
     event BondRedeemed(address indexed kol, uint256 amount);
@@ -63,9 +68,21 @@ contract NadbidRegistry {
         require(block.timestamp <= expiry, "SIG_EXPIRED");
         bytes32 hash = keccak256(abi.encodePacked(msg.sender, twitterHandle, followers, expiry));
         require(ECDSA.recover(hash, signature) == platformSigner, "BAD_SIGNATURE");
-        kols[msg.sender] = Kol({wallet: msg.sender, twitterHandle: twitterHandle, followers: followers, registered: true, bonded: false, bondAmount: 0, bondTimestamp: 0, bondRedeemRequestedAt: 0, bondRedeemPending: false, banned: false, passContracts: new address[](0), auctionContracts: new address[](0)});
+        kols[msg.sender] = Kol({wallet: msg.sender, twitterHandle: twitterHandle, followers: followers, bio: "", avatar: "", registered: true, bonded: false, bondAmount: 0, bondTimestamp: 0, bondRedeemRequestedAt: 0, bondRedeemPending: false, banned: false, passContracts: new address[](0), auctionContracts: new address[](0)});
         kolList.push(msg.sender);
         emit KolRegistered(msg.sender, twitterHandle, followers);
+    }
+
+    /// P2-5 链上 meta（方案A）：KOL 更新自己的简介/头像（仅本人可调，无需平台签名——
+    /// bio/avatar 非关键信任数据，粉丝数才有签名背书）。换头像/改简介后可随时刷新。
+    /// 链上快照语义：详情页展示的是最近一次更新的资料。
+    function updateKolProfile(string calldata bio, string calldata avatar) external onlyRegistered {
+        // 长度上限（gas/展示保护）：bio ≤ 400 字符，avatar URL ≤ 500 字符
+        require(bytes(bio).length <= 400, "BIO_TOO_LONG");
+        require(bytes(avatar).length <= 500, "AVATAR_TOO_LONG");
+        kols[msg.sender].bio = bio;
+        kols[msg.sender].avatar = avatar;
+        emit KolProfileUpdated(msg.sender, bio, avatar);
     }
 
     function depositBond() external payable onlyRegistered {

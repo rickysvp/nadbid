@@ -121,4 +121,36 @@ contract NadbidRegistryTest is Test {
         vm.expectRevert(bytes("ZERO_MIN_FOLLOWERS"));
         new NadbidRegistry(0);
     }
+
+    // P2-5：updateKolProfile 链上 meta（bio/avatar）——仅注册 KOL 本人可调
+    function test_UpdateKolProfile() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
+        registry.updateKolProfile("rocket man", "https://pbs.twimg.com/profile_images/1/x_normal.jpg");
+        assertEq(registry.getKol(kol).bio, "rocket man");
+        assertEq(registry.getKol(kol).avatar, "https://pbs.twimg.com/profile_images/1/x_normal.jpg");
+        // 更新头像（X 头像更换后刷新）
+        registry.updateKolProfile("rocket man v2", "https://pbs.twimg.com/profile_images/2/y_normal.jpg");
+        assertEq(registry.getKol(kol).bio, "rocket man v2");
+        assertEq(registry.getKol(kol).avatar, "https://pbs.twimg.com/profile_images/2/y_normal.jpg");
+        vm.stopPrank();
+    }
+
+    function test_UpdateKolProfile_RejectsNonKol() public {
+        vm.prank(address(0xDEAD));
+        vm.expectRevert(bytes("!REGISTERED"));
+        registry.updateKolProfile("hacker", "");
+    }
+
+    function test_UpdateKolProfile_RejectsOversize() public {
+        vm.startPrank(kol);
+        registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
+        // bio > 400 字符 → 拒绝
+        vm.expectRevert(bytes("BIO_TOO_LONG"));
+        registry.updateKolProfile(new string(401), "");
+        // avatar > 500 字符 → 拒绝
+        vm.expectRevert(bytes("AVATAR_TOO_LONG"));
+        registry.updateKolProfile("", new string(501));
+        vm.stopPrank();
+    }
 }

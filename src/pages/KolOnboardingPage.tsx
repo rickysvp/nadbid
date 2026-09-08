@@ -88,6 +88,9 @@ export default function KolOnboardingPage() {
   const [registerSignature, setRegisterSignature] = useState<string | null>(null);
   // F3：平台注册签名过期时间（秒级 Unix 时间戳；verify-ticket 返回，registerKol 上链时随签名一起验签）
   const [registerExpiry, setRegisterExpiry] = useState<number>(0);
+  // P2-5 链上 meta：X 授权返回的简介/头像，注册成功后随 updateKolProfile 上链（永不丢失）
+  const [twitterBio, setTwitterBio] = useState<string>('');
+  const [twitterAvatar, setTwitterAvatar] = useState<string>('');
   const [mintPrice, setMintPrice] = useState('0.001');
 
   // ---- 从链上数据推导已完成步骤 ----
@@ -209,12 +212,18 @@ export default function KolOnboardingPage() {
           /** 平台注册签名过期时间（秒级 Unix 时间戳，F3） */
           expiry?: number;
           threshold?: number;
+          /** P2-5：X 简介/头像（注册成功后上链） */
+          bio?: string | null;
+          avatar?: string | null;
           error?: string;
         };
         if (r.ok && data.verified && data.username) {
           setTwitterHandle(data.username);
           setTwitterVerified(true);
           setTwitterFollowers(data.followers ?? 0);
+          // P2-5：缓存 X 简介/头像，注册成功后随 updateKolProfile 上链
+          setTwitterBio(typeof data.bio === 'string' ? data.bio : '');
+          setTwitterAvatar(typeof data.avatar === 'string' ? data.avatar : '');
           // P2-2：缓存平台注册签名（registerKol 上链时随 handle/followers 一起验签）
           setRegisterSignature(data.signature ?? null);
           // F3：签名过期时间（合约验签要求 block.timestamp <= expiry）
@@ -230,6 +239,8 @@ export default function KolOnboardingPage() {
                 followers: data.followers ?? 0,
                 signature: data.signature,
                 expiry: data.expiry,
+                bio: typeof data.bio === 'string' ? data.bio : '',
+                avatar: typeof data.avatar === 'string' ? data.avatar : '',
               }),
             );
           } catch {
@@ -271,6 +282,8 @@ export default function KolOnboardingPage() {
         followers?: number;
         signature?: string;
         expiry?: number;
+        bio?: string;
+        avatar?: string;
       };
       if (!stored.wallet || !stored.username || !stored.signature) return;
       if (stored.wallet.toLowerCase() !== address.toLowerCase()) return;
@@ -278,6 +291,8 @@ export default function KolOnboardingPage() {
       setTwitterFollowers(stored.followers ?? 0);
       setTwitterVerified(true);
       setRegisterSignature(stored.signature as `0x${string}`);
+      setTwitterBio(typeof stored.bio === 'string' ? stored.bio : '');
+      setTwitterAvatar(typeof stored.avatar === 'string' ? stored.avatar : '');
       // F3：恢复签名过期时间（缺失时按已过期处理，防止旧缓存签名上链被拒后无提示）
       setRegisterExpiry(stored.expiry ?? Math.floor(Date.now() / 1000) - 1);
     } catch {
@@ -369,6 +384,15 @@ export default function KolOnboardingPage() {
       await registry.registerKol(handle, BigInt(twitterFollowers), BigInt(registerExpiry), registerSignature as `0x${string}`, {
         onSuccess: async () => {
           success('KOL registered on-chain!');
+          // P2-5：注册成功后把 X 简介/头像写入链上 Registry（仅本人可调，无需签名；
+          // 失败不阻断——详情页 bio/avatar 为空时降级展示 handle + 链上摘要）
+          if (twitterBio.trim() !== '' || twitterAvatar.trim() !== '') {
+            try {
+              await registry.updateKolProfile(twitterBio.trim(), twitterAvatar.trim());
+            } catch {
+              /* bio/avatar 上链失败不影响注册结果，可稍后手动更新 */
+            }
+          }
           // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
           try {
             sessionStorage.removeItem('nadbid_xverify');

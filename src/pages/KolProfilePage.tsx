@@ -322,43 +322,17 @@ export default function KolProfilePage() {
   // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
   const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
 
-  // KOL 推特资料（bio + 头像）：优先本地持久化（X 授权时写入）；
-  // 未授权过时 server 用 App-only API 按 handle 拉公开资料（GET /api/kol/meta?wallet=&handle=）。
-  // 生产同域（nadbid.fun）；本地 dev 无 proxy 时 fetch 失败 → 降级展示链上摘要 + 默认头像。
-  const [kolBio, setKolBio] = useState<string | undefined>(undefined);
-  const [kolAvatar, setKolAvatar] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (!kolAddress) {
-      setKolBio(undefined);
-      setKolAvatar(undefined);
-      return;
-    }
-    let cancelled = false;
-    const handle = chainKolInfo?.twitterHandle?.replace(/^@/, '') ?? '';
-    fetch(`/api/kol/meta?wallet=${kolAddress}&handle=${encodeURIComponent(handle)}`)
-      .then((r) => r.json())
-      .then((d: { found?: boolean; bio?: string; avatar?: string }) => {
-        if (cancelled) return;
-        setKolBio(d?.found && typeof d.bio === 'string' ? d.bio : undefined);
-        setKolAvatar(d?.found && typeof d.avatar === 'string' ? d.avatar : undefined);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setKolBio(undefined);
-          setKolAvatar(undefined);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [kolAddress, chainKolInfo?.twitterHandle]);
-  const displayBio = kolBio && kolBio.trim() !== '' ? kolBio.trim() : undefined;
+  // KOL 推特资料（bio + 头像）：P2-5 迁移——改读链上 Registry.getKol().bio/avatar
+  // （X 授权时由 updateKolProfile 写入，永不丢失）。移除 /api/kol/meta server 依赖。
+  const chainBio = chainKolInfo?.bio?.trim() ?? '';
+  const chainAvatar = chainKolInfo?.avatar?.trim() ?? '';
+  const displayBio = chainBio !== '' ? chainBio : undefined;
   /** X 头像（48px 默认 → 400px），加载失败时回退默认头像组件 */
   const [avatarFailed, setAvatarFailed] = useState(false);
   useEffect(() => {
     setAvatarFailed(false);
-  }, [kolAvatar]);
-  const displayAvatar = !avatarFailed && kolAvatar ? kolAvatar.replace(/_normal(\.\w+)$/, '_400x400$1') : undefined;
+  }, [chainAvatar]);
+  const displayAvatar = !avatarFailed && chainAvatar ? chainAvatar.replace(/_normal(\.\w+)$/, '_400x400$1') : undefined;
 
   if (!kolAddress) {
     return (

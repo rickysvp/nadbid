@@ -97,59 +97,20 @@ function verifyState(state: string): { verifier: string; wallet: string } | null
 // 必须用 ticket 调 /api/kol/verify-ticket 换取可信结果，再决定是否上链注册。
 const TICKET_TTL_MS = 5 * 60 * 1000; // 5 分钟
 
-// 已消费票据（尽力而为的单实例消费集合；Vercel 多实例下无法强一致，
-// 主防线仍是短 TTL + wallet 绑定）
-const usedTickets = new Set<string>();
+// P2-5 无状态化（零成本方案）：ticket 为 HMAC 签名 + 短 TTL + wallet 绑定，
+// 验签通过即可信任，无需跨实例共享"已消费集合"。
+// 说明：去掉 usedTickets 后，同一 ticket 在 5 分钟 TTL 内可重复换取注册签名。
+// 风险已中和：注册签名绑定 wallet，且合约 registerKol 同一 wallet 只能注册成功一次，
+// 重放的第二张签名无处可用。主网如需更强防重放，可加 Redis/KV 共享消费集合。
 
-// ---- KOL 元信息（bio 等 X 资料）轻量持久化 ----
-// 说明：X 验证成功时把 { username, followers, bio, avatar } 存到 JSON 文件，供 KOL
-// 详情页展示真实推特资料。Vercel serverless 无持久文件系统，meta 可能随实例
-// 回收丢失（bio 为空时前端降级展示链上真实信息，不影响主流程）。
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-
-interface KolMeta {
-  username: string;
-  followers: number;
-  bio: string;
-  avatar: string;
-  updatedAt: number;
-}
-
-const KOL_META_FILE = path.join(process.cwd(), 'server', 'data', 'kol-meta.json');
-
-function readKolMeta(): Record<string, KolMeta> {
-  try {
-    return JSON.parse(fs.readFileSync(KOL_META_FILE, 'utf8')) as Record<string, KolMeta>;
-  } catch {
-    return {};
-  }
-}
-
-function writeKolMeta(meta: Record<string, KolMeta>): void {
-  try {
-    fs.mkdirSync(path.dirname(KOL_META_FILE), { recursive: true });
-    fs.writeFileSync(KOL_META_FILE, JSON.stringify(meta, null, 2), 'utf8');
-  } catch {
-    // 持久化失败不阻断主流程（meta 仅为增强展示）
-  }
-}
-
-function upsertKolMeta(wallet: string, username: string, followers: number, bio?: string, avatar?: string): void {
-  const meta = readKolMeta();
-  const prev = meta[wallet.toLowerCase()];
-  meta[wallet.toLowerCase()] = {
-    username,
-    followers,
-    bio: bio ?? prev?.bio ?? '',
-    avatar: avatar ?? prev?.avatar ?? '',
-    updatedAt: Date.now(),
-  };
-  writeKolMeta(meta);
-}
+// ---- KOL 元信息（bio/avatar）----
+// P2-5 迁移：不再写 server 本地 JSON 文件（Vercel serverless 无持久文件系统）。
+// 改为链上存储：verify-ticket 返回 bio/avatar，前端注册成功后调
+// Registry.updateKolProfile(bio, avatar) 上链，永不丢失。
 
 // ---- F6：OAuth 端点限流（防脚本刷爆 X API 免费额度 / 无成本刷 state）----
-// 简单内存滑动窗口（serverless 单实例尽力而为；生产可换 Redis/IP 维度）。
+// P2-5 降级说明：内存滑动窗口为单实例尽力而为（Vercel 多实例下每实例独立计数）。
+// 主网如需跨实例强一致限流，可换 Redis（Upstash 免费层）——测试网阶段接受降级。
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 20; // 每 IP 每分钟最多 20 次 OAuth 相关请求
 const rateBuckets = new Map<string, number[]>();
@@ -166,28 +127,8 @@ function rateLimited(key: string): boolean {
   return false;
 }
 
-/** 4. 查询 KOL 元信息（GET /api/kol/meta?wallet=）：
- *  X 资料（bio / 头像）供 KOL 详情页展示。
- *  数据来自 KOL 本人 X 授权（users/me）时的持久化；未授权过或 Vercel 实例回收时返回 found:false，
- *  前端降级为默认头像 + 链上摘要。 */
-router.get('/meta', (req, res) => {
-  const wallet = (req.query.wallet as string | undefined) ?? '';
-  // Codex 审计：严格校验 wallet 为合法地址（防非法值污染 state/ticket/签名流程）
-  if (!wallet) {
-    res.status(400).json({ error: 'missing wallet' });
-    return;
-  }
-  if (!isAddress(wallet)) {
-    res.status(400).json({ error: 'invalid wallet' });
-    return;
-  }
-  const local = readKolMeta()[wallet.toLowerCase()];
-  if (!local) {
-    res.json({ found: false });
-    return;
-  }
-  res.json({ found: true, ...local });
-});
+/** 4.（已迁移）KOL 元信息查询端点已移除——bio/avatar 改存链上 Registry，
+ *  前端详情页直接读 getKol().bio/avatar，不再依赖 server 持久化。 */
 
 interface VerifyTicket {
   u: string; // username
@@ -473,10 +414,8 @@ router.post('/verify-ticket', async (req, res) => {
     res.status(400).json({ error: 'invalid wallet' });
     return;
   }
-  if (usedTickets.has(ticket)) {
-    res.status(401).json({ error: 'ticket already used — please re-authorize' });
-    return;
-  }
+  // P2-5 无状态化：移除 usedTickets 消费检查——ticket 自校验（HMAC + TTL + wallet 绑定）
+  // 即为完整防线，无需跨实例共享消费集合（重放风险被 wallet 绑定 + 合约单次注册中和）。
   const result = verifyTicket(ticket);
   if (!result) {
     res.status(401).json({ error: 'invalid or expired ticket' });
@@ -499,29 +438,28 @@ router.post('/verify-ticket', async (req, res) => {
   // 同时返回 threshold，供前端展示真实门槛文案。
   const verified = result.followers >= FOLLOWERS_THRESHOLD;
   if (!verified) {
-    usedTickets.add(ticket); // 结果已确定，一次性标记（无需重试）
     res.json({
       verified: false,
       username: result.username,
       followers: result.followers,
       threshold: FOLLOWERS_THRESHOLD,
       bio: result.bio ?? null,
+      avatar: result.avatar ?? null,
       signature: null,
     });
     return;
   }
   // 平台注册签名（F3：hash 含 expiry，签名只在 5 分钟内有效）
   const { signature, expiry } = await signRegistration(wallet, result.username, result.followers);
-  // 一次性：使用后标记（放在签名成功之后，避免配置错误浪费 ticket）
-  usedTickets.add(ticket);
-  // KOL 元信息持久化：X 简介等资料供详情页展示（失败不阻断主流程）
-  upsertKolMeta(wallet, result.username, result.followers, result.bio, result.avatar);
+  // P2-5：不再写 server JSON meta——bio/avatar 随响应返回，前端注册成功后调
+  // Registry.updateKolProfile(bio, avatar) 上链（永不丢失）。
   res.json({
     verified: true,
     username: result.username,
     followers: result.followers,
     threshold: FOLLOWERS_THRESHOLD,
     bio: result.bio ?? null,
+    avatar: result.avatar ?? null,
     expiry,
     signature,
   });

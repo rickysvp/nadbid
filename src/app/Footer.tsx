@@ -41,7 +41,7 @@ export function Footer() {
               <li><Link to={ROUTES.DOCS} className="hover:text-white transition-colors">Documentation</Link></li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0x90f2b4e64d5cc9f17cc9872b7ca74d39da18989b"
+                  href="https://testnet.monadexplorer.com/address/0x785cb9d1d67e5a19df1f800254a36ba90d4c5f62"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
@@ -51,7 +51,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0xe6a9da6a00ab0d68698926d9646921636736159e"
+                  href="https://testnet.monadexplorer.com/address/0x5ac2cecbe225e394a4f19639b729f37a64b90c42"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"

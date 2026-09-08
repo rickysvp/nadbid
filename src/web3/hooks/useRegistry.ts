@@ -11,6 +11,10 @@ export interface KolData {
   wallet: `0x${string}`;
   twitterHandle: string;
   followers: bigint;
+  /** P2-5 链上 meta：X 简介快照（空串 = 未更新） */
+  bio: string;
+  /** P2-5 链上 meta：X 头像 URL 快照（空串 = 未更新） */
+  avatar: string;
   registered: boolean;
   bonded: boolean;
   bondAmount: bigint;
@@ -31,20 +35,22 @@ export function normalizeKolData(raw: unknown): KolData | undefined {
   if (!raw) return undefined;
   if (Array.isArray(raw)) {
     const r = raw as unknown[];
-    if (r.length < 12) return undefined;
+    if (r.length < 14) return undefined;
     return {
       wallet: r[0] as `0x${string}`,
       twitterHandle: String(r[1] ?? ''),
       followers: r[2] as bigint,
-      registered: Boolean(r[3]),
-      bonded: Boolean(r[4]),
-      bondAmount: r[5] as bigint,
-      bondTimestamp: r[6] as bigint,
-      bondRedeemRequestedAt: r[7] as bigint,
-      bondRedeemPending: Boolean(r[8]),
-      banned: Boolean(r[9]),
-      passContracts: (r[10] ?? []) as readonly `0x${string}`[],
-      auctionContracts: (r[11] ?? []) as readonly `0x${string}`[],
+      bio: String(r[3] ?? ''),
+      avatar: String(r[4] ?? ''),
+      registered: Boolean(r[5]),
+      bonded: Boolean(r[6]),
+      bondAmount: r[7] as bigint,
+      bondTimestamp: r[8] as bigint,
+      bondRedeemRequestedAt: r[9] as bigint,
+      bondRedeemPending: Boolean(r[10]),
+      banned: Boolean(r[11]),
+      passContracts: (r[12] ?? []) as readonly `0x${string}`[],
+      auctionContracts: (r[13] ?? []) as readonly `0x${string}`[],
     };
   }
   return raw as KolData;
@@ -90,6 +96,12 @@ export interface UseRegistryResult {
   requestBondRedeem: (opts?: RegistryTxOptions) => Promise<Hash | null>;
   /** finalizeBondRedeem()：冷却期后完成担保金赎回 */
   finalizeBondRedeem: (opts?: RegistryTxOptions) => Promise<Hash | null>;
+  /** P2-5：updateKolProfile(bio, avatar)：KOL 更新链上简介/头像快照（仅本人，无需签名） */
+  updateKolProfile: (
+    bio: string,
+    avatar: string,
+    opts?: RegistryTxOptions,
+  ) => Promise<Hash | null>;
   // ---- 交易状态（各写入共享同一状态机） ----
   status: TxStatus;
   txHash: Hash | null;
@@ -222,6 +234,21 @@ export function useRegistry(wallet?: `0x${string}` | undefined): UseRegistryResu
     [write, registryAddress],
   );
 
+  const updateKolProfile = useCallback(
+    (bio: string, avatar: string, opts: RegistryTxOptions = {}): Promise<Hash | null> => {
+      if (!registryAddress) return Promise.resolve(null);
+      return write({
+        address: registryAddress,
+        abi: registryAbi,
+        functionName: 'updateKolProfile',
+        args: [bio, avatar],
+        onSuccess: opts.onSuccess,
+        toast: opts.toast,
+      });
+    },
+    [write, registryAddress],
+  );
+
   return {
     isRegistered: isRegisteredRes.data as boolean | undefined,
     kolData: normalizeKolData(kolRes.data),
@@ -232,6 +259,7 @@ export function useRegistry(wallet?: `0x${string}` | undefined): UseRegistryResu
     depositBond,
     requestBondRedeem,
     finalizeBondRedeem,
+    updateKolProfile,
     status,
     txHash,
     error,
