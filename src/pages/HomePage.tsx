@@ -8,6 +8,42 @@ import { formatMon } from '../utils/format';
 
 const marqueeWords = ['Monad', 'Nadbid.fun', 'Penny Auctions', 'Soulbound PASS', 'On-chain', 'KOL Service', 'Fixed Bid 99 MON'];
 
+/**
+ * HERO 联合曲线：P(s) = basePrice * s² 的二次增长曲线，映射到 400x400 画布。
+ * 采样 24 段后经 Catmull-Rom → Bezier 平滑，所有点位可精确计算（非手绘近似）。
+ */
+function buildHeroCurve() {
+  const pts: [number, number][] = [];
+  const N = 24;
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    pts.push([40 + 340 * s, 340 - 280 * s * s]);
+  }
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+
+/** 曲线上 s∈[0,1] 处坐标（与 buildHeroCurve 同公式） */
+function curvePoint(s: number): [number, number] {
+  return [40 + 340 * s, 340 - 280 * s * s];
+}
+
+/** HERO 曲线路径与当前价点位（模块级常量，仅计算一次） */
+const HERO_CURVE_PATH = buildHeroCurve();
+const CUR_X = curvePoint(0.62)[0];
+const CUR_Y = curvePoint(0.62)[1];
+
 function Hero({ onExplore }: { onExplore: () => void }) {
   return (
     <section className="bg-brand-green min-h-screen relative pt-24 lg:pt-28 flex flex-col justify-between overflow-hidden">
@@ -92,19 +128,179 @@ function Hero({ onExplore }: { onExplore: () => void }) {
           transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
           className="relative w-full z-10 mt-12 lg:mt-0 flex items-center justify-end"
         >
-          <div className="w-full max-w-[480px] aspect-square relative">
+          <div className="w-full max-w-[520px] relative select-none">
             <svg viewBox="0 0 400 400" className="w-full h-full" fill="none">
               <defs>
-                <linearGradient id="curveGrad" x1="0" y1="400" x2="400" y2="0">
-                  <stop offset="0%" stopColor="rgba(0,0,0,0.1)" />
-                  <stop offset="100%" stopColor="rgba(0,0,0,0.4)" />
+                <linearGradient id="heroCurveFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(0,0,0,0.28)" />
+                  <stop offset="55%" stopColor="rgba(0,0,0,0.10)" />
+                  <stop offset="100%" stopColor="rgba(0,0,0,0.02)" />
                 </linearGradient>
+                <linearGradient id="heroCurveStroke" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0%" stopColor="rgba(0,0,0,0.55)" />
+                  <stop offset="100%" stopColor="rgba(0,0,0,0.95)" />
+                </linearGradient>
+                <filter id="heroCurveGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="3.5" />
+                </filter>
               </defs>
-              <path d="M 20 380 Q 100 370 160 320 T 280 180 T 380 40" stroke="rgba(0,0,0,0.5)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              <path d="M 20 380 Q 100 370 160 320 T 280 180 T 380 40 L 380 380 Z" fill="url(#curveGrad)" opacity="0.3" />
-              <circle cx="160" cy="320" r="6" fill="rgba(0,0,0,0.6)" />
-              <circle cx="280" cy="180" r="6" fill="rgba(0,0,0,0.6)" />
-              <circle cx="380" cy="40" r="8" fill="rgba(0,0,0,0.8)" />
+
+              {/* ---------- 背景网格 ---------- */}
+              {[60, 130, 200, 270, 340].map((y) => (
+                <line key={`h${y}`} x1="40" y1={y} x2="380" y2={y} stroke="rgba(0,0,0,0.07)" strokeWidth="1" />
+              ))}
+              {[40, 125, 210, 295, 380].map((x) => (
+                <line key={`v${x}`} x1={x} y1="60" x2={x} y2="340" stroke="rgba(0,0,0,0.07)" strokeWidth="1" />
+              ))}
+
+              {/* ---------- 坐标轴 + 刻度 ---------- */}
+              <line x1="40" y1="340" x2="392" y2="340" stroke="rgba(0,0,0,0.55)" strokeWidth="1.5" />
+              <line x1="40" y1="340" x2="40" y2="48" stroke="rgba(0,0,0,0.55)" strokeWidth="1.5" />
+              {/* 箭头 */}
+              <path d="M 388 337 L 396 340 L 388 343 Z" fill="rgba(0,0,0,0.55)" />
+              <path d="M 37 52 L 40 44 L 43 52 Z" fill="rgba(0,0,0,0.55)" />
+              {/* x 刻度 */}
+              {[
+                { x: 40, l: '0' },
+                { x: 125, l: '0.5K' },
+                { x: 210, l: '1K' },
+                { x: 295, l: '1.5K' },
+                { x: 380, l: '2K' },
+              ].map((t) => (
+                <g key={t.l}>
+                  <line x1={t.x} y1="340" x2={t.x} y2="346" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+                  <text x={t.x} y="361" textAnchor="middle" fontSize="9" fill="rgba(0,0,0,0.45)" fontFamily="monospace">
+                    {t.l}
+                  </text>
+                </g>
+              ))}
+              {/* y 刻度 */}
+              {[
+                { y: 340, l: '0' },
+                { y: 270, l: '0.25' },
+                { y: 200, l: '0.5' },
+                { y: 130, l: '0.75' },
+                { y: 60, l: '1' },
+              ].map((t) => (
+                <g key={t.l}>
+                  <line x1="34" y1={t.y} x2="40" y2={t.y} stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+                  <text x="31" y={t.y + 3} textAnchor="end" fontSize="9" fill="rgba(0,0,0,0.45)" fontFamily="monospace">
+                    {t.l}
+                  </text>
+                </g>
+              ))}
+              {/* 轴名 */}
+              <text x="210" y="380" textAnchor="middle" fontSize="9" fontWeight="bold" fill="rgba(0,0,0,0.5)" fontFamily="monospace" letterSpacing="2">
+                SUPPLY →
+              </text>
+              <text x="16" y="196" textAnchor="middle" fontSize="9" fontWeight="bold" fill="rgba(0,0,0,0.5)" fontFamily="monospace" letterSpacing="2" transform="rotate(-90 16 196)">
+                PRICE →
+              </text>
+
+              {/* ---------- 曲线填充（入场淡入） ---------- */}
+              <motion.path
+                d={`${HERO_CURVE_PATH} L 380 340 L 40 340 Z`}
+                fill="url(#heroCurveFill)"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.1, delay: 0.35 }}
+              />
+
+              {/* ---------- 主曲线：白色辉光 + 渐变黑描边（入场绘制） ---------- */}
+              <motion.path
+                id="heroCurvePath"
+                d={HERO_CURVE_PATH}
+                stroke="rgba(255,255,255,0.85)"
+                strokeWidth="7"
+                strokeLinecap="round"
+                fill="none"
+                filter="url(#heroCurveGlow)"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 1.4, ease: 'easeInOut' }}
+              />
+              <motion.path
+                d={HERO_CURVE_PATH}
+                stroke="url(#heroCurveStroke)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 1.4, ease: 'easeInOut' }}
+              />
+
+              {/* ---------- 沿曲线流动的能量粒子 ---------- */}
+              <circle r="2.5" fill="#ffffff" stroke="rgba(0,0,0,0.7)" strokeWidth="0.8" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.9))' }}>
+                <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto">
+                  <mpath href="#heroCurvePath" />
+                </animateMotion>
+              </circle>
+              <circle r="2" fill="rgba(0,0,0,0.85)">
+                <animateMotion dur="5.5s" begin="2.75s" repeatCount="indefinite" rotate="auto">
+                  <mpath href="#heroCurvePath" />
+                </animateMotion>
+              </circle>
+
+              {/* ---------- 已铸造点 ---------- */}
+              <circle cx={125} cy={curvePoint(0.25)[1]} r="4.5" fill="rgba(0,0,0,0.75)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" />
+              <circle cx={210} cy={curvePoint(0.5)[1]} r="4.5" fill="rgba(0,0,0,0.75)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" />
+
+              {/* ---------- 未来点位（空心虚线） ---------- */}
+              <circle cx={329} cy={curvePoint(0.85)[1]} r="5" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeDasharray="2 3" />
+              <circle cx={380} cy={60} r="5" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeDasharray="2 3" />
+
+              {/* ---------- 当前价点位：参考虚线 + 脉冲环 + 实心点 ---------- */}
+              <line x1="40" y1={CUR_Y} x2={CUR_X} y2={CUR_Y} stroke="rgba(0,0,0,0.22)" strokeWidth="1" strokeDasharray="3 4" />
+              <line x1={CUR_X} y1={CUR_Y} x2={CUR_X} y2="340" stroke="rgba(0,0,0,0.22)" strokeWidth="1" strokeDasharray="3 4" />
+              <motion.circle
+                cx={CUR_X}
+                cy={CUR_Y}
+                fill="none"
+                stroke="rgba(0,0,0,0.5)"
+                strokeWidth="1.2"
+                initial={{ r: 12, opacity: 0.55 }}
+                animate={{ r: 34, opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 2.1, ease: 'easeOut' }}
+              />
+              <motion.circle
+                cx={CUR_X}
+                cy={CUR_Y}
+                fill="none"
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth="1.4"
+                initial={{ r: 8, opacity: 0.9 }}
+                animate={{ r: 22, opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 2.1, delay: 0.5, ease: 'easeOut' }}
+              />
+              <circle cx={CUR_X} cy={CUR_Y} r="6" fill="#000" stroke="rgba(255,255,255,0.95)" strokeWidth="2.2" />
+              {/* 当前价标签 */}
+              <g>
+                <rect x={CUR_X + 12} y={CUR_Y - 34} width="92" height="20" rx="4" fill="rgba(0,0,0,0.85)" />
+                <text x={CUR_X + 20} y={CUR_Y - 20} fontSize="9" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.5">
+                  CURRENT PRICE
+                </text>
+              </g>
+
+              {/* ---------- 标题区 ---------- */}
+              <circle cx="14" cy="16" r="3.5" fill="#000" />
+              <text x="26" y="20" fontSize="10" fontWeight="bold" fill="rgba(0,0,0,0.75)" fontFamily="monospace" letterSpacing="2">
+                BONDING CURVE
+              </text>
+              <circle cx="352" cy="14" r="3.5" fill="#000">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
+              </circle>
+              <text x="363" y="18" fontSize="9" fontWeight="bold" fill="rgba(0,0,0,0.6)" fontFamily="monospace" letterSpacing="1.5" textAnchor="start">
+                LIVE
+              </text>
+
+              {/* ---------- 底部角标 ---------- */}
+              <text x="40" y="394" fontSize="8" fill="rgba(0,0,0,0.4)" fontFamily="monospace">
+                Mint early · price grows with supply
+              </text>
+              <text x="380" y="394" textAnchor="end" fontSize="7" fill="rgba(0,0,0,0.3)" fontFamily="monospace" letterSpacing="1">
+                ILLUSTRATIVE
+              </text>
             </svg>
           </div>
         </motion.div>
