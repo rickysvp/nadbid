@@ -299,6 +299,8 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const isEnded = !isPending && isOver;
   const isSettled = auctionData?.settled ?? false;
   const isLive = !!auctionData && !isEnded && !isSettled && !isUpcoming;
+  // 警示倒计时：拍卖进行中且剩余 <= 15 秒 → 红环 + 光环脉冲 + 数字跳动
+  const isUrgent = isLive && totalSeconds > 0 && totalSeconds <= 15;
   const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
 
   // ---- 出价排名（Leaderboard）：从链上 BidPlaced 事件日志聚合每个竞拍者的
@@ -771,6 +773,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                 strokeWidth={4}
                 label={isLive ? `${totalSeconds}s` : timeString}
                 sublabel={isSettled ? 'Settled' : isEnded ? 'Ended' : isUpcoming ? 'Starts In' : isLive ? 'In Progress' : 'Loading'}
+                danger={isUrgent}
               />
 
               <div className="w-full grid grid-cols-3 gap-2 border-y border-white/[0.04] py-5 my-6 text-center">
