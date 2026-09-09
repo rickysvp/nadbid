@@ -20,6 +20,9 @@ interface DisputedAuction {
   totalVolume: bigint;
   fulfillmentEvidenceHash: `0x${string}`;
   disputeEvidenceHash: `0x${string}`;
+  /** P2：证据载体 = X 推文链接（evidenceUri），供仲裁点击核验 */
+  fulfillmentEvidenceUri: string;
+  disputeEvidenceUri: string;
   fulfillmentTime: bigint;
 }
 
@@ -102,6 +105,8 @@ export default function ArbitrationPage() {
               totalVolume: bigint;
               fulfillmentEvidenceHash: `0x${string}`;
               disputeEvidenceHash: `0x${string}`;
+              fulfillmentEvidenceUri: string;
+              disputeEvidenceUri: string;
               fulfillmentTime: bigint;
             };
             if (data.status === 4) {
@@ -114,6 +119,8 @@ export default function ArbitrationPage() {
                 totalVolume: data.totalVolume,
                 fulfillmentEvidenceHash: data.fulfillmentEvidenceHash,
                 disputeEvidenceHash: data.disputeEvidenceHash,
+                fulfillmentEvidenceUri: data.fulfillmentEvidenceUri ?? '',
+                disputeEvidenceUri: data.disputeEvidenceUri ?? '',
                 fulfillmentTime: data.fulfillmentTime,
               });
             }
@@ -274,11 +281,31 @@ function DisputeCard({
 
       <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-3 break-all">
         <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Fulfillment Evidence (KOL)</div>
-        <div className="font-mono text-[10px] text-white/70">{dispute.fulfillmentEvidenceHash}</div>
+        {dispute.fulfillmentEvidenceUri ? (
+          <a
+            href={dispute.fulfillmentEvidenceUri}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-[#3ec470] text-[11px] font-bold hover:underline"
+          >
+            🔗 View X post
+          </a>
+        ) : null}
+        <div className="font-mono text-[10px] text-white/70 mt-1">{dispute.fulfillmentEvidenceHash}</div>
       </div>
       <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-5 break-all">
         <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Dispute Evidence (Winner)</div>
-        <div className="font-mono text-[10px] text-white/70">{dispute.disputeEvidenceHash}</div>
+        {dispute.disputeEvidenceUri ? (
+          <a
+            href={dispute.disputeEvidenceUri}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-[#ff8a8c] text-[11px] font-bold hover:underline"
+          >
+            🔗 View X post
+          </a>
+        ) : null}
+        <div className="font-mono text-[10px] text-white/70 mt-1">{dispute.disputeEvidenceHash}</div>
       </div>
 
       {auctionData?.status === 4 && isArbitrator && (
