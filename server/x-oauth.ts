@@ -346,12 +346,18 @@ router.get('/x-oauth-callback', async (req, res) => {
 
     // 审计修复（D10）：校验 X 返回数据再签发 ticket——拒绝空/畸形 username、
     // 非数值或越界 followers、超长 bio、非 http(s) avatar。X 官方 username 规则：
-    // 字母/数字/下划线，1-30 字符（数字开头除外）。非法数据一律视为流程失败。
-    const USERNAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,29}$/;
+    // 字母/数字/下划线，1-30 字符，允许数字开头（2024+ X 新规则，新账号常为纯数字/数字开头）。
+    // 之前正则强制首字符为字母/下划线，会误拒数字开头账号 → 放宽为任意字母数字下划线开头。
+    const USERNAME_RE = /^[A-Za-z0-9_]{1,30}$/;
     if (!USERNAME_RE.test(username)) {
+      // 诊断信息：携带实际 username 的形态（可见前缀 + 长度），便于定位 X 返回异常
+      const diag =
+        username === ''
+          ? 'empty'
+          : `got="${username.length > 24 ? username.slice(0, 24) + '…' : username}" len=${username.length}`;
       res.redirect(
         `${FRONTEND_URL}/kol/onboarding?xoauth=error&stage=usersme&message=${encodeURIComponent(
-          'Invalid username returned by X'
+          `Invalid username returned by X (${diag})`
         )}`
       );
       return;
