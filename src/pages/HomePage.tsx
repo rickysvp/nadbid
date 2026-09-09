@@ -11,12 +11,14 @@ const marqueeWords = ['Monad', 'Nadbid.fun', 'Penny Auctions', 'Soulbound PASS',
 /**
  * HERO 联合曲线：P(s) = basePrice * s² 的二次增长曲线，映射到 400x400 画布。
  * 采样 24 段后经 Catmull-Rom → Bezier 平滑，所有点位可精确计算（非手绘近似）。
+ * 支持任意 [s0, s1] 区间分段（用于"已铸造=绿 / 未来=黑"的双色叙事）。
  */
-function buildHeroCurve() {
+function buildHeroCurveSegment(s0: number, s1: number): string {
   const pts: [number, number][] = [];
   const N = 24;
+  const span = s1 - s0;
   for (let i = 0; i <= N; i++) {
-    const s = i / N;
+    const s = s0 + (span * i) / N;
     pts.push([40 + 340 * s, 340 - 280 * s * s]);
   }
   let d = `M ${pts[0][0]} ${pts[0][1]}`;
@@ -34,13 +36,16 @@ function buildHeroCurve() {
   return d;
 }
 
-/** 曲线上 s∈[0,1] 处坐标（与 buildHeroCurve 同公式） */
+/** 曲线上 s∈[0,1] 处坐标（与 buildHeroCurveSegment 同公式） */
 function curvePoint(s: number): [number, number] {
   return [40 + 340 * s, 340 - 280 * s * s];
 }
 
 /** HERO 曲线路径与当前价点位（模块级常量，仅计算一次） */
-const HERO_CURVE_PATH = buildHeroCurve();
+const HERO_CURVE_PATH = buildHeroCurveSegment(0, 1);
+/** 已铸造区间（s=0→当前点）用绿色表示"早鸟红利"，之后黑色表示"越铸越贵" */
+const HERO_CURVE_EARLY = buildHeroCurveSegment(0, 0.62);
+const HERO_CURVE_LATER = buildHeroCurveSegment(0.62, 1);
 const CUR_X = curvePoint(0.62)[0];
 const CUR_Y = curvePoint(0.62)[1];
 
@@ -191,10 +196,10 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               ))}
               {/* 轴名 */}
               <text x="210" y="380" textAnchor="middle" fontSize="9" fontWeight="bold" fill="rgba(0,0,0,0.5)" fontFamily="monospace" letterSpacing="2">
-                SUPPLY →
+                PASSES MINTED →
               </text>
               <text x="16" y="196" textAnchor="middle" fontSize="9" fontWeight="bold" fill="rgba(0,0,0,0.5)" fontFamily="monospace" letterSpacing="2" transform="rotate(-90 16 196)">
-                PRICE →
+                PRICE (MON) →
               </text>
 
               {/* ---------- 曲线填充（入场淡入） ---------- */}
@@ -206,7 +211,7 @@ function Hero({ onExplore }: { onExplore: () => void }) {
                 transition={{ duration: 1.1, delay: 0.35 }}
               />
 
-              {/* ---------- 主曲线：白色辉光 + 渐变黑描边（入场绘制） ---------- */}
+              {/* ---------- 主曲线：白色辉光（入场绘制） ---------- */}
               <motion.path
                 id="heroCurvePath"
                 d={HERO_CURVE_PATH}
@@ -219,10 +224,22 @@ function Hero({ onExplore }: { onExplore: () => void }) {
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1.4, ease: 'easeInOut' }}
               />
+              {/* 已铸造段：深绿（早鸟红利，价格已锁定） */}
               <motion.path
-                d={HERO_CURVE_PATH}
+                d={HERO_CURVE_EARLY}
+                stroke="#0d7a40"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 1.4, ease: 'easeInOut' }}
+              />
+              {/* 后续段：黑色渐变（越铸越贵） */}
+              <motion.path
+                d={HERO_CURVE_LATER}
                 stroke="url(#heroCurveStroke)"
-                strokeWidth="3"
+                strokeWidth="3.2"
                 strokeLinecap="round"
                 fill="none"
                 initial={{ pathLength: 0 }}
@@ -245,6 +262,13 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               {/* ---------- 已铸造点 ---------- */}
               <circle cx={125} cy={curvePoint(0.25)[1]} r="4.5" fill="rgba(0,0,0,0.75)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" />
               <circle cx={210} cy={curvePoint(0.5)[1]} r="4.5" fill="rgba(0,0,0,0.75)" stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" />
+
+              {/* ---------- 起点：PASS 铸造徽章（mint 动作产出 PASS） ---------- */}
+              <line x1="62" y1="320" x2="62" y2="338" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+              <rect x="40" y="294" width="44" height="24" rx="6" fill="#000" stroke="rgba(62,196,112,0.95)" strokeWidth="1.5" />
+              <text x="62" y="310" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#fff" fontFamily="monospace" letterSpacing="1">
+                PASS
+              </text>
 
               {/* ---------- 未来点位（空心虚线） ---------- */}
               <circle cx={329} cy={curvePoint(0.85)[1]} r="5" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5" strokeDasharray="2 3" />
@@ -274,18 +298,24 @@ function Hero({ onExplore }: { onExplore: () => void }) {
                 transition={{ repeat: Infinity, duration: 2.1, delay: 0.5, ease: 'easeOut' }}
               />
               <circle cx={CUR_X} cy={CUR_Y} r="6" fill="#000" stroke="rgba(255,255,255,0.95)" strokeWidth="2.2" />
-              {/* 当前价标签 */}
+              {/* 当前价标签：MINT NOW + 实时价格 */}
               <g>
-                <rect x={CUR_X + 12} y={CUR_Y - 34} width="92" height="20" rx="4" fill="rgba(0,0,0,0.85)" />
-                <text x={CUR_X + 20} y={CUR_Y - 20} fontSize="9" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.5">
-                  CURRENT PRICE
+                <rect x={CUR_X - 128} y={CUR_Y - 46} width="104" height="34" rx="5" fill="rgba(0,0,0,0.88)" />
+                <text x={CUR_X - 120} y={CUR_Y - 31} fontSize="9" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.5">
+                  MINT NOW
+                </text>
+                <text x={CUR_X - 120} y={CUR_Y - 18} fontSize="8" fill="rgba(255,255,255,0.85)" fontFamily="monospace">
+                  0.00000002 MON
                 </text>
               </g>
 
               {/* ---------- 标题区 ---------- */}
               <circle cx="14" cy="16" r="3.5" fill="#000" />
               <text x="26" y="20" fontSize="10" fontWeight="bold" fill="rgba(0,0,0,0.75)" fontFamily="monospace" letterSpacing="2">
-                BONDING CURVE
+                KOL PASS MINT CURVE
+              </text>
+              <text x="26" y="33" fontSize="7.5" fill="rgba(0,0,0,0.45)" fontFamily="monospace" letterSpacing="0.5">
+                Early minters lock in the lowest price
               </text>
               <circle cx="352" cy="14" r="3.5" fill="#000">
                 <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
@@ -294,9 +324,14 @@ function Hero({ onExplore }: { onExplore: () => void }) {
                 LIVE
               </text>
 
-              {/* ---------- 底部角标 ---------- */}
-              <text x="40" y="394" fontSize="8" fill="rgba(0,0,0,0.4)" fontFamily="monospace">
-                Mint early · price grows with supply
+              {/* ---------- 底部图例：早鸟红利 vs 越铸越贵 ---------- */}
+              <rect x="40" y="386" width="9" height="9" rx="2" fill="#0d7a40" />
+              <text x="55" y="394" fontSize="8" fill="rgba(0,0,0,0.5)" fontFamily="monospace">
+                EARLY MINT · CHEAP
+              </text>
+              <rect x="158" y="386" width="9" height="9" rx="2" fill="#000" />
+              <text x="173" y="394" fontSize="8" fill="rgba(0,0,0,0.5)" fontFamily="monospace">
+                LATER · PRICIER
               </text>
               <text x="380" y="394" textAnchor="end" fontSize="7" fill="rgba(0,0,0,0.3)" fontFamily="monospace" letterSpacing="1">
                 ILLUSTRATIVE
