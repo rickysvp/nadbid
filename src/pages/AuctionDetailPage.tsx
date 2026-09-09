@@ -41,6 +41,20 @@ function round2(value: number): number {
 }
 
 /**
+ * 极小金额自适应精度显示。
+ * 联合曲线早期 mint 价可低至 1e-8 MON 量级，toFixed(4) 会显示 0.0000（看起来"没有价格"）。
+ * 按数量级逐级提升精度，极小值用科学计数法。
+ */
+function fmtMonFlex(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  if (value >= 1) return value.toFixed(2);
+  if (value >= 0.001) return value.toFixed(4);
+  if (value >= 1e-6) return value.toFixed(8);
+  if (value <= 0) return '0';
+  return value.toExponential(2);
+}
+
+/**
  * wei → MON 字符串（P3-4：不经 Number 转换，避免大额累计金额精度丢失）。
  * 整数部分手工加千分位，小数保留 2 位。
  */
@@ -158,7 +172,7 @@ function PassBondingCurve({
 
   // 轴刻度：基于已铸造区间
   const xTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ s: maxSupply * k, label: `${Math.round(maxSupply * k).toLocaleString()}` }));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: maxPrice * k, label: `${(maxPrice * k).toFixed(4)}` }));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: maxPrice * k, label: `${fmtMonFlex(maxPrice * k)}` }));
 
   return (
     <div>
@@ -196,7 +210,7 @@ function PassBondingCurve({
           <line x1={PAD_L} x2={curX} y1={curY} y2={curY} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
           <circle cx={curX} cy={curY} r="3.5" fill="#3ec470" stroke="#0a0a0a" strokeWidth="1.5" />
           <text x={curX - 6} y={curY - 5} textAnchor="end" fontSize="8.5" fill="#3ec470" fontFamily="monospace" fontWeight="bold">
-            {supply.toLocaleString()} SUPPLY · {price.toFixed(4)} MON
+            {supply.toLocaleString()} SUPPLY · {fmtMonFlex(price)} MON
           </text>
         </g>
       </svg>
@@ -312,7 +326,9 @@ function ChainAuctionDetail({ address }: { address: string }) {
 
   // ---- 出价排名（Leaderboard）：从链上 BidPlaced 事件日志聚合每个竞拍者的
   //      累计出价金额，按累计总价值降序排序（真实链上数据，非 mock）。
-  //      totalBids 变化（BidPlaced 事件 refetch）时重新拉取日志。 ----
+  //      Monad 测试网 RPC 限制 eth_getLogs 单次最多 100 区块范围（413 错误），
+  //      因此从 latest 往回按 100 区块窗口分页拉取，直到收集到的事件数 ≥ totalBids
+  //      （即所有出价都被覆盖）或回溯到拍卖开始时间估算区块。 ----
   const publicClient = usePublicClient();
   const [leaderboard, setLeaderboard] = useState<{ address: `0x${string}`; total: bigint; count: number }[]>([]);
   useEffect(() => {
@@ -320,21 +336,69 @@ function ChainAuctionDetail({ address }: { address: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const logs = await publicClient.getLogs({
-          address: auctionAddress,
-          event: parseAbiItem(
-            'event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp)',
-          ),
-          fromBlock: 0n,
-          toBlock: 'latest',
-        });
+        const eventAbi = parseAbiItem(
+          'event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp)',
+        );
+        const latest = await publicClient.getBlockNumber();
+        let latestBlock: { timestamp: bigint } | undefined;
+        try {
+          latestBlock = await publicClient.getBlock({ blockNumber: latest });
+        } catch {
+          latestBlock = undefined;
+        }
+        const nowTs = latestBlock ? Number(latestBlock.timestamp) : 0;
+        const startTs = auctionData ? Number(auctionData.startTime) : 0;
+        const endTs = auctionData ? Number(auctionData.endTime) : 0;
+        // 未开始或异常：无出价
+        if (startTs <= 0 || startTs >= nowTs) {
+          if (!cancelled) setLeaderboard([]);
+          return;
+        }
+        // 二分定位 startTime / endTime（或 now）对应的区块，再在
+        // [startBlock - 200, endBlock + 100] 窗口分页扫描出价事件。
+        // 出价只发生在 [start, end]，窗口通常仅数百块、2-5 页即可覆盖全部事件，
+        // 且不受 Monad 测试网 eth_getLogs 单次 100 区块范围限制影响。
+        const findBlockAtTs = async (targetTs: number): Promise<bigint> => {
+          let lo = 0n;
+          let hi = latest;
+          while (lo < hi) {
+            const mid = (lo + hi) / 2n;
+            const blk = await publicClient.getBlock({ blockNumber: mid });
+            if (Number(blk.timestamp) < targetTs) lo = mid + 1n;
+            else hi = mid;
+          }
+          return lo;
+        };
+        const endBlock = endTs > 0 && endTs < nowTs ? await findBlockAtTs(endTs) : latest;
+        const startBlock = await findBlockAtTs(startTs);
+        const PAGE = 100n;
+        const from = startBlock > 200n ? startBlock - 200n : 0n;
+        const to = endBlock + 100n < latest ? endBlock + 100n : latest;
+        const targetBids = auctionData ? Number(auctionData.totalBids) : 0;
         const agg = new Map<string, { total: bigint; count: number }>();
-        for (const log of logs) {
-          const bidder = log.args.bidder;
-          const amount = log.args.amount;
-          if (!bidder || amount === undefined || amount === null) continue;
-          const cur = agg.get(bidder) ?? { total: 0n, count: 0 };
-          agg.set(bidder, { total: cur.total + amount, count: cur.count + 1 });
+        let eventsFound = 0;
+        let curTo = to;
+        let curFrom = curTo - PAGE + 1n > from ? curTo - PAGE + 1n : from;
+        for (let i = 0; i < 200; i++) {
+          const page = await publicClient.getLogs({
+            address: auctionAddress,
+            event: eventAbi,
+            fromBlock: curFrom,
+            toBlock: curTo,
+          });
+          for (const log of page) {
+            const bidder = log.args.bidder;
+            const amount = log.args.amount;
+            if (!bidder || amount === undefined || amount === null) continue;
+            const cur = agg.get(bidder) ?? { total: 0n, count: 0 };
+            agg.set(bidder, { total: cur.total + amount, count: cur.count + 1 });
+            eventsFound++;
+          }
+          // 已覆盖全部出价 → 提前停止
+          if (targetBids > 0 && eventsFound >= targetBids) break;
+          if (curFrom <= from) break;
+          curTo = curFrom - 1n;
+          curFrom = curTo - PAGE + 1n > from ? curTo - PAGE + 1n : from;
         }
         const rows = [...agg.entries()]
           .map(([addr, v]) => ({ address: addr as `0x${string}`, total: v.total, count: v.count }))
@@ -349,7 +413,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
     return () => {
       cancelled = true;
     };
-  }, [auctionAddress, publicClient, totalBids]);
+  }, [auctionAddress, publicClient, auctionData?.totalBids]);
 
   // ---- SP-2 履约状态机：状态派生 + 权限判断 ----
   const auctionStatus = auctionData?.status;
@@ -1047,7 +1111,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   <div className="flex items-center justify-between">
                     <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Mint Price</span>
                     <span className="font-mono text-[12px] font-bold text-[#3ec470]">
-                      {mintUnitMon !== undefined ? `${mintUnitMon.toFixed(4)} MON` : '-'}
+                      {mintUnitMon !== undefined ? `${fmtMonFlex(mintUnitMon)} MON` : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1073,7 +1137,7 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
                     <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Total Cost</span>
                     <span className="font-mono text-[12px] font-bold text-white">
-                      {mintCostMon !== undefined ? `${mintCostMon.toFixed(4)} MON` : '-'}
+                      {mintCostMon !== undefined ? `${fmtMonFlex(mintCostMon)} MON` : '-'}
                     </span>
                   </div>
                   <button
