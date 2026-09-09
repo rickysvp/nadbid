@@ -45,8 +45,11 @@ export const AUCTION = {
   FIXED_BID_AMOUNT: 99,
   /** 每次出价成功后倒计时重置秒数（便士拍卖：出价即重置倒计时） */
   BID_EXTEND_SECONDS: 40,
-  /** 拍卖倒计时进度基准时长（ms）— 用于 CircularProgress 百分比计算 */
-  COUNTDOWN_BASE_MS: 5 * 60 * 1000,
+  /** 拍卖倒计时进度基准时长（ms）— 用于 CircularProgress 百分比计算。
+   *  便士拍卖为 40 秒重置机制：出价后 endTime = now + 40s，环形进度应以 40s 为
+   *  完整一圈。此前误用 5 分钟基准导致进度环只走 13% 就归零，视觉上倒计时
+   *  从不完整显示一圈。 */
+  COUNTDOWN_BASE_MS: 40 * 1000,
 } as const;
 
 // ============ 积分参数 ============

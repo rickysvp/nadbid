@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatUnits, keccak256 } from 'viem';
+import { formatUnits, keccak256, parseAbiItem } from 'viem';
+import { usePublicClient } from 'wagmi';
 import { ArrowLeft, Copy, Share2, Users, Wallet, CheckCircle2, AlertTriangle, Crown, Sparkles } from 'lucide-react';
 import { KolAvatar } from '../components/kol/KolAvatar';
 import { Button } from '../components/ui/Button';
@@ -96,8 +97,11 @@ function useCountdownDetail(targetDate: number | undefined) {
 
 /**
  * PASS 联合曲线图（纯 SVG，无外部依赖）。
- * 曲线 P(s) = basePrice * (s / baseSupply)^exponent —— mint 价格随供应量二次增长，
- * 越早 mint 越便宜（联合曲线获利空间）。标注当前供应量 / 当前价格位置。
+ * 只绘制"已铸造区间"（0 → 当前 supply），未铸造的未来段不画：
+ * 曲线终点即当前供应量 / 当前链上价格（P2-3：此前画到 2×baseSupply 的全曲线，
+ * 包含大量未铸造的假数据段，且 x 轴刻度误导用户）。
+ * 曲线形状沿用平方模型 P(s) = price * (s/supply)^2（与链上 basePrice*(s/baseSupply)^2
+ * 数学等价，且保证终点精确落在链上当前价）。
  */
 function PassBondingCurve({
   curveConfig,
@@ -108,24 +112,14 @@ function PassBondingCurve({
   currentSupply: bigint | undefined;
   currentPrice: bigint | undefined;
 }) {
-  if (!curveConfig || Number(curveConfig.baseSupply) <= 0 || Number(curveConfig.exponent) <= 0) {
-    return (
-      <div className="text-white/30 text-[9px] italic py-8 text-center">
-        Curve data loading...
-      </div>
-    );
-  }
-
-  const basePrice = Number(curveConfig.basePrice) / 1e18;
-  const baseSupply = Number(curveConfig.baseSupply);
-  const exponent = Number(curveConfig.exponent);
   const supply = currentSupply !== undefined ? Number(currentSupply) : undefined;
   const price = currentPrice !== undefined ? Number(currentPrice) / 1e18 : undefined;
 
-  if (!(basePrice > 0)) {
+  // 数据未就绪 / 尚无铸造记录（supply=0 或价格 0）→ 空态：曲线无法标定
+  if (!curveConfig || !supply || supply <= 0 || price === undefined || price <= 0) {
     return (
-      <div className="text-white/30 text-[9px] italic py-8 text-center">
-        Curve unavailable
+      <div className="text-white/30 text-[9px] italic py-8 text-center leading-relaxed">
+        No PASS minted yet — the curve starts at the first mint.
       </div>
     );
   }
@@ -136,30 +130,32 @@ function PassBondingCurve({
   const PAD_R = 12;
   const PAD_T = 12;
   const PAD_B = 24;
-  const maxSupply = baseSupply * 2;
-  const maxPrice = basePrice * Math.pow(maxSupply / baseSupply, exponent);
+  // 只画已铸造区间：x 轴 0 → 当前 supply，曲线终点 = 当前价（真实链上值）
+  const maxSupply = Math.max(supply, 1);
+  const maxPrice = Math.max(price, 1e-18);
   const px = (s: number) => PAD_L + (s / maxSupply) * (W - PAD_L - PAD_R);
   const py = (p: number) => H - PAD_B - (p / maxPrice) * (H - PAD_T - PAD_B);
 
-  // 曲线采样点（60 段折线足够平滑）
+  // 曲线采样点（60 段折线足够平滑），平方模型终点精确等于当前价
   const STEPS = 60;
   const pts: string[] = [];
   for (let i = 0; i <= STEPS; i++) {
     const s = (maxSupply * i) / STEPS;
-    const p = basePrice * Math.pow(s / baseSupply, exponent);
+    const p = price * Math.pow(s / maxSupply, 2);
     pts.push(`${px(s).toFixed(1)},${py(p).toFixed(1)}`);
   }
 
-  const curX = supply !== undefined ? px(Math.min(supply, maxSupply)) : undefined;
-  const curY = price !== undefined ? py(Math.min(price, maxPrice)) : undefined;
+  // 当前点即曲线终点（右上角）
+  const curX = px(maxSupply);
+  const curY = py(maxPrice);
 
-  // 轴刻度
-  const xTicks = [0, 0.5, 1, 1.5, 2].map((k) => ({ s: baseSupply * k, label: `${baseSupply * k}` }));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: maxPrice * k, label: `${(maxPrice * k).toFixed(3)}` }));
+  // 轴刻度：基于已铸造区间
+  const xTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ s: maxSupply * k, label: `${Math.round(maxSupply * k).toLocaleString()}` }));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((k) => ({ p: maxPrice * k, label: `${(maxPrice * k).toFixed(4)}` }));
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="PASS bonding curve">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="PASS bonding curve (minted range)">
         {/* 网格 + Y 轴刻度 */}
         {yTicks.map((t, i) => (
           <g key={`y${i}`}>
@@ -185,23 +181,21 @@ function PassBondingCurve({
         <text x={W - PAD_R} y={H - 4} textAnchor="end" fontSize="7.5" fill="rgba(255,255,255,0.4)" fontFamily="monospace">
           SUPPLY →
         </text>
-        {/* 曲线 */}
+        {/* 曲线（已铸造区间） */}
         <polyline points={pts.join(' ')} fill="none" stroke="#3ec470" strokeWidth="1.8" strokeLinejoin="round" />
-        {/* 当前点 */}
-        {curX !== undefined && curY !== undefined && (
-          <g>
-            <line x1={curX} x2={curX} y1={PAD_T} y2={H - PAD_B} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
-            <line x1={PAD_L} x2={curX} y1={curY} y2={curY} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
-            <circle cx={curX} cy={curY} r="3.5" fill="#3ec470" stroke="#0a0a0a" strokeWidth="1.5" />
-            <text x={curX + 6} y={curY - 5} fontSize="8.5" fill="#3ec470" fontFamily="monospace" fontWeight="bold">
-              {supply} SUPPLY · {price !== undefined ? `${price.toFixed(4)} MON` : ''}
-            </text>
-          </g>
-        )}
+        {/* 当前点（曲线终点，链上真实 supply/price） */}
+        <g>
+          <line x1={curX} x2={curX} y1={PAD_T} y2={H - PAD_B} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1={PAD_L} x2={curX} y1={curY} y2={curY} stroke="rgba(62,196,112,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx={curX} cy={curY} r="3.5" fill="#3ec470" stroke="#0a0a0a" strokeWidth="1.5" />
+          <text x={curX - 6} y={curY - 5} textAnchor="end" fontSize="8.5" fill="#3ec470" fontFamily="monospace" fontWeight="bold">
+            {supply.toLocaleString()} SUPPLY · {price.toFixed(4)} MON
+          </text>
+        </g>
       </svg>
       <div className="flex justify-between text-white/30 text-[8px] font-bold uppercase tracking-[0.15em] mt-1 px-1">
         <span>0</span>
-        <span>{maxSupply} max supply</span>
+        <span>{maxSupply.toLocaleString()} minted</span>
       </div>
     </div>
   );
@@ -306,6 +300,47 @@ function ChainAuctionDetail({ address }: { address: string }) {
   const isSettled = auctionData?.settled ?? false;
   const isLive = !!auctionData && !isEnded && !isSettled && !isUpcoming;
   const isLastBidderYou = !!account && !!lastBidder && account.toLowerCase() === lastBidder.toLowerCase();
+
+  // ---- 出价排名（Leaderboard）：从链上 BidPlaced 事件日志聚合每个竞拍者的
+  //      累计出价金额，按累计总价值降序排序（真实链上数据，非 mock）。
+  //      totalBids 变化（BidPlaced 事件 refetch）时重新拉取日志。 ----
+  const publicClient = usePublicClient();
+  const [leaderboard, setLeaderboard] = useState<{ address: `0x${string}`; total: bigint; count: number }[]>([]);
+  useEffect(() => {
+    if (!auctionAddress || !publicClient) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const logs = await publicClient.getLogs({
+          address: auctionAddress,
+          event: parseAbiItem(
+            'event BidPlaced(uint256 auctionId, uint256 bidSeq, address indexed bidder, uint256 amount, uint256 timestamp)',
+          ),
+          fromBlock: 0n,
+          toBlock: 'latest',
+        });
+        const agg = new Map<string, { total: bigint; count: number }>();
+        for (const log of logs) {
+          const bidder = log.args.bidder;
+          const amount = log.args.amount;
+          if (!bidder || amount === undefined || amount === null) continue;
+          const cur = agg.get(bidder) ?? { total: 0n, count: 0 };
+          agg.set(bidder, { total: cur.total + amount, count: cur.count + 1 });
+        }
+        const rows = [...agg.entries()]
+          .map(([addr, v]) => ({ address: addr as `0x${string}`, total: v.total, count: v.count }))
+          .sort((a, b) => (a.total < b.total ? 1 : a.total > b.total ? -1 : 0))
+          .slice(0, 10);
+        if (!cancelled) setLeaderboard(rows);
+      } catch {
+        // RPC 日志查询失败不阻塞页面（出价/结算仍可用）
+        if (!cancelled) setLeaderboard([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auctionAddress, publicClient, totalBids]);
 
   // ---- SP-2 履约状态机：状态派生 + 权限判断 ----
   const auctionStatus = auctionData?.status;
@@ -675,6 +710,54 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   </>
                 )}
               </div>
+            </div>
+
+            {/* 出价排名（Leaderboard）— 按每个竞拍者累计出价总价值排序（链上事件聚合） */}
+            <div className="bg-[#161616] border border-white/[0.04] rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-white">Bid Leaderboard</h3>
+                <span className="text-white/30 text-[8px] font-bold uppercase tracking-[0.15em]">by cumulative spent</span>
+              </div>
+              {leaderboard.length === 0 ? (
+                <div className="text-white/30 text-[11px] py-4 text-center">
+                  {isLive ? 'No bids yet — be the first!' : 'No bids were placed in this auction.'}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {leaderboard.map((row, i) => {
+                    const isLeader = lastBidder !== null && row.address.toLowerCase() === lastBidder.toLowerCase();
+                    const isYou = !!account && row.address.toLowerCase() === account.toLowerCase();
+                    return (
+                      <div
+                        key={row.address}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${
+                          isLeader
+                            ? 'border-[#3ec470]/30 bg-[#3ec470]/[0.06]'
+                            : 'border-white/[0.03] bg-white/[0.01]'
+                        }`}
+                      >
+                        <span className={`w-5 text-center font-mono font-bold text-[12px] ${i === 0 ? 'text-[#3ec470]' : 'text-white/40'}`}>
+                          {i + 1}
+                        </span>
+                        <KolAvatar handle={row.address} size="sm" />
+                        <span className="font-mono text-[12px] text-white/80 flex-1 truncate">
+                          {shortenAddress(row.address)}
+                          {isYou && <span className="ml-1.5 text-[#3ec470] text-[9px] font-bold">YOU</span>}
+                        </span>
+                        {isLeader && (
+                          <span className="flex items-center gap-1 text-[#3ec470] text-[9px] font-bold uppercase tracking-wider shrink-0">
+                            <Crown className="w-3 h-3" /> Leading
+                          </span>
+                        )}
+                        <span className="text-right shrink-0">
+                          <span className="block font-mono text-[12px] font-bold text-white">{formatMonWei(row.total)} MON</span>
+                          <span className="block text-white/30 text-[9px] font-mono text-right">{row.count} bids</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
