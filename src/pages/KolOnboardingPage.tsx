@@ -384,15 +384,10 @@ export default function KolOnboardingPage() {
       await registry.registerKol(handle, BigInt(twitterFollowers), BigInt(registerExpiry), registerSignature as `0x${string}`, {
         onSuccess: async () => {
           success('KOL registered on-chain!');
-          // P2-5：注册成功后把 X 简介/头像写入链上 Registry（仅本人可调，无需签名；
-          // 失败不阻断——详情页 bio/avatar 为空时降级展示 handle + 链上摘要）
-          if (twitterBio.trim() !== '' || twitterAvatar.trim() !== '') {
-            try {
-              await registry.updateKolProfile(twitterBio.trim(), twitterAvatar.trim());
-            } catch {
-              /* bio/avatar 上链失败不影响注册结果，可稍后手动更新 */
-            }
-          }
+          // P2-5：bio/avatar 不再在 onSuccess 里自动发起第二笔交易——
+          // 连续签名弹窗易被忽略导致失败，且 write 会覆盖成功状态使注册按钮
+          // 重新可用（用户重复点击 → ALREADY_REGISTERED）。
+          // 改为注册后显示独立的 "Save X Profile" 按钮，用户主动触发上链。
           // 注册已上链，平台签名使命完成：清除会话缓存，避免长期保留
           try {
             sessionStorage.removeItem('nadbid_xverify');
@@ -406,6 +401,29 @@ export default function KolOnboardingPage() {
       });
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'Registration failed — please retry');
+    }
+  };
+
+  /** P2-5：把 X 简介/头像写入链上 Registry（独立按钮触发，避免与注册连续签名） */
+  const handleUpdateProfile = async () => {
+    if (!registry.isRegistered) {
+      toastError('Register your KOL first');
+      return;
+    }
+    if (twitterBio.trim() === '' && twitterAvatar.trim() === '') {
+      toastError('No X profile data available — please verify your Twitter again');
+      return;
+    }
+    promptWalletConfirm();
+    try {
+      await registry.updateKolProfile(twitterBio.trim(), twitterAvatar.trim(), {
+        onSuccess: () => {
+          success('X profile saved on-chain!');
+          invalidateAll();
+        },
+      });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Profile save failed — please retry');
     }
   };
 
@@ -629,6 +647,31 @@ export default function KolOnboardingPage() {
               {registry.error && (
                 <p className="text-xs text-red-400 mt-2">{registry.error}</p>
               )}
+              {/* P2-5：注册成功后，X 简介/头像尚未上链时显示独立保存入口
+                  （注册时不再自动连发第二笔交易，避免状态机覆盖与连续签名弹窗） */}
+              {registry.isRegistered &&
+                (twitterBio.trim() !== '' || twitterAvatar.trim() !== '') &&
+                registry.kolData?.bio?.trim() === '' &&
+                registry.kolData?.avatar?.trim() === '' && (
+                  <div className="mt-3 rounded-lg bg-[#3ec470]/5 border border-[#3ec470]/20 px-3 py-2.5">
+                    <p className="text-xs text-white/60 mb-2">
+                      Your X profile (bio &amp; avatar) is not on-chain yet — save it now so your
+                      KOL page shows your real Twitter info.
+                    </p>
+                    <Button
+                      fullWidth
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleUpdateProfile}
+                      loading={registry.isLoading}
+                    >
+                      Save X Profile On-Chain
+                    </Button>
+                    {registry.error && (
+                      <p className="text-xs text-red-400 mt-2">{registry.error}</p>
+                    )}
+                  </div>
+                )}
             </div>
           </div>
         );
