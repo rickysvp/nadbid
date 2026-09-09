@@ -844,52 +844,12 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   </button>
                 )}
 
-                {/* SP-2 履约状态机操作区（AWAITING_CONFIRMATION / DISPUTED / COMPLETED / REFUNDED） */}
+                {/* SP-2 履约状态机操作区（SETTLED=1 见下方；AWAITING_CONFIRMATION=2） */}
                 {auctionStatus === 2 && (
                   <div className="w-full mt-4 bg-[#0f0f0f] border border-white/[0.06] rounded-lg p-4 text-left space-y-3">
                     <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#3ec470]">
-                      ⚖️ Fulfillment — {kolSubmitted ? 'KOL submitted' : 'KOL must submit within 48h'}
+                      ⚖️ Fulfillment — KOL submitted, awaiting winner confirmation
                     </div>
-
-                    {isKol && !kolSubmitted && !fulfillmentExpired && (
-                      <>
-                        {/* P1-2：证据文件上传——自动计算哈希 + 生成 URI，仲裁者可下载查看 */}
-                        <div className="space-y-2">
-                          <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-white/40">
-                            Upload Evidence File (auto-calculates hash)
-                          </label>
-                          <input
-                            type="file"
-                            onChange={handleEvidenceFileUpload}
-                            disabled={evidenceFileLoading}
-                            className="w-full text-[10px] text-white/60 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#3ec470]/15 file:text-[#3ec470] file:text-[10px] file:font-bold hover:file:bg-[#3ec470]/25 cursor-pointer"
-                          />
-                          {evidenceFileLoading && (
-                            <div className="text-[10px] text-[#3ec470]">Processing file...</div>
-                          )}
-                          {evidenceFileName && evidenceFileHash && (
-                            <div className="bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 space-y-1">
-                              <div className="text-[10px] text-white/60 truncate">📎 {evidenceFileName}</div>
-                              <div className="text-[9px] font-mono text-[#3ec470]/80 truncate">{evidenceFileHash}</div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-[9px] text-white/30 text-center">— or manually paste hash —</div>
-                        <input
-                          value={evidenceInput}
-                          onChange={(e) => setEvidenceInput(e.target.value)}
-                          placeholder="0x + evidence hash (keccak256 of proof)"
-                          className="w-full bg-[#161616] border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white placeholder:text-white/25 focus:border-[#3ec470]/50 outline-none"
-                        />
-                        <button
-                          onClick={() => handleFulfillmentAction('submit')}
-                          disabled={txLoading}
-                          className="w-full bg-[#3ec470]/15 border border-[#3ec470]/40 text-[#3ec470] font-bold text-[11px] py-2.5 rounded hover:bg-[#3ec470]/25 transition-colors uppercase"
-                        >
-                          {txLoading ? 'Submitting...' : 'Submit Fulfillment'}
-                        </button>
-                      </>
-                    )}
 
                     {isWinner && kolSubmitted && confirmWindowOpen && (
                       <>
@@ -963,15 +923,59 @@ function ChainAuctionDetail({ address }: { address: string }) {
                   </div>
                 )}
 
-                {/* SP-2（审计 P1-3）：SETTLED + KOL 超时未履约 → 违约态。
-                    修复前：违约提示被错误放在 AWAITING 块内（违约时 status 恒为 1，提示永不显示），
-                    且 SETTLED 状态无退款触发入口，普通用户无法在产品内启动违约结算。 */}
+                {/* SP-2：SETTLED(1) — KOL 提交履约的唯一入口（submitFulfillment 要求
+                    status==SETTLED）。修复前表单误放在 AWAITING_CONFIRMATION(2) 块内——
+                    提交后才变 2，导致 KOL 在 settle 后永远找不到提交入口（死锁）。
+                    超时未提交 → 违约态，任何人可触发违约结算。 */}
                 {auctionStatus === 1 && (
                   <div className="w-full mt-4 bg-[#0f0f0f] border border-white/[0.06] rounded-lg p-4 text-left space-y-3">
                     <div className="text-sm font-bold uppercase tracking-[0.15em] text-white/60">
                       ⚖️ Settled — {kolSubmitted ? 'KOL submitted' : 'Awaiting KOL fulfillment'}
                     </div>
-                    {!kolSubmitted && !fulfillmentExpired && (
+                    {!kolSubmitted && !fulfillmentExpired && isKol && (
+                      <>
+                        <div className="text-white/40 text-sm leading-relaxed">
+                          Auction settled. Winner locked. Submit your fulfillment evidence within the
+                          window — the winner will confirm or dispute.
+                        </div>
+                        {/* P1-2：证据文件上传——自动计算哈希 + 生成 URI，仲裁者可下载查看 */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-white/40">
+                            Upload Evidence File (auto-calculates hash)
+                          </label>
+                          <input
+                            type="file"
+                            onChange={handleEvidenceFileUpload}
+                            disabled={evidenceFileLoading}
+                            className="w-full text-[10px] text-white/60 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#3ec470]/15 file:text-[#3ec470] file:text-[10px] file:font-bold hover:file:bg-[#3ec470]/25 cursor-pointer"
+                          />
+                          {evidenceFileLoading && (
+                            <div className="text-[10px] text-[#3ec470]">Processing file...</div>
+                          )}
+                          {evidenceFileName && evidenceFileHash && (
+                            <div className="bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 space-y-1">
+                              <div className="text-[10px] text-white/60 truncate">📎 {evidenceFileName}</div>
+                              <div className="text-[9px] font-mono text-[#3ec470]/80 truncate">{evidenceFileHash}</div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-[9px] text-white/30 text-center">— or manually paste hash —</div>
+                        <input
+                          value={evidenceInput}
+                          onChange={(e) => setEvidenceInput(e.target.value)}
+                          placeholder="0x + evidence hash (keccak256 of proof)"
+                          className="w-full bg-[#161616] border border-white/10 rounded px-3 py-2 text-[11px] font-mono text-white placeholder:text-white/25 focus:border-[#3ec470]/50 outline-none"
+                        />
+                        <button
+                          onClick={() => handleFulfillmentAction('submit')}
+                          disabled={txLoading}
+                          className="w-full bg-[#3ec470]/15 border border-[#3ec470]/40 text-[#3ec470] font-bold text-[11px] py-2.5 rounded hover:bg-[#3ec470]/25 transition-colors uppercase"
+                        >
+                          {txLoading ? 'Submitting...' : 'Submit Fulfillment'}
+                        </button>
+                      </>
+                    )}
+                    {!kolSubmitted && !fulfillmentExpired && !isKol && (
                       <div className="text-white/40 text-sm leading-relaxed">
                         Auction settled. Winner locked. KOL must submit fulfillment evidence within the
                         fulfillment window.
