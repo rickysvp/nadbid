@@ -581,9 +581,14 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
                   type="number" step="1" min="1" max="86400"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  disabled={factory.isLoading}
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+                  disabled={true}
+                  readOnly
+                  title="Duration is fixed at 40s (penny auction rule)"
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-[#3ec470]/50 opacity-70 cursor-not-allowed"
                 />
+                <p className="text-[11px] text-white/40 mt-1.5">
+                  Fixed by contract (on-chain FIXED_DURATION = 40s, reset on each bid)
+                </p>
               </div>
             </div>
 
