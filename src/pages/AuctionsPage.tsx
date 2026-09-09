@@ -443,9 +443,12 @@ function CreateAuctionModal({ open, onClose }: { open: boolean; onClose: () => v
       success('Auction created!');
       onClose();
     };
-    // 未来时间 → 预约开始；否则立即开始
+    // 未来时间 → 预约开始；否则立即开始。
+    // FIX：只有 startSec 明显在未来（>=60s 缓冲）才走预约——否则签名+上链延迟
+    // 几秒后 block.timestamp 可能超过 startTime，触发合约 START_PAST revert。
+    // 立即开始由 createKolAuction 内部用 block.timestamp，永不 revert。
     const res =
-      startSec > nowSec
+      startSec >= nowSec + 60
         ? await factory.createKolAuctionScheduled({ ...base, startTime: BigInt(startSec) }, { onSuccess })
         : await factory.createKolAuction(base, { onSuccess });
     if (!res && factory.error) toastError(factory.error);
