@@ -91,7 +91,8 @@ export default function KolOnboardingPage() {
   // P2-5 链上 meta：X 授权返回的简介/头像，注册成功后随 updateKolProfile 上链（永不丢失）
   const [twitterBio, setTwitterBio] = useState<string>('');
   const [twitterAvatar, setTwitterAvatar] = useState<string>('');
-  const [mintPrice, setMintPrice] = useState('0.001');
+  const [mintPrice, setMintPrice] = useState('10');
+  const [maxPrice, setMaxPrice] = useState('10000');
 
   // ---- 从链上数据推导已完成步骤 ----
   const completedSteps = useMemo(() => {
@@ -469,15 +470,23 @@ export default function KolOnboardingPage() {
       toastError('You already have a PASS contract — one PASS per KOL');
       return;
     }
-    // 前端预校验（合约有 ZERO_PRICE 兜底，提前提示避免链上 revert）
-    if (!(Number(mintPrice) > 0)) {
-      toastError('Enter a valid PASS mint price (greater than 0 MON)');
+    // 前端预校验（合约有 ZERO_PRICE / BAD_PRICES 兜底，提前提示避免链上 revert）
+    const priceNum = Number(mintPrice);
+    const maxNum = Number(maxPrice);
+    // 产品规则：起铸价 ≥ 10 MON（链上 MIN_BASE_PRICE）
+    if (!(priceNum >= 10)) {
+      toastError('Mint price must be at least 10 MON');
       return;
     }
-    const price = parseEther(mintPrice || '0');
+    if (!(maxNum > priceNum)) {
+      toastError('Max price must be greater than mint price');
+      return;
+    }
+    const price = parseEther(mintPrice || '10');
+    const max = parseEther(maxPrice || '10000');
     promptWalletConfirm();
     try {
-      await factory.createKolPass(price, {
+      await factory.createKolPass(price, max, {
         onSuccess: async () => {
           success('PASS contract deployed successfully!');
           invalidateAll();
@@ -729,16 +738,34 @@ export default function KolOnboardingPage() {
               </label>
               <input
                 type="number"
-                step="0.001"
-                min="0"
+                step="1"
+                min="10"
                 value={mintPrice}
                 onChange={(e) => setMintPrice(e.target.value)}
                 disabled={factory.isLoading}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
               />
               <p className="text-xs text-white/30 mt-1.5">
-                The base price for minting your PASS NFT. Price follows a bonding
-                curve as supply increases.
+                Mint starts at this price (minimum 10 MON). Price rises along a
+                bonding curve as supply increases.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Max Price at Full Supply (MON)
+              </label>
+              <input
+                type="number"
+                step="100"
+                min="11"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                disabled={factory.isLoading}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-[#3ec470]/50 disabled:opacity-50"
+              />
+              <p className="text-xs text-white/30 mt-1.5">
+                Price when 2,000 PASS are minted. e.g. 10 → 10,000 MON = 1000x
+                upside for early buyers.
               </p>
             </div>
             <Button

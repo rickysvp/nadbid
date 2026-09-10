@@ -33,8 +33,9 @@ export interface FactoryTxOptions {
 
 export interface UseFactoryResult {
   // ---- 链上写入 ----
-  /** createKolPass(mintPrice)：为当前 KOL 创建 PASS NFT 合约（返回合约地址） */
-  createKolPass: (mintPrice: bigint, opts?: FactoryTxOptions) => Promise<Hash | null>;
+  /** createKolPass(mintPrice, maxPrice)：为当前 KOL 创建 PASS NFT 合约（返回合约地址）。
+   *  mintPrice = 起铸价（≥10 MON），maxPrice = 满供应顶部价格（涨幅锚点） */
+  createKolPass: (mintPrice: bigint, maxPrice: bigint, opts?: FactoryTxOptions) => Promise<Hash | null>;
   /** createKolAuction({ passContract, fixedBidAmount, duration, content })：创建固定价拍卖合约（立即开始） */
   createKolAuction: (args: CreateKolAuctionArgs, opts?: FactoryTxOptions) => Promise<Hash | null>;
   /** createKolAuctionScheduled({ ...args, startTime })：创建预约开始的固定价拍卖（startTime 秒级 Unix 时间戳） */
@@ -62,7 +63,7 @@ export interface UseFactoryResult {
  *
  * @example
  * const { createKolPass, createKolAuction, isSuccess } = useFactory();
- * await createKolPass(parseEther('0.001'), { onSuccess: () => refetchRegistryIndex() });
+ * await createKolPass(parseEther('10'), parseEther('10000'), { onSuccess: () => refetchRegistryIndex() });
  * await createKolAuction({ passContract, fixedBidAmount, duration, content });
  */
 export function useFactory(): UseFactoryResult {
@@ -76,13 +77,13 @@ export function useFactory(): UseFactoryResult {
   });
 
   const createKolPass = useCallback(
-    (mintPrice: bigint, opts: FactoryTxOptions = {}): Promise<Hash | null> => {
+    (mintPrice: bigint, maxPrice: bigint, opts: FactoryTxOptions = {}): Promise<Hash | null> => {
       if (!factoryAddress) return Promise.resolve(null);
       return write({
         address: factoryAddress,
         abi: factoryAbi,
         functionName: 'createKolPass',
-        args: [mintPrice],
+        args: [mintPrice, maxPrice],
         onSuccess: opts.onSuccess,
         toast: opts.toast,
       });

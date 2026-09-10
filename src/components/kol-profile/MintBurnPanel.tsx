@@ -123,7 +123,11 @@ export function MintBurnPanel({
             let sum = 0n;
             for (let i = 0; i < burnQty; i++) {
               const step = BigInt(effectiveSupply - i);
-              sum += (curveCfg.basePrice * step * step) / (curveCfg.baseSupply * curveCfg.baseSupply);
+              // 带偏移二次曲线：P(n) = basePrice + (maxPrice-basePrice)·(n/baseSupply)²
+              sum +=
+                curveCfg.basePrice +
+                ((curveCfg.maxPrice - curveCfg.basePrice) * step * step) /
+                  (curveCfg.baseSupply * curveCfg.baseSupply);
             }
             return sum - (sum * 8n) / 100n;
           })()
@@ -139,8 +143,9 @@ export function MintBurnPanel({
   const newPrice =
     curveCfg && effectiveSupply > 0
       ? Number(
-          (curveCfg.basePrice * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
-            (curveCfg.baseSupply * curveCfg.baseSupply),
+          curveCfg.basePrice +
+            ((curveCfg.maxPrice - curveCfg.basePrice) * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
+              (curveCfg.baseSupply * curveCfg.baseSupply),
         ) / 1e18
       : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
 
@@ -195,8 +200,9 @@ export function MintBurnPanel({
       const newPrice =
         curveCfg && effectiveSupply > 0
           ? Number(
-              (curveCfg.basePrice * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
-                (curveCfg.baseSupply * curveCfg.baseSupply),
+              curveCfg.basePrice +
+                ((curveCfg.maxPrice - curveCfg.basePrice) * BigInt(newSupply + 1) * BigInt(newSupply + 1)) /
+                  (curveCfg.baseSupply * curveCfg.baseSupply),
             ) / 1e18
           : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
       // 余额刷新：按链上精确成本（含手续费）扣减，而非单枚价×qty
@@ -222,7 +228,7 @@ export function MintBurnPanel({
     const newSupply = supplyAfterBurn(effectiveSupply, burnAmt);
     const newPrice =
       chainPrice !== undefined && effectiveSupply > 0
-        ? chainPrice * (newSupply * newSupply) / (effectiveSupply * effectiveSupply)
+        ? chainPrice
         : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
     // 审计修复（P2-2/P1）：burn 是入账，delta 传负数；兜底金额与链上严格一致——
     // 逐枚递减曲线 Σ curvePriceAt(supply - i) 再扣 8% 手续费（feeKOL 5% + feePlatform 3%）。

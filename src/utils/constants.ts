@@ -17,13 +17,17 @@ export const FEES = {
 } as const;
 
 // ============ Bonding Curve 默认参数 ============
+// 产品规则（2026-09）：KOL PASS 最低 10 MON 起铸，满供应（2000）达 10000 MON（1000 倍涨幅）。
+// 与链上 KolPass.sol 保持一致：P(n) = basePrice + (maxPrice − basePrice)·(n/2000)²
 export const CURVE_DEFAULTS = {
-  /** 第 1 枚价格（MON） */
-  BASE_PRICE: 12.4,
-  /** 曲线指数（2 = 二次曲线） */
+  /** 起铸价（第 1 枚，MON）— 链上 MIN_BASE_PRICE = 10 ether */
+  BASE_PRICE: 10,
+  /** 满供应顶部价格（MON）— 涨幅锚点（1000 倍） */
+  MAX_PRICE: 10000,
+  /** 曲线指数（2 = 二次曲线，与链上 exponent 一致） */
   EXPONENT: 2,
-  /** 参考供应量（用于归一化） */
-  REFERENCE_SUPPLY: 8492,
+  /** 满供应量（曲线归一化基准，与链上 baseSupply = 2000 一致） */
+  REFERENCE_SUPPLY: 2000,
 } as const;
 
 // ============ 质押参数 ============

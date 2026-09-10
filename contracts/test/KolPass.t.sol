@@ -13,7 +13,7 @@ contract KolPassTest is Test {
     uint256 baseSupply = 1000;
 
     function setUp() public {
-        pass = new KolPass(kol, mintPrice, platform, address(0xAAAA));
+        pass = new KolPass(kol, mintPrice, 100 ether, platform, address(0xAAAA));
     }
 
     function test_CurvePrice_AtBaseSupply() public view {
@@ -203,7 +203,7 @@ contract KolPassReentrancyTest is Test {
     address buyer = address(0x1234);
 
     function setUp() public {
-        pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
+        pass = new KolPass(kol, 13.39 ether, 100 ether, platform, address(0xAAAA));
     }
 
     function test_Mint_Reentrancy_Blocked() public {
@@ -318,17 +318,23 @@ contract KolPassReentrancyTest is Test {
         pass.mint{value: 1000 ether}(51);
     }
 
-    // 审计回归（D6）：KolPass 构造拒绝零 KOL 地址 / 零价 / 零 treasury / 零 factory
+    // 审计回归（D6）：KolPass 构造拒绝零 KOL 地址 / 非法价格 / 零 treasury / 零 factory
     function test_Constructor_RejectsBadArgs() public {
         vm.expectRevert(bytes("ZERO_KOL"));
-        new KolPass(address(0), 1 ether, platform, address(0xAAAA));
+        new KolPass(address(0), 1 ether, 100 ether, platform, address(0xAAAA));
         vm.expectRevert(bytes("BAD_BASE_PRICE"));
-        new KolPass(kol, 0, platform, address(0xAAAA));
+        new KolPass(kol, 0, 100 ether, platform, address(0xAAAA));
         vm.expectRevert(bytes("BAD_BASE_PRICE"));
-        new KolPass(kol, 2_000_000 ether, platform, address(0xAAAA)); // > MAX_BASE_PRICE
+        new KolPass(kol, 2_000_000 ether, 3_000_000 ether, platform, address(0xAAAA)); // > MAX_BASE_PRICE
+        vm.expectRevert(bytes("BAD_MAX_PRICE"));
+        new KolPass(kol, 10 ether, 10 ether, platform, address(0xAAAA)); // maxPrice 必须 > basePrice
+        vm.expectRevert(bytes("BAD_MAX_PRICE"));
+        new KolPass(kol, 10 ether, 0, platform, address(0xAAAA));
+        vm.expectRevert(bytes("BAD_BASE_PRICE"));
+        new KolPass(kol, 1 ether, 100 ether, platform, address(0xAAAA)); // < MIN_BASE_PRICE (10 MON)
         vm.expectRevert(bytes("ZERO_TREASURY"));
-        new KolPass(kol, 1 ether, address(0), address(0xAAAA));
+        new KolPass(kol, 10 ether, 100 ether, address(0), address(0xAAAA));
         vm.expectRevert(bytes("ZERO_FACTORY"));
-        new KolPass(kol, 1 ether, platform, address(0));
+        new KolPass(kol, 10 ether, 100 ether, platform, address(0));
     }
 }

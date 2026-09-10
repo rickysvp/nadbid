@@ -39,14 +39,15 @@ contract IntegrationTest is Test {
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
         // 2. 创建 PASS + 拍卖
-        address passAddr = factory.createKolPass(13.39 ether);
+        address passAddr = factory.createKolPass(13.39 ether, 100 ether);
         address auctionAddr = factory.createKolAuction(passAddr, 99 ether, 40, "1v1 live");
         vm.stopPrank();
 
         // 3. 用户 mint PASS
         vm.deal(buyer, 1000 ether);
+        uint256 mintCost = KolPass(passAddr).curvePriceAt(1) * 108 / 100;
         vm.prank(buyer);
-        KolPass(passAddr).mint{value: 13.39 ether * 108 / 100}(1);
+        KolPass(passAddr).mint{value: mintCost}(1);
         assertEq(KolPass(passAddr).balanceOf(buyer), 1);
 
         // 4. 出价

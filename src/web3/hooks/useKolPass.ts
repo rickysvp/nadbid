@@ -11,6 +11,7 @@ import type { TxStatus } from './useWriteContractTx';
 /** KolPass.getCurveConfig 返回的曲线参数 */
 export interface CurveConfig {
   basePrice: bigint;
+  maxPrice: bigint;
   baseSupply: bigint;
   exponent: bigint;
 }
@@ -69,7 +70,8 @@ export interface UseKolPassResult {
 
 /**
  * 计算 mint quantity 个 PASS 的精确成本（wei，含 8% 手续费缓冲）。
- * 与链上 KolPass.mint 计价完全一致：第 k 枚成本 = curvePriceAt(totalMinted + k)，再乘 108/100。
+ * 与链上 KolPass.mint 计价完全一致：第 k 枚成本 = curvePriceAt(currentSupply + k)，再乘 108/100。
+ * 曲线模型：P(n) = basePrice + (maxPrice − basePrice)·(n/baseSupply)²（带偏移二次曲线）。
  * 曲线参数缺失时返回 undefined。
  */
 export function estimateMintCostWei(
@@ -78,12 +80,15 @@ export function estimateMintCostWei(
   quantity: bigint,
 ): bigint | undefined {
   if (!curveConfig || currentSupply === undefined || quantity <= 0n) return undefined;
-  const { basePrice, baseSupply } = curveConfig;
+  const { basePrice, maxPrice, baseSupply } = curveConfig;
+  if (basePrice === undefined || maxPrice === undefined || baseSupply <= 0n) return undefined;
   const start = currentSupply;
+  const span = maxPrice - basePrice;
+  const denom = baseSupply * baseSupply;
   let acc = 0n;
   for (let k = 0n; k < quantity; k++) {
     const ns = start + k + 1n;
-    acc += (basePrice * ns * ns) / (baseSupply * baseSupply);
+    acc += basePrice + (span * ns * ns) / denom;
   }
   return (acc * 108n) / 100n;
 }

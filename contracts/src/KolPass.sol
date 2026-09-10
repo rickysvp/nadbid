@@ -10,20 +10,22 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     address public kol;
     address public platformTreasury;
     address public factory;          // 签发本 PASS 的 NadbidFactory（createKolAuction 校验合法 passContract）
-    uint256 public baseSupply = 1000;
+    uint256 public baseSupply = 2000;
     uint256 public exponent = 2;
+    /// 起铸价：铸造第 1 个 PASS 的成本下限（产品规则：最低 10 MON）
     uint256 public basePrice;
+    /// 顶部价格：供应达到 baseSupply 时的边际价格（联合曲线锚点，涨幅叙事）
+    uint256 public maxPrice;
     // 审计修复（D5）：单笔 mint 数量上限与总供应上限——防止超大 quantity 循环
     // gas 爆炸（用户损失 gas）以及供应量过大后价格乘法溢出 revert 导致 mint 永久失败。
-    // 曲线定价 basePrice * supply² 在 supply <= MAX_SUPPLY 且 basePrice 有界时无溢出。
+    // 曲线定价 basePrice + (maxPrice-basePrice) * supply² 在 supply <= MAX_SUPPLY 且价格有界时无溢出。
     uint256 public constant MAX_MINT_QUANTITY = 50;
     uint256 public constant MAX_SUPPLY = 100_000; // 100× baseSupply，远超单 KOL 实际 PASS 需求
-    // 审计修复（D6）：basePrice 上限（1,000,000 MON），防误传巨大值导致曲线价溢出。
+    // 审计修复（D6）：价格上限（1,000,000 MON），防误传巨大值导致曲线价溢出。
     uint256 public constant MAX_BASE_PRICE = 1_000_000 ether;
-    // P2-7 修复：最小 basePrice——确保 curvePriceAt(1) = basePrice / baseSupply² >= 1 wei，
-    // 防止整数除法导致早期 PASS 价格为 0（用户可免费铸造，破坏联合曲线经济模型）。
-    // MIN_BASE_PRICE = baseSupply² = 1,000,000 wei ≈ 0.000000000001 MON
-    uint256 public constant MIN_BASE_PRICE = 1_000_000;
+    // 产品规则（P2-7 强化）：起铸价下限 10 MON——联合曲线必须从 10 MON 起步，
+    // 杜绝"早期 PASS 几乎免费 / 纯幂律起点为 0"导致的涨幅叙事失效。
+    uint256 public constant MIN_BASE_PRICE = 10 ether;
     /// tokenId 分配器：单调递增、永不回退（burn 后不递减）。
     /// 修复前用 totalMinted 同时表示"存活供应量"与"下一个 tokenId"，
     /// burn 后 totalMinted 回退会重新生成已存在 tokenId，导致后续 mint 永久 revert。
@@ -41,24 +43,27 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
 
     event KolFeesClaimed(address indexed kol, uint256 amount);
 
-    struct CurveConfig { uint256 basePrice; uint256 baseSupply; uint256 exponent; }
+    struct CurveConfig { uint256 basePrice; uint256 maxPrice; uint256 baseSupply; uint256 exponent; }
 
-    constructor(address _kol, uint256 _basePrice, address _platformTreasury, address _factory)
+    constructor(address _kol, uint256 _basePrice, uint256 _maxPrice, address _platformTreasury, address _factory)
         ERC721(string.concat("Nadbid-", _toString(address(this))), "NPASS")
     {
         // 审计修复（D6）：构造零地址 / 参数范围校验——防部署出不可用或价格溢出的 PASS
-        // P2-7：增加 MIN_BASE_PRICE 下限，防整数除法导致早期曲线价为 0
+        // 产品规则：10 MON 起铸，maxPrice 必须大于 basePrice（曲线单调上涨）
         require(_kol != address(0), "ZERO_KOL");
         require(_basePrice >= MIN_BASE_PRICE && _basePrice <= MAX_BASE_PRICE, "BAD_BASE_PRICE");
+        require(_maxPrice > _basePrice && _maxPrice <= MAX_BASE_PRICE, "BAD_MAX_PRICE");
         require(_platformTreasury != address(0), "ZERO_TREASURY");
         require(_factory != address(0), "ZERO_FACTORY");
         kol = _kol;
         basePrice = _basePrice;
+        maxPrice = _maxPrice;
         platformTreasury = _platformTreasury;
         factory = _factory;
     }
 
-    // price(supply) = basePrice * (supply / baseSupply)^2
+    // price(supply) = basePrice + (maxPrice - basePrice) * (supply / baseSupply)^2
+    // 从 basePrice（10 MON）起铸，供应达到 baseSupply 时价格 = maxPrice（涨幅叙事）。
     // curvePrice() 返回「下一枚的实际成本」，即 curvePriceAt(totalSupply() + 1)。
     // 定价基于存活供应量（ERC721Enumerable.totalSupply()，burn 后自动递减）——
     // 联合曲线随存活量上下浮动，burn 回购套利语义正确。
@@ -68,9 +73,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
 
     function curvePriceAt(uint256 nextSupply) public view returns (uint256) {
         if (nextSupply == 0) return 0;
-        // P2-7：最小价格保护——整数除法结果为 0 时返回 1 wei，防止免费铸造
-        uint256 price = basePrice * nextSupply * nextSupply / (baseSupply * baseSupply);
-        return price == 0 ? 1 : price;
+        // 带偏移的二次曲线：起点 basePrice，供应达 baseSupply 时达 maxPrice
+        uint256 price = basePrice + (maxPrice - basePrice) * nextSupply * nextSupply / (baseSupply * baseSupply);
+        return price;
     }
 
     // 审计修复（P1-1）：nonReentrant 阻断 _safeMint 接收回调重入 mint。
@@ -161,7 +166,7 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     // （burn 为联合曲线核心需求，前端需通过 tokenOfOwnerByIndex 枚举持有 token 以供选择）
 
     function getCurveConfig() external view returns (CurveConfig memory) {
-        return CurveConfig({ basePrice: basePrice, baseSupply: baseSupply, exponent: exponent });
+        return CurveConfig({ basePrice: basePrice, maxPrice: maxPrice, baseSupply: baseSupply, exponent: exponent });
     }
 
     function _toString(address a) internal pure returns (string memory) {

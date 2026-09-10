@@ -17,7 +17,19 @@ import { useRegistry, type KolData } from '../web3/hooks/useRegistry';
 import { shortenAddress, formatMon } from '../utils/format';
 
 // Interactive Bonding Curve with zoom and tooltip
-function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSupply: number; currentPrice: number }) {
+function InteractiveBondingCurve({
+  currentSupply,
+  currentPrice,
+  curveBasePrice,
+  curveMaxPrice,
+  curveBaseSupply,
+}: {
+  currentSupply: number;
+  currentPrice: number;
+  curveBasePrice?: number;
+  curveMaxPrice?: number;
+  curveBaseSupply?: number;
+}) {
   const [curveHoverProgress, setCurveHoverProgress] = useState<number | null>(null);
   const [isChartLoading, setIsChartLoading] = useState(true);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -42,8 +54,13 @@ function InteractiveBondingCurve({ currentSupply, currentPrice }: { currentSuppl
 
   // 联合曲线只显示"已铸造"区间（0 → 当前供应量）：
   // 未铸造的未来段不再绘制，曲线终点即当前 supply / 当前价。
+  // 与链上 KolPass.sol 一致：P(n) = basePrice + (maxPrice − basePrice)·(n/baseSupply)²。
+  // 未提供链上参数时退回相对二次曲线（仅加载期占位）。
   const maxDisplaySupply = Math.max(currentSupply, 1);
-  const getPrice = (supply: number) => currentPrice * Math.pow(supply / currentSupply, 2);
+  const getPrice = (supply: number) =>
+    curveBasePrice !== undefined && curveMaxPrice !== undefined && curveBaseSupply !== undefined && curveBaseSupply > 0
+      ? curveBasePrice + (curveMaxPrice - curveBasePrice) * Math.pow(supply / curveBaseSupply, 2)
+      : currentPrice * Math.pow(supply / currentSupply, 2);
   const maxDisplayPrice = getPrice(maxDisplaySupply);
 
   const actualRawX = currentSupply / maxDisplaySupply;
@@ -470,7 +487,19 @@ export default function KolProfilePage() {
               </div>
             </div>
 
-            <InteractiveBondingCurve currentSupply={actualSupply} currentPrice={actualMintPrice} />
+            <InteractiveBondingCurve
+              currentSupply={actualSupply}
+              currentPrice={actualMintPrice}
+              curveBasePrice={
+                chainPass.curveConfig ? Number(chainPass.curveConfig.basePrice) / 1e18 : CURVE_DEFAULTS.BASE_PRICE
+              }
+              curveMaxPrice={
+                chainPass.curveConfig ? Number(chainPass.curveConfig.maxPrice) / 1e18 : CURVE_DEFAULTS.MAX_PRICE
+              }
+              curveBaseSupply={
+                chainPass.curveConfig ? Number(chainPass.curveConfig.baseSupply) : CURVE_DEFAULTS.REFERENCE_SUPPLY
+              }
+            />
 
             <div className="mt-4 pt-4 border-t border-white/[0.04] flex justify-between items-center">
               <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.1em] flex items-center gap-2">

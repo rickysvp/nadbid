@@ -17,7 +17,7 @@ contract KolAuctionTest is Test {
     uint256 duration = 120;
 
     function setUp() public {
-        pass = new KolPass(kol, 13.39 ether, platform, address(0xAAAA));
+        pass = new KolPass(kol, 13.39 ether, 100 ether, platform, address(0xAAAA));
         // KolAuction 需传 registry（供 banned/factory 检查）；测试用独立 registry 实例
         reg = new NadbidRegistry(1000);
         // F6：KolAuction 构造要求 msg.sender == Registry.factory()；测试合约即 owner，
@@ -28,8 +28,9 @@ contract KolAuctionTest is Test {
         reg.addAuctionContract(kol, address(auction));
         // bidder 持有 PASS
         vm.deal(bidder, 1000 ether);
+        uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder);
-        pass.mint{value: 13.39 ether * 108 / 100}(1);
+        pass.mint{value: mintCost}(1);
     }
 
     function test_PlaceBid_Success() public {
@@ -53,8 +54,9 @@ contract KolAuctionTest is Test {
         // 新 bidder2 出价 1 次 → 领先者切换，lastBidder 累计反映新领先者
         address bidder2 = address(0x5678);
         vm.deal(bidder2, 1000 ether);
+        uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder2);
-        pass.mint{value: 13.39 ether * 108 / 100}(1);
+        pass.mint{value: mintCost}(1);
         vm.prank(bidder2);
         auction.placeBid{value: fixedBid}();
         assertEq(auction.lastBidder(), bidder2);
@@ -372,8 +374,9 @@ contract KolAuctionTest is Test {
         _bondKol();
         address bidder2 = address(0x5678);
         vm.deal(bidder2, 1000 ether);
+        uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder2);
-        pass.mint{value: 13.39 ether * 108 / 100}(1);
+        pass.mint{value: mintCost}(1);
         vm.startPrank(bidder);
         auction.placeBid{value: fixedBid}();
         auction.placeBid{value: fixedBid}();

@@ -35,7 +35,7 @@ contract NadbidFactoryTest is Test {
         vm.startPrank(kol);
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.expectRevert();
-        factory.createKolPass(13.39 ether);  // 未质押
+        factory.createKolPass(13.39 ether, 100 ether);  // 未质押
         vm.stopPrank();
     }
 
@@ -44,7 +44,7 @@ contract NadbidFactoryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address pass = factory.createKolPass(13.39 ether);
+        address pass = factory.createKolPass(13.39 ether, 100 ether);
         assertTrue(pass != address(0));
         assertEq(registry.getKol(kol).passContracts.length, 1);
         vm.stopPrank();
@@ -56,7 +56,7 @@ contract NadbidFactoryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address pass = factory.createKolPass(13.39 ether);
+        address pass = factory.createKolPass(13.39 ether, 100 ether);
         address auction = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         assertTrue(auction != address(0));
         assertEq(registry.getKol(kol).auctionContracts.length, 1);
@@ -81,7 +81,7 @@ contract NadbidFactoryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address pass = factory.createKolPass(13.39 ether);
+        address pass = factory.createKolPass(13.39 ether, 100 ether);
         factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");  // 第 1 场，未 settle
         // 上一场未结算 → 拒绝创建第 2 场
         vm.expectRevert("ACTIVE_AUCTION_EXISTS");
@@ -96,14 +96,15 @@ contract NadbidFactoryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address pass = factory.createKolPass(13.39 ether);
+        address pass = factory.createKolPass(13.39 ether, 100 ether);
         address a1 = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         vm.stopPrank();
         // winner 出价（有出价 → settle 进入 SETTLED 履约流程，计数保持锁定）
         address winner = address(0x1234);
         vm.deal(winner, 1000 ether);
         vm.startPrank(winner);
-        KolPass(pass).mint{value: 13.39 ether * 108 / 100}(1);
+        uint256 mintCost = KolPass(pass).curvePriceAt(1) * 108 / 100;
+        KolPass(pass).mint{value: mintCost}(1);
         KolAuction(payable(a1)).placeBid{value: 99 ether}();
         vm.stopPrank();
         vm.warp(block.timestamp + 200);
@@ -135,13 +136,14 @@ contract NadbidFactoryTest is Test {
         registry.registerKol("elonmusk", 150000000, block.timestamp + 1 hours, _signRegistration(kol, "elonmusk", 150000000));
         vm.deal(kol, 1 ether);
         registry.depositBond{value: 1 ether}();
-        address pass = factory.createKolPass(13.39 ether);
+        address pass = factory.createKolPass(13.39 ether, 100 ether);
         address a1 = factory.createKolAuction(pass, 99 ether, 40, "1v1 live chat 30min");
         vm.stopPrank();
         address winner = address(0x1234);
         vm.deal(winner, 1000 ether);
         vm.startPrank(winner);
-        KolPass(pass).mint{value: 13.39 ether * 108 / 100}(1);
+        uint256 mintCost = KolPass(pass).curvePriceAt(1) * 108 / 100;
+        KolPass(pass).mint{value: mintCost}(1);
         KolAuction(payable(a1)).placeBid{value: 99 ether}();
         vm.stopPrank();
         vm.warp(block.timestamp + 200);

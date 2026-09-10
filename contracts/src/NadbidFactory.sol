@@ -22,7 +22,7 @@ contract NadbidFactory {
     // 预约开始的最大提前量（防止把拍卖排到遥不可及的未来）
     uint256 public constant MAX_START_DELAY = 30 days;
 
-    event KolPassCreated(address indexed kol, address passContract, uint256 mintPrice);
+    event KolPassCreated(address indexed kol, address passContract, uint256 mintPrice, uint256 maxPrice);
     event KolAuctionCreated(address indexed kol, address auctionContract, address passContract, uint256 fixedBidAmount);
 
     constructor(address _registry, address _platformTreasury, uint256 _fixedBidAmount) {
@@ -42,14 +42,17 @@ contract NadbidFactory {
         require(registry.openAuctionCount(kol) == 0, "ACTIVE_AUCTION_EXISTS");
     }
 
-    function createKolPass(uint256 mintPrice) external returns (address) {
+    /// 创建 KOL PASS：mintPrice = 起铸价（最低 10 MON），maxPrice = 满供应顶部价格。
+    /// 联合曲线 P(n) = mintPrice + (maxPrice - mintPrice)·(n/baseSupply)²，
+    /// 涨幅叙事 = maxPrice / mintPrice（如 10 MON 起铸 → 10000 MON = 1000 倍）。
+    function createKolPass(uint256 mintPrice, uint256 maxPrice) external returns (address) {
         require(registry.canCreate(msg.sender), "!CAN_CREATE");
-        require(mintPrice > 0, "ZERO_PRICE");
+        require(mintPrice > 0 && maxPrice > mintPrice, "BAD_PRICES");
         // 每 KOL 仅一个 PASS（防止 passContracts 无限膨胀 / 同名集合重复发行）
         require(registry.getKol(msg.sender).passContracts.length == 0, "ALREADY_HAS_PASS");
-        KolPass pass = new KolPass(msg.sender, mintPrice, platformTreasury, address(this));
+        KolPass pass = new KolPass(msg.sender, mintPrice, maxPrice, platformTreasury, address(this));
         registry.addPassContract(msg.sender, address(pass));
-        emit KolPassCreated(msg.sender, address(pass), mintPrice);
+        emit KolPassCreated(msg.sender, address(pass), mintPrice, maxPrice);
         return address(pass);
     }
 
