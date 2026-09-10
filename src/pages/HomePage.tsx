@@ -165,13 +165,13 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               {/* 箭头 */}
               <path d="M 388 337 L 396 340 L 388 343 Z" fill="rgba(0,0,0,0.55)" />
               <path d="M 37 52 L 40 44 L 43 52 Z" fill="rgba(0,0,0,0.55)" />
-              {/* x 刻度 */}
+              {/* x 刻度（PASS 数量，完整数字避免与价格 MON 混淆） */}
               {[
                 { x: 40, l: '0' },
-                { x: 125, l: '0.5K' },
-                { x: 210, l: '1K' },
-                { x: 295, l: '1.5K' },
-                { x: 380, l: '2K' },
+                { x: 125, l: '500' },
+                { x: 210, l: '1000' },
+                { x: 295, l: '1500' },
+                { x: 380, l: '2000' },
               ].map((t) => (
                 <g key={t.l}>
                   <line x1={t.x} y1="340" x2={t.x} y2="346" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
@@ -298,14 +298,11 @@ function Hero({ onExplore }: { onExplore: () => void }) {
                 transition={{ repeat: Infinity, duration: 2.1, delay: 0.5, ease: 'easeOut' }}
               />
               <circle cx={CUR_X} cy={CUR_Y} r="6" fill="#000" stroke="rgba(255,255,255,0.95)" strokeWidth="2.2" />
-              {/* 当前价标签：MINT NOW + 实时价格 */}
+              {/* 当前价标签：MINT NOW + 对应 PASS 编号与实时价格 */}
               <g>
-                <rect x={CUR_X - 128} y={CUR_Y - 46} width="104" height="34" rx="5" fill="rgba(0,0,0,0.88)" />
-                <text x={CUR_X - 120} y={CUR_Y - 31} fontSize="9" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.5">
-                  MINT NOW
-                </text>
-                <text x={CUR_X - 120} y={CUR_Y - 18} fontSize="8" fill="rgba(255,255,255,0.85)" fontFamily="monospace">
-                  21.5 MON
+                <rect x={CUR_X - 138} y={CUR_Y - 32} width="118" height="22" rx="5" fill="rgba(0,0,0,0.88)" />
+                <text x={CUR_X - 130} y={CUR_Y - 16} fontSize="8.5" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.3">
+                  MINT #1240 · 21.5 MON
                 </text>
               </g>
 
