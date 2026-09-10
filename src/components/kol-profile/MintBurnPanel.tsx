@@ -221,26 +221,38 @@ export function MintBurnPanel({
       toastError('No PASS tokens selected to burn.');
       return;
     }
-    const txHashRes = await chain.burn(tokenIds);
+    // 挤兑防护（D7）：单笔 burn 上限 50（与链上 MAX_BURN_QUANTITY 对齐），
+    // 强制大户分批回购；配合 minRefund 滑点保护阻断一键砸盘。
+    if (tokenIds.length > 50) {
+      toastError('Max 50 PASS can be burned per transaction. Please split into batches.');
+      return;
+    }
+    // 审计修复（P2-2/P1）：burn 是入账，delta 传负数；兜底金额与链上严格一致——
+    // 逐枚递减曲线 Σ curvePriceAt(supply - i) 再扣 8% 手续费（feeKOL 5% + feePlatform 3%）。
+    // 修复前用单枚价×数量，偏大；真实钱包已连接时 refreshBalance 直接走链上查询，此值仅本地兜底。
+    // 此估算同时用于 minRefund 滑点下限（计算必须先于链上 burn 调用）。
+    const burnAmt = tokenIds.length;
+    let refundWei = 0n;
+    if (curveCfg && effectiveSupply > 0) {
+      for (let i = 0; i < burnAmt; i++) {
+        const step = BigInt(effectiveSupply - i);
+        refundWei +=
+          curveCfg.basePrice +
+          ((curveCfg.maxPrice - curveCfg.basePrice) * step * step) /
+            (curveCfg.baseSupply * curveCfg.baseSupply);
+      }
+      refundWei -= (refundWei * 8n) / 100n;
+    }
+    // 滑点保护（D7）：minRefund = 递减曲线预估净返还 × 99%（1% 滑点容忍）——
+    // 提交后若其他交易先压低供应导致实际返还低于下限 → 链上 SLIPPAGE revert。
+    const txHashRes = await chain.burn(tokenIds, { minRefund: refundWei > 0n ? (refundWei * 99n) / 100n : 0n });
     if (!txHashRes) return;
 
-    const burnAmt = tokenIds.length;
     const newSupply = supplyAfterBurn(effectiveSupply, burnAmt);
     const newPrice =
       chainPrice !== undefined && effectiveSupply > 0
         ? chainPrice
         : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
-    // 审计修复（P2-2/P1）：burn 是入账，delta 传负数；兜底金额与链上严格一致——
-    // 逐枚递减曲线 Σ curvePriceAt(supply - i) 再扣 8% 手续费（feeKOL 5% + feePlatform 3%）。
-    // 修复前用单枚价×数量，偏大；真实钱包已连接时 refreshBalance 直接走链上查询，此值仅本地兜底。
-    let refundWei = 0n;
-    if (curveCfg && effectiveSupply > 0) {
-      for (let i = 0; i < burnAmt; i++) {
-        const step = BigInt(effectiveSupply - i);
-        refundWei += (curveCfg.basePrice * step * step) / (curveCfg.baseSupply * curveCfg.baseSupply);
-      }
-      refundWei -= (refundWei * 8n) / 100n;
-    }
     const refundMon = Number(refundWei) / 1e18;
     await wallet.refreshBalance(-refundMon);
     onTradeSuccess?.({ action: 'burn', amount: burnAmt, newSupply, newPrice });

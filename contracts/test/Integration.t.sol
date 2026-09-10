@@ -47,7 +47,7 @@ contract IntegrationTest is Test {
         vm.deal(buyer, 1000 ether);
         uint256 mintCost = KolPass(passAddr).curvePriceAt(1) * 108 / 100;
         vm.prank(buyer);
-        KolPass(passAddr).mint{value: mintCost}(1);
+        KolPass(passAddr).mint{value: mintCost}(1, type(uint256).max);
         assertEq(KolPass(passAddr).balanceOf(buyer), 1);
 
         // 4. 出价

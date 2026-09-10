@@ -29,7 +29,7 @@ contract KolPassTest is Test {
         uint256 unit = pass.curvePriceAt(1);  // 第一枚的实际曲线价（supply 0→1）
         uint256 cost = unit * 108 / 100;      // +8% 手续费
         vm.prank(buyer);
-        pass.mint{value: cost}(1);
+        pass.mint{value: cost}(1, type(uint256).max);
         assertEq(pass.balanceOf(buyer), 1);
         assertEq(pass.totalSupply(), supply + 1);
     }
@@ -40,7 +40,7 @@ contract KolPassTest is Test {
         uint256 cost = unit * 108 / 100;
         uint256 beforePlatform = platform.balance;
         vm.prank(buyer);
-        pass.mint{value: cost}(1);
+        pass.mint{value: cost}(1, type(uint256).max);
         // F5 Pull：KOL 5% 记入 pendingKolFees（不再即时转账），平台 3% 仍即时到账
         assertEq(pass.pendingKolFees(kol), unit * 5 / 100);
         assertEq(platform.balance - beforePlatform, unit * 3 / 100);
@@ -51,7 +51,7 @@ contract KolPassTest is Test {
         vm.deal(buyer, 100 ether);
         uint256 unit = pass.curvePriceAt(1);
         vm.prank(buyer);
-        pass.mint{value: unit * 108 / 100}(1);
+        pass.mint{value: unit * 108 / 100}(1, type(uint256).max);
         uint256 expected = pass.pendingKolFees(kol);
         assertGt(expected, 0);
         uint256 beforeKol = kol.balance;
@@ -69,7 +69,7 @@ contract KolPassTest is Test {
         vm.deal(buyer, 100 ether);
         uint256 cost = pass.curvePriceAt(1) * 108 / 100;
         vm.prank(buyer);
-        uint256[] memory ids = pass.mint{value: cost}(1);
+        uint256[] memory ids = pass.mint{value: cost}(1, type(uint256).max);
         vm.prank(buyer);
         vm.expectRevert();
         pass.transferFrom(buyer, address(0x999), ids[0]);
@@ -80,14 +80,14 @@ contract KolPassTest is Test {
         vm.deal(buyer, 100 ether);
         uint256 mintCost = pass.curvePriceAt(1) * 108 / 100;  // 首枚成本（含 8% 费）
         vm.prank(buyer);
-        uint256[] memory ids = pass.mint{value: mintCost}(1);
+        uint256[] memory ids = pass.mint{value: mintCost}(1, type(uint256).max);
 
         // burn 该 token，返还应为 curvePriceAt(1)（镜像 mint），而非 basePrice
         uint256 before = buyer.balance;
         uint256[] memory burnIds = new uint256[](1);
         burnIds[0] = ids[0];
         vm.prank(buyer);
-        pass.burn(burnIds);
+        pass.burn(burnIds, 0);
 
         uint256 netRefund = buyer.balance - before;
         uint256 expectedRefund = pass.curvePriceAt(1) * 92 / 100;  // 扣 8% 手续费
@@ -110,12 +110,12 @@ contract KolPassTest is Test {
         }
         mintCost = mintCost * 108 / 100;
         vm.prank(buyer);
-        uint256[] memory ids = pass.mint{value: mintCost}(qty);
+        uint256[] memory ids = pass.mint{value: mintCost}(qty, type(uint256).max);
 
         // 全量 burn
         uint256 before = buyer.balance;
         vm.prank(buyer);
-        pass.burn(ids);
+        pass.burn(ids, 0);
         uint256 netRefund = buyer.balance - before;
 
         // burn 5 个返还 = curvePriceAt(5)+curvePriceAt(4)+...+curvePriceAt(1) 扣 8%
@@ -128,6 +128,70 @@ contract KolPassTest is Test {
         // 无套利：净返还 < 总成本
         assertLt(netRefund, mintCost);
         assertEq(pass.totalSupply(), 0);
+        assertEq(pass.balanceOf(buyer), 0);
+    }
+
+    // 挤兑防护（D7）：mint 滑点保护——maxCost 低于实际总花费（含 8% 费）必须 revert
+    function test_Mint_SlippageRevertsWhenCostExceedsMaxCost() public {
+        vm.deal(buyer, 100 ether);
+        uint256 unit = pass.curvePriceAt(1);
+        vm.prank(buyer);
+        // maxCost = 实际花费 - 1 wei → 必须 SLIPPAGE revert
+        vm.expectRevert(bytes("SLIPPAGE"));
+        pass.mint{value: unit * 108 / 100}(1, unit * 108 / 100 - 1);
+    }
+
+    // 挤兑防护（D7）：mint 滑点在 maxCost 足够时正常通过
+    function test_Mint_SlippagePassesWhenMaxCostSufficient() public {
+        vm.deal(buyer, 100 ether);
+        uint256 unit = pass.curvePriceAt(1);
+        vm.prank(buyer);
+        uint256[] memory ids = pass.mint{value: unit * 108 / 100}(1, unit * 108 / 100);
+        assertEq(ids.length, 1);
+        assertEq(pass.balanceOf(buyer), 1);
+    }
+
+    // 挤兑防护（D7）：burn 单笔数量超过 MAX_BURN_QUANTITY 必须 revert（防一键砸盘）
+    function test_Burn_RejectsOverMaxQuantity() public {
+        vm.deal(buyer, 100_000 ether);
+        vm.startPrank(buyer);
+        // 铸造 51 个 PASS（分批，受 MAX_MINT_QUANTITY=50 限制）
+        uint256 c1 = pass.curvePriceAt(1);
+        pass.mint{value: c1 * 51 * 108 / 100}(50, type(uint256).max);
+        uint256 c2 = pass.curvePriceAt(51);
+        pass.mint{value: c2 * 2 * 108 / 100}(1, type(uint256).max);
+        assertEq(pass.balanceOf(buyer), 51);
+        // 组装 51 个 tokenId，一次 burn → QTY_TOO_LARGE
+        uint256[] memory allIds = new uint256[](51);
+        for (uint256 i = 0; i < 51; i++) allIds[i] = i + 1;
+        vm.expectRevert(bytes("QTY_TOO_LARGE"));
+        pass.burn(allIds, 0);
+        vm.stopPrank();
+    }
+
+    // 挤兑防护（D7）：burn 滑点保护——minRefund 高于实际净返还必须 revert
+    function test_Burn_SlippageRevertsWhenRefundBelowMin() public {
+        vm.deal(buyer, 100 ether);
+        uint256 mintCost = pass.curvePriceAt(1) * 108 / 100;
+        vm.prank(buyer);
+        uint256[] memory ids = pass.mint{value: mintCost}(1, type(uint256).max);
+        // net 计算必须在 prank 之前（view 调用会消耗 prank）
+        uint256 net = pass.curvePriceAt(1) * 92 / 100;
+        vm.prank(buyer);
+        // minRefund = 实际净返还 + 1 wei → 必须 SLIPPAGE revert
+        vm.expectRevert(bytes("SLIPPAGE"));
+        pass.burn(ids, net + 1);
+    }
+
+    // 挤兑防护（D7）：burn 滑点在 minRefund 恰好等于净返还时正常通过
+    function test_Burn_SlippagePassesWhenMinEqualsRefund() public {
+        vm.deal(buyer, 100 ether);
+        uint256 mintCost = pass.curvePriceAt(1) * 108 / 100;
+        vm.prank(buyer);
+        uint256[] memory ids = pass.mint{value: mintCost}(1, type(uint256).max);
+        uint256 net = pass.curvePriceAt(1) * 92 / 100;
+        vm.prank(buyer);
+        pass.burn(ids, net);
         assertEq(pass.balanceOf(buyer), 0);
     }
 }
@@ -157,13 +221,13 @@ contract ReentrantBurner {
             // 重入 burn 另一个 token（比外层 id 大 1）
             uint256[] memory ids = new uint256[](1);
             ids[0] = lastBurnId + 1;
-            pass.burn(ids);
+            pass.burn(ids, 0);
         }
     }
 
     function attack(uint256[] calldata ids) external payable {
         lastBurnId = ids[0];
-        pass.burn(ids);
+        pass.burn(ids, 0);
     }
 }
 
@@ -185,14 +249,14 @@ contract ReentrantMinter {
         if (!entered) {
             entered = true;
             // 重入 mint：给足 value（若 nonReentrant 缺失，此处会成功铸造第 2 枚）
-            pass.mint{value: 100 ether}(1);
+            pass.mint{value: 100 ether}(1, type(uint256).max);
         }
         return this.onERC721Received.selector;
     }
 
     function mintFirst() external payable returns (uint256[] memory) {
         entered = false;
-        return pass.mint{value: msg.value}(1);
+        return pass.mint{value: msg.value}(1, type(uint256).max);
     }
 }
 
@@ -224,7 +288,7 @@ contract KolPassReentrancyTest is Test {
         // burner 自己 mint 2 个（msg.sender = burner）
         uint256 cost2 = pass.curvePriceAt(1) * 108 / 100 + pass.curvePriceAt(2) * 108 / 100;
         vm.prank(address(burner));
-        uint256[] memory mintIds = pass.mint{value: cost2}(2);
+        uint256[] memory mintIds = pass.mint{value: cost2}(2, type(uint256).max);
         assertEq(pass.balanceOf(address(burner)), 2);
 
         // burn 1 个（id=1），触发 receive 重入 burn 另一个（id=2）
@@ -255,7 +319,7 @@ contract KolPassReentrancyTest is Test {
         vm.deal(buyer, 100 ether);
         vm.startPrank(buyer);
         uint256 cost2 = (pass.curvePriceAt(1) + pass.curvePriceAt(2)) * 108 / 100;
-        uint256[] memory mintIds = pass.mint{value: cost2}(2); // tokenId 1, 2
+        uint256[] memory mintIds = pass.mint{value: cost2}(2, type(uint256).max); // tokenId 1, 2
         vm.stopPrank();
         assertEq(pass.totalSupply(), 2);
 
@@ -263,13 +327,13 @@ contract KolPassReentrancyTest is Test {
         uint256[] memory burnIds = new uint256[](1);
         burnIds[0] = mintIds[0]; // tokenId 1
         vm.prank(buyer);
-        pass.burn(burnIds);
+        pass.burn(burnIds, 0);
         assertEq(pass.totalSupply(), 1);
 
         // 再次 mint：必须成功，且 tokenId 单调递增（不复用已 burn 的 id=2）
         uint256 mintCost = pass.curvePriceAt(2) * 108 / 100;
         vm.prank(buyer);
-        uint256[] memory newIds = pass.mint{value: mintCost}(1);
+        uint256[] memory newIds = pass.mint{value: mintCost}(1, type(uint256).max);
         assertEq(newIds.length, 1);
         assertEq(newIds[0], 3, "tokenId must be monotonic, never reuse burned ids");
         assertEq(pass.totalSupply(), 2);
@@ -280,8 +344,8 @@ contract KolPassReentrancyTest is Test {
     function test_BurnMint_BurnMint_MonotonicIds() public {
         vm.deal(buyer, 100 ether);
         vm.startPrank(buyer);
-        pass.mint{value: pass.curvePriceAt(1) * 108 / 100}(1); // id=1
-        pass.mint{value: pass.curvePriceAt(2) * 108 / 100}(1); // id=2
+        pass.mint{value: pass.curvePriceAt(1) * 108 / 100}(1, type(uint256).max); // id=1
+        pass.mint{value: pass.curvePriceAt(2) * 108 / 100}(1, type(uint256).max); // id=2
         vm.stopPrank();
         assertEq(pass.totalSupply(), 2);
 
@@ -289,21 +353,21 @@ contract KolPassReentrancyTest is Test {
         uint256[] memory burnIds = new uint256[](1);
         burnIds[0] = 1;
         vm.prank(buyer);
-        pass.burn(burnIds);
+        pass.burn(burnIds, 0);
         // mint → id=3
         uint256 mintCost3 = pass.curvePriceAt(2) * 108 / 100;
         vm.prank(buyer);
-        uint256[] memory ids3 = pass.mint{value: mintCost3}(1);
+        uint256[] memory ids3 = pass.mint{value: mintCost3}(1, type(uint256).max);
         assertEq(ids3[0], 3);
         // burn id=2 → supply 1
         uint256[] memory burnIds2 = new uint256[](1);
         burnIds2[0] = 2;
         vm.prank(buyer);
-        pass.burn(burnIds2);
+        pass.burn(burnIds2, 0);
         // 再 mint → id=4（总存活 2）
         uint256 mintCost4 = pass.curvePriceAt(2) * 108 / 100;
         vm.prank(buyer);
-        uint256[] memory ids4 = pass.mint{value: mintCost4}(1);
+        uint256[] memory ids4 = pass.mint{value: mintCost4}(1, type(uint256).max);
         assertEq(ids4[0], 4);
         assertEq(pass.totalSupply(), 2);
         assertEq(pass.ownerOf(3), buyer);
@@ -315,7 +379,7 @@ contract KolPassReentrancyTest is Test {
         vm.deal(buyer, 1000 ether);
         vm.prank(buyer);
         vm.expectRevert(bytes("QTY_TOO_LARGE"));
-        pass.mint{value: 1000 ether}(51);
+        pass.mint{value: 1000 ether}(51, type(uint256).max);
     }
 
     // 审计回归（D6）：KolPass 构造拒绝零 KOL 地址 / 非法价格 / 零 treasury / 零 factory

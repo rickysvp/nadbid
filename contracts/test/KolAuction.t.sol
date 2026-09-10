@@ -30,7 +30,7 @@ contract KolAuctionTest is Test {
         vm.deal(bidder, 1000 ether);
         uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder);
-        pass.mint{value: mintCost}(1);
+        pass.mint{value: mintCost}(1, type(uint256).max);
     }
 
     function test_PlaceBid_Success() public {
@@ -56,7 +56,7 @@ contract KolAuctionTest is Test {
         vm.deal(bidder2, 1000 ether);
         uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder2);
-        pass.mint{value: mintCost}(1);
+        pass.mint{value: mintCost}(1, type(uint256).max);
         vm.prank(bidder2);
         auction.placeBid{value: fixedBid}();
         assertEq(auction.lastBidder(), bidder2);
@@ -376,7 +376,7 @@ contract KolAuctionTest is Test {
         vm.deal(bidder2, 1000 ether);
         uint256 mintCost = pass.curvePrice() * 108 / 100;
         vm.prank(bidder2);
-        pass.mint{value: mintCost}(1);
+        pass.mint{value: mintCost}(1, type(uint256).max);
         vm.startPrank(bidder);
         auction.placeBid{value: fixedBid}();
         auction.placeBid{value: fixedBid}();

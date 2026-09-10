@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-10
+
+### Added
+- **KolPass 滑点防护（D7）**：`mint(quantity, maxCost)` 新增 `maxCost` 参数——用户提交后若其他交易先推高供应导致实际总花费（含 8% 费）超过 `maxCost`，整笔 revert（错误码 `SLIPPAGE`），防止按意外高价成交
+- **KolPass burn 滑点防护**：`burn(tokenIds, minRefund)` 新增 `minRefund` 参数——实际净返还低于 `minRefund` 时整笔 revert，防止按意外低价成交
+- **KolPass 挤兑防护**：新增 `MAX_BURN_QUANTITY = 50`，与 `MAX_MINT_QUANTITY` 对齐，强制大户分批回购，阻断"一键砸盘"与单笔巨额转账失败（`REFUND_FAIL` 导致整笔回滚）
+
+### Changed
+- 前端 `MintBurnPanel` / `useKolPass` / `contracts.ts` 同步新 ABI：mint/burn 调用传入滑点参数（基于当前报价 + 缓冲计算 maxCost/minRefund）
+- Monad 测试网重部署 Registry + Factory（KolPass 字节码内嵌于 Factory，必须重部署才能生效）
+  - Registry: `0x37bc1212d2f67bfba4050688ecd15218ce6c2740`
+  - Factory: `0x69541d1cfa4f1c9aa41b359273e9bb810e206422`
+- package.json 版本 → 0.8.1
+
+### Technical
+- Foundry 测试 70/70 通过（含新增滑点 revert 测试）
+- vitest 前端测试 45/45 通过
+- vite build 成功
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

@@ -43,10 +43,14 @@ export interface UseKolPassResult {
   /**
    * mint(quantity, opts)：铸造 quantity 个 PASS。
    * value 默认按曲线逐枚累加（与链上 mint 完全一致），可自行传入 opts.value 覆盖。
+   * 滑点保护（D7）：maxCost 默认 = 精确成本 × (1 + slippageBps/10000)，slippageBps 默认 100（1%）；
+   * 提交时若其他交易先推高供应导致实际花费超 maxCost → 链上 SLIPPAGE revert，防按意外高价成交。
+   * value 同步设为 maxCost（多余自动退回），避免估算与成交价之间 INSUFFICIENT。
    */
-  mint: (quantity: bigint, opts?: { value?: bigint } & KolPassTxOptions) => Promise<Hash | null>;
-  /** burn(tokenIds)：销毁指定 tokenId 的 PASS */
-  burn: (tokenIds: readonly bigint[], opts?: KolPassTxOptions) => Promise<Hash | null>;
+  mint: (quantity: bigint, opts?: { value?: bigint; maxCost?: bigint; slippageBps?: number } & KolPassTxOptions) => Promise<Hash | null>;
+  /** burn(tokenIds, opts)：销毁指定 tokenId 的 PASS。minRefund 为滑点下限（默认 0 不限制），
+   *  实际净返还低于 minRefund 时链上 SLIPPAGE revert。 */
+  burn: (tokenIds: readonly bigint[], opts?: { minRefund?: bigint } & KolPassTxOptions) => Promise<Hash | null>;
   /** claimKolFees(opts)：KOL 领取累计手续费（F5 Pull 模式，仅 KOL 地址有余额） */
   claimKolFees: (opts?: KolPassTxOptions) => Promise<Hash | null>;
   /**
@@ -176,9 +180,9 @@ export function useKolPass(
     };
 
   const mint = useCallback(
-    async (quantity: bigint, opts: { value?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
+    async (quantity: bigint, opts: { value?: bigint; maxCost?: bigint; slippageBps?: number } & KolPassTxOptions = {}): Promise<Hash | null> => {
       if (!passAddress) return Promise.resolve(null);
-      const { value, onSuccess, toast } = opts;
+      const { value, maxCost: maxCostOpt, slippageBps = 100, onSuccess, toast } = opts;
       // 精确 value 优先；否则实时直查链上最新供应量与曲线参数（绕过 react-query
       // 缓存）计算逐枚累加成本。invalidateQueries 是异步的，用户连续 mint 时
       // UI 的 totalSupply 可能仍是旧值，导致 value 按旧供应量低估 → 链上
@@ -189,10 +193,6 @@ export function useKolPass(
         if (publicClient) {
           try {
             const [tm, cfg] = await Promise.all([
-              // Codex 审计修复：合约重部署后 KolPass 已无 totalMinted（tokenId 分配器
-              // 已拆为 nextTokenId；ABI 亦无此函数），旧代码永远走 catch 回退缓存值，
-              // 连续 mint 时 totalSupply 缓存陈旧 → 按旧供应量计价 → 链上 INSUFFICIENT。
-              // 直查 totalSupply（最新链上存活量，与合约 curvePriceAt(totalSupply+1) 一致）。
               publicClient.readContract({
                 address: passAddress,
                 abi: kolPassAbi,
@@ -213,12 +213,16 @@ export function useKolPass(
         }
       }
       if (cost === undefined) return Promise.resolve(null);
+      // 滑点保护（D7）：maxCost = 精确成本 × (1 + slippageBps/10000)，value 同步放大
+      // （合约退多余），提交后实际花费超 maxCost → SLIPPAGE revert。
+      const maxCost = maxCostOpt ?? (cost + (cost * BigInt(slippageBps)) / 10000n);
+      const pay = maxCost > cost ? maxCost : cost;
       return write({
         address: passAddress,
         abi: kolPassAbi,
         functionName: 'mint',
-        args: [quantity],
-        value: cost,
+        args: [quantity, maxCost],
+        value: pay,
         onSuccess: wrapOnSuccess(onSuccess),
         toast,
       });
@@ -238,15 +242,16 @@ export function useKolPass(
   );
 
   const burn = useCallback(
-    (tokenIds: readonly bigint[], opts: KolPassTxOptions = {}): Promise<Hash | null> => {
+    (tokenIds: readonly bigint[], opts: { minRefund?: bigint } & KolPassTxOptions = {}): Promise<Hash | null> => {
       if (!passAddress) return Promise.resolve(null);
+      const { minRefund = 0n, onSuccess, toast } = opts;
       return write({
         address: passAddress,
         abi: kolPassAbi,
         functionName: 'burn',
-        args: [tokenIds],
-        onSuccess: wrapOnSuccess(opts.onSuccess),
-        toast: opts.toast,
+        args: [tokenIds, minRefund],
+        onSuccess: wrapOnSuccess(onSuccess),
+        toast,
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

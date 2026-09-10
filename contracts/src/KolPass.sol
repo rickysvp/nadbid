@@ -21,6 +21,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     // 曲线定价 basePrice + (maxPrice-basePrice) * supply² 在 supply <= MAX_SUPPLY 且价格有界时无溢出。
     uint256 public constant MAX_MINT_QUANTITY = 50;
     uint256 public constant MAX_SUPPLY = 100_000; // 100× baseSupply，远超单 KOL 实际 PASS 需求
+    // 挤兑防护（D7）：单笔 burn 上限与 mint 对齐（50）——强制大户分批回购，配合
+    // minRefund 滑点保护，阻断"一键砸盘"与单笔巨额转账失败（REFUND_FAIL 导致整笔回滚）。
+    uint256 public constant MAX_BURN_QUANTITY = 50;
     // 审计修复（D6）：价格上限（1,000,000 MON），防误传巨大值导致曲线价溢出。
     uint256 public constant MAX_BASE_PRICE = 1_000_000 ether;
     // 产品规则（P2-7 强化）：起铸价下限 10 MON——联合曲线必须从 10 MON 起步，
@@ -81,7 +84,7 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
     // 审计修复（P1-1）：nonReentrant 阻断 _safeMint 接收回调重入 mint。
     // 修复前：恶意接收合约可在 onERC721Received 中重入 mint()，推进 nextTokenId，
     // 使外层 tokenIds 返回值与实际铸造 token 错位、快照计费与实际铸造序列不一致。
-    function mint(uint256 quantity) external payable nonReentrant returns (uint256[] memory tokenIds) {
+    function mint(uint256 quantity, uint256 maxCost) external payable nonReentrant returns (uint256[] memory tokenIds) {
         require(quantity > 0, "ZERO_QTY");
         // 审计修复（D5）：单笔上限 + 总供应上限（gas 保护 / 溢出保护）
         require(quantity <= MAX_MINT_QUANTITY, "QTY_TOO_LARGE");
@@ -96,6 +99,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
         uint256 fee = totalCost * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 pay = totalCost + fee;
         require(msg.value >= pay, "INSUFFICIENT");
+        // 滑点保护（D7）：maxCost 为用户接受的"总花费上限"（含 8% 费）。
+        // 提交后若其他交易先推高供应导致实际 pay 超限 → 整笔 revert，防止按意外高价成交。
+        require(pay <= maxCost, "SLIPPAGE");
         // CEI：先更新供应量（重入 mint 会读到新 supply，按新价格计费，防止陈旧价格套利）
         for (uint256 i = 0; i < quantity; i++) {
             nextTokenId++; // 单调递增，burn 后绝不回退（修复 burn 后 mint 永久失败的 P0）
@@ -117,8 +123,11 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
         return tokenIds;
     }
 
-    function burn(uint256[] calldata tokenIds) external {
+    function burn(uint256[] calldata tokenIds, uint256 minRefund) external {
         uint256 refund = 0;
+        // 挤兑防护（D7）：单笔 burn 上限，配合 minRefund 滑点保护（见下）
+        require(tokenIds.length > 0, "ZERO_QTY");
+        require(tokenIds.length <= MAX_BURN_QUANTITY, "QTY_TOO_LARGE");
         // 与 mint 严格镜像：mint 第 k 枚成本 = curvePriceAt(k)（k 从 1 起，存活供应从 0→N）
         // burn 第 k 枚返还 = curvePriceAt(N - k + 1)（k 从 1 起，存活供应从 N→0）
         // 即 supplyAfterBurn 从 N-1 递减到 0 时，对应返还 curvePriceAt(1) 而非 basePrice，
@@ -135,6 +144,9 @@ contract KolPass is ERC721Enumerable, ReentrancyGuard {
         // 扣 8% 手续费后返还（F5：KOL 份额记账 Pull，平台份额 Push）
         uint256 fee = refund * (feeKOL + feePlatform) / FEE_DENOM;
         uint256 net = refund - fee;
+        // 滑点保护（D7）：minRefund 为用户接受的"最低净返还"。
+        // 提交后若其他交易先压低供应导致实际返还低于预期 → 整笔 revert，防止按意外低价成交。
+        require(net >= minRefund, "SLIPPAGE");
         uint256 kolFee = refund * feeKOL / FEE_DENOM;
         uint256 platformFee = refund * feePlatform / FEE_DENOM;
         pendingKolFees[kol] += kolFee;

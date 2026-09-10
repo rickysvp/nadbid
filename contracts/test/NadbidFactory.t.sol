@@ -104,7 +104,7 @@ contract NadbidFactoryTest is Test {
         vm.deal(winner, 1000 ether);
         vm.startPrank(winner);
         uint256 mintCost = KolPass(pass).curvePriceAt(1) * 108 / 100;
-        KolPass(pass).mint{value: mintCost}(1);
+        KolPass(pass).mint{value: mintCost}(1, type(uint256).max);
         KolAuction(payable(a1)).placeBid{value: 99 ether}();
         vm.stopPrank();
         vm.warp(block.timestamp + 200);
@@ -143,7 +143,7 @@ contract NadbidFactoryTest is Test {
         vm.deal(winner, 1000 ether);
         vm.startPrank(winner);
         uint256 mintCost = KolPass(pass).curvePriceAt(1) * 108 / 100;
-        KolPass(pass).mint{value: mintCost}(1);
+        KolPass(pass).mint{value: mintCost}(1, type(uint256).max);
         KolAuction(payable(a1)).placeBid{value: 99 ether}();
         vm.stopPrank();
         vm.warp(block.timestamp + 200);
