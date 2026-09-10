@@ -151,8 +151,8 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               </defs>
 
               {/* ---------- 背景网格 ---------- */}
-              {/* y 刻度对应 MON 值：10 / 20 / 30 / 40（P(s) = 10 + 30·s²，起点 10 MON 起铸） */}
-              {[60, 153.3, 246.7, 340].map((y) => (
+              {/* y 刻度对应 MON 值：10 起铸，2K 供应时涨到 1000（P(s) = 10 + 990·s²，快速上涨） */}
+              {[272.1, 201.4, 130.7, 60].map((y) => (
                 <line key={`h${y}`} x1="40" y1={y} x2="380" y2={y} stroke="rgba(0,0,0,0.07)" strokeWidth="1" />
               ))}
               {[40, 125, 210, 295, 380].map((x) => (
@@ -183,9 +183,10 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               {/* y 刻度（MON） */}
               {[
                 { y: 340, l: '10' },
-                { y: 246.7, l: '20' },
-                { y: 153.3, l: '30' },
-                { y: 60, l: '40' },
+                { y: 272.1, l: '250' },
+                { y: 201.4, l: '500' },
+                { y: 130.7, l: '750' },
+                { y: 60, l: '1000' },
               ].map((t) => (
                 <g key={t.l}>
                   <line x1="34" y1={t.y} x2="40" y2={t.y} stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
@@ -302,7 +303,7 @@ function Hero({ onExplore }: { onExplore: () => void }) {
               <g>
                 <rect x={CUR_X - 138} y={CUR_Y - 32} width="118" height="22" rx="5" fill="rgba(0,0,0,0.88)" />
                 <text x={CUR_X - 130} y={CUR_Y - 16} fontSize="8.5" fontWeight="bold" fill="#3ec470" fontFamily="monospace" letterSpacing="0.3">
-                  MINT #1240 · 21.5 MON
+                  MINT #1240 · 390 MON
                 </text>
               </g>
 
