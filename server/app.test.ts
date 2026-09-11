@@ -8,7 +8,8 @@ let base: string;
 
 beforeAll(async () => {
   const app = createApp();
-  server = app.listen(0);
+  // 复审 P2 修复：显式绑定 127.0.0.1，避免某些环境下 0.0.0.0 导致 EPERM
+  server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   const addr = server.address();
   base = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 3001}`;
