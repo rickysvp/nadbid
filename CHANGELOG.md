@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] - 2026-09-11
+
+### Fixed
+- **复审 P0（纵深防御）**：KolAuction 继承 `ReentrancyGuard`，给 `claimRefund()` / `sweepRefundDust()` / `claimKol()` 增加 `nonReentrant` 修饰符。注：原 P0 数学上已不可利用（call 先扣 balance + totalRefunded 已递增，重入时 dust 不变），但 ReentrancyGuard 作为纵深防御防止未来代码变更引入重入。新增恶意收款合约重入测试（attackMode 开关，验证重入被阻断后双方仍可正常领取）
+- **复审 P1**：`.env.example` 合约地址更新为 v0.8.3 最新部署（原仍指向 2026-09-03 旧合约）
+- **复审 P2**：`WalletStateSyncer` 成功同步余额时设置 `balanceStale: false`，修复 RPC 恢复后仍长期显示 stale 的问题
+- **复审 P2**：`KolProfilePage` 链上数据未就绪时，曲线图渲染 loading 空态（不再向 `InteractiveBondingCurve` 传默认曲线值），`passTvl` 仅在 `chainDataReady` 时计算
+- **复审 P2**：`AuctionDetailPage` / `ArbitrationPage` 预计算 `safeFulfillmentUrl` / `safeDisputeUrl`，避免 JSX 中重复调用 `safeEvidenceUrl()`
+
+### Changed
+- Monad 测试网重部署 Registry + Factory（KolAuction 新增 ReentrancyGuard，字节码变更）
+  - Registry: `0x08ea3839d47e6d2dfff093be8495102ab4e25aed`
+  - Factory: `0xab53835d6c6327d84cfa37656802994c5503d266`
+- package.json 版本 → 0.8.3
+
+### Technical
+- Foundry 测试 76/76 通过（含恶意合约重入测试 1）
+- vitest 前端测试 55/55 通过
+- TypeScript 0 错误，vite build 成功
+
 ## [0.8.2] - 2026-09-11
 
 ### Fixed

@@ -340,7 +340,8 @@ export default function KolProfilePage() {
   // 链上 KOL 页面：handle 为 0x 钱包地址且 Registry 已注册
   const isChainKol = !!kolAddress && !!chainKolInfo?.registered;
   // Pass TVL 近似 = 链上 totalSupply × 当前曲线价（展示用，非权威累计值）
-  const passTvl = isChainKol ? actualSupply * actualMintPrice : undefined;
+  // 复审 P2 修复：passTvl 仅在链上数据就绪时计算，防止 RPC 失败时用默认曲线值估算 TVL
+  const passTvl = isChainKol && chainDataReady ? actualSupply * actualMintPrice : undefined;
 
   // KOL 推特资料（bio + 头像）：P2-5 迁移——改读链上 Registry.getKol().bio/avatar
   // （X 授权时由 updateKolProfile 写入，永不丢失）。移除 /api/kol/meta server 依赖。
@@ -490,19 +491,29 @@ export default function KolProfilePage() {
               </div>
             </div>
 
-            <InteractiveBondingCurve
-              currentSupply={actualSupply}
-              currentPrice={actualMintPrice}
-              curveBasePrice={
-                chainPass.curveConfig ? Number(chainPass.curveConfig.basePrice) / 1e18 : CURVE_DEFAULTS.BASE_PRICE
-              }
-              curveMaxPrice={
-                chainPass.curveConfig ? Number(chainPass.curveConfig.maxPrice) / 1e18 : CURVE_DEFAULTS.MAX_PRICE
-              }
-              curveBaseSupply={
-                chainPass.curveConfig ? Number(chainPass.curveConfig.baseSupply) : CURVE_DEFAULTS.REFERENCE_SUPPLY
-              }
-            />
+            {/* 复审 P2 修复：链上数据未就绪时显示 loading 空态，不向图表传默认业务值 */}
+            {chainDataReady ? (
+              <InteractiveBondingCurve
+                currentSupply={actualSupply}
+                currentPrice={actualMintPrice}
+                curveBasePrice={
+                  chainPass.curveConfig ? Number(chainPass.curveConfig.basePrice) / 1e18 : CURVE_DEFAULTS.BASE_PRICE
+                }
+                curveMaxPrice={
+                  chainPass.curveConfig ? Number(chainPass.curveConfig.maxPrice) / 1e18 : CURVE_DEFAULTS.MAX_PRICE
+                }
+                curveBaseSupply={
+                  chainPass.curveConfig ? Number(chainPass.curveConfig.baseSupply) : CURVE_DEFAULTS.REFERENCE_SUPPLY
+                }
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center min-h-[200px]">
+                <div className="text-center">
+                  <div className="text-white/30 text-[11px] font-bold uppercase tracking-[0.15em] mb-1">Awaiting on-chain data</div>
+                  <div className="text-white/20 text-[10px]">Connect wallet or wait for RPC response</div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 pt-4 border-t border-white/[0.04] flex justify-between items-center">
               <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.1em] flex items-center gap-2">

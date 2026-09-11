@@ -648,8 +648,86 @@ contract KolAuctionTest is Test {
         assertEq(auction.getAuction().disputeEvidenceUri, okUri);
     }
 
+    // 复审 P0 验证：恶意收款合约在 claimRefund 回调中重入 sweepRefundDust。
+    // 数学上重入无法清扫当前 share（call 先扣 balance，totalRefunded 已递增，dust 不变），
+    // 但 ReentrancyGuard 作为纵深防御应直接阻断重入。本测试锁定两者：重入被阻断，
+    // 另一竞拍者仍可领取完整退款。
+    function test_Reentrancy_ClaimRefund_SweepBlocked() public {
+        _bondKol();
+        // 部署恶意合约并给它 mint PASS（出价需持仓）
+        MaliciousBidder malicious = new MaliciousBidder(address(auction));
+        vm.deal(address(malicious), 1000 ether);
+        uint256 mintCost = pass.curvePrice() * 108 / 100;
+        vm.prank(address(malicious));
+        pass.mint{value: mintCost}(1, type(uint256).max);
+        // 正常竞拍者 bidder 也出价
+        vm.startPrank(bidder);
+        auction.placeBid{value: fixedBid}();
+        vm.stopPrank();
+        // 恶意合约出价
+        vm.prank(address(malicious));
+        auction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(bidder);
+        auction.finalizeBreach();
+        // 恶意合约调用 claimRefund，receive 中尝试重入 sweepRefundDust
+        // ReentrancyGuard 应阻断重入（整个 claimRefund 交易 revert）
+        vm.prank(address(malicious));
+        vm.expectRevert();
+        malicious.attackClaimRefund();
+        // 恶意合约重入失败后，正常竞拍者仍可领取完整退款
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertGt(bidder.balance - before, 0);
+        // 恶意合约未领到退款（重入 revert），仍可正常领取（attackMode=false 不重入）
+        uint256 malBefore = address(malicious).balance;
+        vm.prank(address(malicious));
+        malicious.normalClaimRefund();
+        assertGt(address(malicious).balance - malBefore, 0);
+    }
+
 
 // 拒收原生代币的合约（无 receive/fallback 收款路径 → call 失败）
+}
+
+/// 恶意竞拍者合约：attackClaimRefund 中 receive 回调重入 sweepRefundDust；
+/// normalClaimRefund 中 receive 不重入（用于验证重入失败后仍可正常领取）
+contract MaliciousBidder {
+    KolAuction public auction;
+    bool public attackMode;
+
+    constructor(address _auction) {
+        auction = KolAuction(payable(_auction));
+    }
+
+    /// 触发攻击：receive 中重入 sweepRefundDust
+    function attackClaimRefund() external {
+        attackMode = true;
+        auction.claimRefund();
+        attackMode = false;
+    }
+
+    /// 正常领取（不重入）
+    function normalClaimRefund() external {
+        attackMode = false;
+        auction.claimRefund();
+    }
+
+    /// 接收 ERC721（PASS）
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+
+    /// 接收 ETH 回调：攻击模式下重入 sweepRefundDust
+    receive() external payable {
+        if (attackMode) {
+            auction.sweepRefundDust();
+        }
+    }
 }
 
 contract RejectingKol {

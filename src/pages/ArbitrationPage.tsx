@@ -221,6 +221,9 @@ function DisputeCard({
   const { auctionData, resolveDispute, isLoading, refetchAuction, error: txError } = useAuction(dispute.address);
   const [busy, setBusy] = useState(false);
   const [reasonInput, setReasonInput] = useState('');
+  // 复审 P2 优化：预计算 evidence URI 安全净化结果，避免 JSX 中重复解析
+  const safeFulfillmentUrl = safeEvidenceUrl(dispute.fulfillmentEvidenceUri);
+  const safeDisputeUrl = safeEvidenceUrl(dispute.disputeEvidenceUri);
 
   const handleResolve = async (kolWon: boolean) => {
     if (busy) return;
@@ -282,9 +285,9 @@ function DisputeCard({
 
       <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-3 break-all">
         <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Fulfillment Evidence (KOL)</div>
-        {safeEvidenceUrl(dispute.fulfillmentEvidenceUri) ? (
+        {safeFulfillmentUrl ? (
           <a
-            href={safeEvidenceUrl(dispute.fulfillmentEvidenceUri)!}
+            href={safeFulfillmentUrl!}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block text-[#3ec470] text-[11px] font-bold hover:underline"
@@ -298,9 +301,9 @@ function DisputeCard({
       </div>
       <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3 mb-5 break-all">
         <div className="text-white/40 text-[8px] font-bold uppercase tracking-[0.15em] mb-1">Dispute Evidence (Winner)</div>
-        {safeEvidenceUrl(dispute.disputeEvidenceUri) ? (
+        {safeDisputeUrl ? (
           <a
-            href={safeEvidenceUrl(dispute.disputeEvidenceUri)!}
+            href={safeDisputeUrl!}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block text-[#ff8a8c] text-[11px] font-bold hover:underline"

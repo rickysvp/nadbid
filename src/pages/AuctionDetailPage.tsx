@@ -261,6 +261,10 @@ function ChainAuctionDetail({ address }: { address: string }) {
     refetchAuction,
   } = useAuction(auctionAddress, account);
 
+  // 复审 P2 优化：预计算 evidence URI 安全净化结果，避免 JSX 中重复解析
+  const safeFulfillmentUrl = safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri);
+  const safeDisputeUrl = safeEvidenceUrl(auctionData?.disputeEvidenceUri);
+
   // PASS 持仓检查（出价前置条件：balanceOf > 0 才可出价）+ 详情页快速 mint
   const {
     balanceOf,
@@ -892,9 +896,9 @@ function ChainAuctionDetail({ address }: { address: string }) {
                           KOL 已提交履约推文。请确认履约质量，或粘贴违约反证推文链接发起仲裁（48h 窗口内）。
                         </div>
                         {/* 显示 KOL 履约推文链接（审计 P1：safeEvidenceUrl 协议+域名白名单净化） */}
-                        {safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri) ? (
+                        {safeFulfillmentUrl ? (
                           <a
-                            href={safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri)!}
+                            href={safeFulfillmentUrl!}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
@@ -1016,9 +1020,9 @@ function ChainAuctionDetail({ address }: { address: string }) {
                       争议已提交仲裁。资金保持锁定，等待平台仲裁结果。双方证据如下：
                     </div>
                     {/* 显示 KOL 履约推文链接（审计 P1：safeEvidenceUrl 净化） */}
-                    {safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri) ? (
+                    {safeFulfillmentUrl ? (
                       <a
-                        href={safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri)!}
+                        href={safeFulfillmentUrl!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
@@ -1036,9 +1040,9 @@ function ChainAuctionDetail({ address }: { address: string }) {
                       <div className="text-[9px] text-white/30">KOL fulfillment evidence: {auctionData?.fulfillmentEvidenceHash ?? 'N/A'}</div>
                     )}
                     {/* 显示 winner 争议推文链接（审计 P1：safeEvidenceUrl 净化） */}
-                    {safeEvidenceUrl(auctionData?.disputeEvidenceUri) ? (
+                    {safeDisputeUrl ? (
                       <a
-                        href={safeEvidenceUrl(auctionData?.disputeEvidenceUri)!}
+                        href={safeDisputeUrl!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block bg-[#161616] border border-[#ea6668]/30 rounded px-2.5 py-2 hover:bg-[#ea6668]/5 transition-colors"

@@ -79,9 +79,12 @@ export function WalletStateSyncer() {
   // 同步原生代币余额
   useEffect(() => {
     if (balanceData && address) {
+      // 复审 P2 修复：成功同步余额时清除 balanceStale 标志，
+      // 防止 RPC 恢复后用户仍长期看到 "balance stale"
       useWalletStore.getState()._setWagmiState({
         balanceRaw: balanceData.value,
         balanceMon: parseFloat(formatUnits(balanceData.value, balanceData.decimals)),
+        balanceStale: false,
       });
     }
   }, [balanceData, address]);

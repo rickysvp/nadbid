@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {KolPass} from "./KolPass.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /// @title KolAuction — KOL 便士拍卖 + 履约状态机（SP-2）
 /// 资金路径：
@@ -12,7 +13,7 @@ import {KolPass} from "./KolPass.sol";
 ///             → kolWon=true → COMPLETED；kolWon=false → REFUNDED
 ///     → KOL 超时未履约 → claimRefund() 触发违约结算 → REFUNDED（80% + 押金罚没按比例退竞拍者）
 ///   COMPLETED 后 KOL 才可 claimKol()（修复"settle 后立即可提 80%"的 P0）
-contract KolAuction {
+contract KolAuction is ReentrancyGuard {
     enum AuctionStatus { ACTIVE, SETTLED, AWAITING_CONFIRMATION, COMPLETED, DISPUTED, REFUNDED }
 
     struct Auction {
@@ -201,7 +202,7 @@ contract KolAuction {
     /// KOL 领取 80% 拍卖收入——SP-2：仅 COMPLETED（履约经确认/仲裁通过）后可领，
     /// 修复原"settle 后立即可提 80%"的 P0 资金风险。
     /// （平台 20% 已在 settle() 时自动入国库，无 claimPlatform。）
-    function claimKol() external {
+    function claimKol() external nonReentrant {
         require(msg.sender == auction.kol, "!KOL");
         require(auction.status == AuctionStatus.COMPLETED, "!COMPLETED");
         uint256 amount = pendingKol;
@@ -290,7 +291,7 @@ contract KolAuction {
 
     /// 领取违约退款。P1-3 修复后：不再自动触发违约结算，只负责领取。
     /// 必须先由任何人调用 finalizeBreach() 触发结算（状态 → REFUNDED），然后竞拍者各自领取。
-    function claimRefund() external {
+    function claimRefund() external nonReentrant {
         Auction storage a = auction;
         require(a.status == AuctionStatus.REFUNDED, "!REFUNDED");
         require(!refundClaimed[msg.sender], "CLAIMED");
@@ -307,7 +308,7 @@ contract KolAuction {
     /// 导致任何人可在竞拍者领取退款前调用此函数将全部余额转入平台国库，后续 claimRefund
     /// 因余额不足永久失败。修复后：只清扫超出"剩余退款负债"的超额部分（整除尾差 + 误转资金），
     /// 预留金 refundPool - totalRefunded 永不被触碰。
-    function sweepRefundDust() external {
+    function sweepRefundDust() external nonReentrant {
         require(auction.status == AuctionStatus.REFUNDED, "!REFUNDED");
         // 剩余退款负债 = 退款池总额 - 已累计领取额（含整除尾差，保守预留）
         uint256 reserved = refundPool - totalRefunded;
