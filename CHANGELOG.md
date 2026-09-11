@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-09-11
+
+### Fixed
+- **P0 — 退款池可被任何人提前清空**：`sweepRefundDust()` 原实现直接清扫 `address(this).balance` 全额，攻击者可在竞拍者领取退款前调用此函数将全部余额转入平台国库，后续 `claimRefund()` 因余额不足永久失败。修复：新增 `totalRefunded` 累计已领退款，sweep 只清扫 `balance - (refundPool - totalRefunded)` 的超额部分（整除尾差 + 误转资金），预留金永不被触碰。新增 3 个回归测试（先 sweep 后 claim / 只取超额 / 部分领取后预留）
+- **P1 — evidence URI 可触发恶意链接**：合约 `submitFulfillment()`/`dispute()` 新增 `MAX_EVIDENCE_URI_LENGTH=512` 字节上限（防 gas/存储滥用）；前端新增 `safeEvidenceUrl()` 工具，严格限制协议为 `https:` 且域名为 `x.com`/`twitter.com`，不通过校验的 URI 降级为纯文本+安全警告，不再渲染为可点击链接。覆盖 AuctionDetailPage（3 处）+ ArbitrationPage（2 处），10 个单元测试
+- **P1 — Solidity 测试未接入根目录验证流程**：package.json 新增 `test:contracts`（`cd contracts && forge test --offline`）和 `test:all`（vitest + forge）脚本，CI 可直接调用
+- **P2 — Mint 数量输入可导致浏览器端超长循环**：`estimateMintCostWei()` 新增 `quantity > 50` 守卫（与合约 `MAX_MINT_QUANTITY` 对齐）；MintBurnPanel `qtyNum` 对 mint 上限 50，`maxMintQty` 上限 50，input `max=50`
+- **P2 — 钱包余额读取失败时使用本地乐观余额**：新增 `balanceStale` 标志；`refreshBalance()` 链上查询失败时不再退化为本地 delta 推算，改为标记 stale 并保留上次已知值；ConnectButton/AccountCard 显示 `—` 及"RPC unavailable"提示
+- **P2 — 链上数据不可用时仍展示默认模拟曲线**：KolProfilePage 新增 `chainDataReady` 标志，供应量/价格未就绪时显示 `—` 而非默认曲线值，防止 RPC 故障时把默认值冒充链上真实数据
+- **P2 — 前端最多枚举 100 个 PASS**：`MAX_ENUM_TOKENS` 从 100 提高到 500（合约单笔 burn 上限 50，用户可分多笔）
+
+### Changed
+- Monad 测试网重部署 Registry + Factory（KolAuction 字节码内嵌于 Factory，P0/P1 修复后必须重部署）
+  - Registry: `0xe2fcfa7db774de8dea8fd8bf039d12b1e591fe1a`
+  - Factory: `0xae7f75ffc10a098cf99261a664203a1fa62c06fc`
+- foundry.toml 注释说明部署需加 `--disable-code-size-limit`（Monad 128KB 上限 vs 本地 24KB 检查）
+- package.json 版本 → 0.8.2
+
+### Technical
+- Foundry 测试 75/75 通过（含 P0 回归 3 + URI 长度 2）
+- vitest 前端测试 55/55 通过（含 evidenceUrl 10）
+- TypeScript 0 错误，vite build 成功
+
 ## [0.8.1] - 2026-09-10
 
 ### Added

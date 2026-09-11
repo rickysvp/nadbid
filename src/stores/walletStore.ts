@@ -81,6 +81,7 @@ const initialState: WalletState = {
   connectorId: null,
   connectorName: null,
   balanceRaw: null,
+  balanceStale: false,
 };
 
 export const useWalletStore = create<WalletStore>((set) => ({
@@ -103,10 +104,11 @@ export const useWalletStore = create<WalletStore>((set) => ({
       connectorId: null,
       connectorName: null,
       balanceRaw: null,
+      balanceStale: false,
     });
   },
 
-  setBalance: (balance) => set({ balanceMon: balance }),
+  setBalance: (balance) => set({ balanceMon: balance, balanceStale: false }),
 
   setChain: (chainId) => set({ chainId }),
 
@@ -130,18 +132,22 @@ export const useWalletStore = create<WalletStore>((set) => ({
       connectorId: null,
       connectorName: null,
       balanceRaw: null,
+      balanceStale: false,
     });
   },
 
   refreshBalance: async (delta = 0) => {
-    // 真实钱包已连接（loader 已注册）：优先查询链上真实余额，不依赖任何模式开关
+    // 真实钱包已连接（loader 已注册）：优先查询链上真实余额
     if (balanceLoader) {
       try {
         const balance = await balanceLoader();
-        set({ balanceMon: Math.max(0, round2(balance)) });
+        set({ balanceMon: Math.max(0, round2(balance)), balanceStale: false });
         return;
       } catch {
-        // 链上查询失败 → 退化为本地增量更新，不阻断交易流程
+        // 审计 P2 修复：链上查询失败时不再退化为本地乐观增量（会显示与真实余额不一致的数字）。
+        // 标记 balanceStale=true，UI 应显示"余额暂不可用"；保留上次已知值但不修改。
+        set({ balanceStale: true });
+        return;
       }
     }
     // 无真实连接（本地/测试）：delta > 0 扣减（出价 / Mint 花费），delta < 0 入账（领取 / Burn 返还）

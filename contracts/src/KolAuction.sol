@@ -59,6 +59,8 @@ contract KolAuction {
     // ---- SP-2 退款池 ----
     uint256 public refundPool;        // 固化后的退款池总额（80% 锁定资金 + KOL 押金罚没）
     uint256 public slashedBond;       // 实际罚没并转入本合约的押金金额
+    uint256 public totalRefunded;     // 审计 P0 修复：累计已领取退款额——用于计算剩余退款负债，
+                                       // 防止 sweepRefundDust 在未领完时清空合约余额
     mapping(address => bool) public refundClaimed;  // 防重复领取
 
     address public platformTreasury;
@@ -73,6 +75,7 @@ contract KolAuction {
     // ---- SP-2 窗口（可部署前按产品规则调整）----
     uint256 public constant FULFILLMENT_DEADLINE = 48 hours; // KOL 提交履约期限
     uint256 public constant AUTO_CONFIRM_WINDOW = 48 hours;  // winner 确认/争议窗口（超时自动确认）
+    uint256 public constant MAX_EVIDENCE_URI_LENGTH = 512;    // 审计 P2：evidenceUri 长度上限，防 gas/存储滥用
     uint256 private seq;
 
     /// 接收押金罚没转账（Registry.slashKolBond → 本合约退款池）与任何误转资金。
@@ -218,6 +221,7 @@ contract KolAuction {
         require(a.status == AuctionStatus.SETTLED, "!SETTLED");
         require(block.timestamp <= a.fulfillmentDeadline, "TOO_LATE");
         require(evidenceHash != bytes32(0), "ZERO_HASH");
+        require(bytes(evidenceUri).length <= MAX_EVIDENCE_URI_LENGTH, "URI_TOO_LONG");
         a.fulfillmentTime = block.timestamp;
         a.autoConfirmDeadline = block.timestamp + AUTO_CONFIRM_WINDOW;
         a.fulfillmentEvidenceHash = evidenceHash;
@@ -251,6 +255,7 @@ contract KolAuction {
         require(a.status == AuctionStatus.AWAITING_CONFIRMATION, "!AWAITING");
         require(block.timestamp <= a.autoConfirmDeadline, "TOO_LATE");
         require(evidenceHash != bytes32(0), "ZERO_HASH");
+        require(bytes(evidenceUri).length <= MAX_EVIDENCE_URI_LENGTH, "URI_TOO_LONG");
         a.disputeEvidenceHash = evidenceHash;  // 与履约证据分离，仲裁可同时查看双方证据
         a.disputeEvidenceUri = evidenceUri;
         a.status = AuctionStatus.DISPUTED;
@@ -292,18 +297,23 @@ contract KolAuction {
         uint256 share = cumulativeBid[msg.sender] * refundPool / a.totalVolume;
         require(share > 0, "NO_REFUND");
         refundClaimed[msg.sender] = true;
+        totalRefunded += share;  // 审计 P0 修复：累计已领退款，供 sweep 计算剩余负债
         (bool ok, ) = payable(msg.sender).call{value: share}("");
         require(ok, "CLAIM_FAIL");
         emit RefundClaimed(msg.sender, share);
     }
 
-    /// P2-8 修复：退款池整数除法尾差清扫。按比例退款时，除法截断会留下少量 dust
-    /// 永久留在合约中。任何人可在 REFUNDED 终态调用此函数，将尾差归集到平台国库。
-    /// 仅在 REFUNDED 状态下可调用，防止误转其他状态下的锁定资金。
+    /// 审计 P0 修复：退款池整数除法尾差清扫。原实现直接清扫 address(this).balance 全额，
+    /// 导致任何人可在竞拍者领取退款前调用此函数将全部余额转入平台国库，后续 claimRefund
+    /// 因余额不足永久失败。修复后：只清扫超出"剩余退款负债"的超额部分（整除尾差 + 误转资金），
+    /// 预留金 refundPool - totalRefunded 永不被触碰。
     function sweepRefundDust() external {
         require(auction.status == AuctionStatus.REFUNDED, "!REFUNDED");
-        uint256 dust = address(this).balance;
-        require(dust > 0, "NO_DUST");
+        // 剩余退款负债 = 退款池总额 - 已累计领取额（含整除尾差，保守预留）
+        uint256 reserved = refundPool - totalRefunded;
+        uint256 balance = address(this).balance;
+        require(balance > reserved, "NO_DUST");
+        uint256 dust = balance - reserved;
         (bool ok, ) = payable(platformTreasury).call{value: dust}("");
         require(ok, "SWEEP_FAIL");
     }

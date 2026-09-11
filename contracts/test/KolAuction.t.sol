@@ -405,6 +405,99 @@ contract KolAuctionTest is Test {
         assertLe(pool - (got1 + got2), 1); // 整除截断 ≤1 wei
     }
 
+    // ================= 审计 P0 回归：sweepRefundDust 不得清空退款池 =================
+
+    /// P0 回归：REFUNDED 后、竞拍者未领退款前，攻击者调用 sweepRefundDust。
+    /// 修复前：sweep 清扫 address(this).balance 全额 → 国库拿走全部退款池 → 后续 claimRefund 失败。
+    /// 修复后：余额 == 预留金（refundPool - totalRefunded），无超额可扫 → revert("NO_DUST")。
+    function test_SweepRefundDust_BeforeClaim_RevertsNoDust() public {
+        _bondKol();
+        _settleWithBid();
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(bidder);
+        auction.finalizeBreach();
+        assertEq(uint256(auction.getAuction().status), uint256(KolAuction.AuctionStatus.REFUNDED));
+        // 合约余额 = refundPool（80% + 押金罚没），全部为预留金
+        assertEq(address(auction).balance, auction.refundPool());
+        assertEq(auction.totalRefunded(), 0);
+        // 攻击者尝试 sweep → 无超额可扫，revert
+        address attacker = address(0xDEAD);
+        vm.prank(attacker);
+        vm.expectRevert(bytes("NO_DUST"));
+        auction.sweepRefundDust();
+        // 合法竞拍者随后领取退款 → 成功（修复前会因余额被清空而失败）
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertGt(bidder.balance - before, 0);
+        assertEq(auction.totalRefunded(), auction.refundPool()); // 单出价者领完全部
+    }
+
+    /// P0 回归：合约收到误转资金（超额）时，sweep 只取超额部分，预留金不受影响。
+    function test_SweepRefundDust_OnlyTakesExcess() public {
+        _bondKol();
+        _settleWithBid();
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(bidder);
+        auction.finalizeBreach();
+        uint256 pool = auction.refundPool();
+        // 模拟误转 0.5 ETH 到合约（receive 无门槛）
+        vm.deal(address(0xBABE), 1 ether);
+        vm.prank(address(0xBABE));
+        (bool ok, ) = payable(address(auction)).call{value: 0.5 ether}("");
+        assertTrue(ok);
+        assertEq(address(auction).balance, pool + 0.5 ether);
+        // sweep 只取超额 0.5 ETH，预留金 pool 保留
+        uint256 treasuryBefore = platform.balance;
+        vm.prank(address(0xDEAD));
+        auction.sweepRefundDust();
+        assertEq(platform.balance - treasuryBefore, 0.5 ether);
+        assertEq(address(auction).balance, pool); // 预留金完整
+        // 竞拍者仍可领取全额退款
+        uint256 before = bidder.balance;
+        vm.prank(bidder);
+        auction.claimRefund();
+        assertGt(bidder.balance - before, 0);
+    }
+
+    /// P0 回归：部分领取后 sweep，预留金 = refundPool - totalRefunded 不受影响。
+    function test_SweepRefundDust_AfterPartialClaim_ReservesRemaining() public {
+        _bondKol();
+        address bidder2 = address(0x5678);
+        vm.deal(bidder2, 1000 ether);
+        uint256 mintCost = pass.curvePrice() * 108 / 100;
+        vm.prank(bidder2);
+        pass.mint{value: mintCost}(1, type(uint256).max);
+        vm.startPrank(bidder);
+        auction.placeBid{value: fixedBid}();
+        auction.placeBid{value: fixedBid}();
+        vm.stopPrank();
+        vm.prank(bidder2);
+        auction.placeBid{value: fixedBid}();
+        vm.warp(block.timestamp + 1000);
+        vm.prank(kol);
+        auction.settle();
+        vm.warp(block.timestamp + 48 hours + 1);
+        vm.prank(bidder);
+        auction.finalizeBreach();
+        uint256 pool = auction.refundPool();
+        // bidder 先领 2/3
+        vm.prank(bidder);
+        auction.claimRefund();
+        uint256 claimed = auction.totalRefunded();
+        assertGt(claimed, 0);
+        assertLt(claimed, pool);
+        // 此时余额 = pool - claimed（无超额），sweep 应 revert
+        vm.prank(address(0xDEAD));
+        vm.expectRevert(bytes("NO_DUST"));
+        auction.sweepRefundDust();
+        // bidder2 仍可领取剩余 1/3
+        uint256 before = bidder2.balance;
+        vm.prank(bidder2);
+        auction.claimRefund();
+        assertGt(bidder2.balance - before, 0);
+    }
+
     function test_Refundable_Getter() public {
         _bondKol();
         _settleWithBid();
@@ -521,6 +614,38 @@ contract KolAuctionTest is Test {
         assertEq(a.disputeEvidenceHash, bytes32(uint256(0xD1)));      // 争议证据保留
         assertEq(a.arbitrationNote, bytes32(uint256(0xCAFE)));        // 裁定理由记录
         assertEq(uint256(a.status), uint256(KolAuction.AuctionStatus.REFUNDED));
+    }
+
+    // 审计 P2：submitFulfillment evidenceUri 长度上限 512 bytes
+    function test_SubmitFulfillment_RejectsLongUri() public {
+        _bondKol();
+        _settleWithBid();
+        string memory longUri = new string(513);
+        vm.prank(kol);
+        vm.expectRevert(bytes("URI_TOO_LONG"));
+        auction.submitFulfillment(bytes32(uint256(0xF1)), longUri);
+        // 512 bytes 刚好通过
+        string memory okUri = new string(512);
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xF1)), okUri);
+        assertEq(auction.getAuction().fulfillmentEvidenceUri, okUri);
+    }
+
+    // 审计 P2：dispute evidenceUri 长度上限 512 bytes
+    function test_Dispute_RejectsLongUri() public {
+        _bondKol();
+        _settleWithBid();
+        vm.prank(kol);
+        auction.submitFulfillment(bytes32(uint256(0xF1)), "https://x.com/a");
+        string memory longUri = new string(513);
+        vm.prank(bidder);
+        vm.expectRevert(bytes("URI_TOO_LONG"));
+        auction.dispute(bytes32(uint256(0xD1)), longUri);
+        // 512 bytes 刚好通过
+        string memory okUri = new string(512);
+        vm.prank(bidder);
+        auction.dispute(bytes32(uint256(0xD1)), okUri);
+        assertEq(auction.getAuction().disputeEvidenceUri, okUri);
     }
 
 

@@ -12,6 +12,7 @@ import { ConnectModal } from '../components/trade';
 import { useToast } from '../hooks/useToast';
 import { useWalletStore } from '../stores/walletStore';
 import { shortenAddress } from '../utils/format';
+import { safeEvidenceUrl } from '../utils/evidenceUrl';
 import { AUCTION } from '../utils/constants';
 import { cn } from '../utils/cn';
 import { useAuction } from '../web3/hooks/useAuction';
@@ -890,18 +891,23 @@ function ChainAuctionDetail({ address }: { address: string }) {
                         <div className="text-white/40 text-[10px] leading-relaxed">
                           KOL 已提交履约推文。请确认履约质量，或粘贴违约反证推文链接发起仲裁（48h 窗口内）。
                         </div>
-                        {/* 显示 KOL 履约推文链接 */}
-                        {auctionData?.fulfillmentEvidenceUri && (
+                        {/* 显示 KOL 履约推文链接（审计 P1：safeEvidenceUrl 协议+域名白名单净化） */}
+                        {safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri) ? (
                           <a
-                            href={auctionData.fulfillmentEvidenceUri}
+                            href={safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri)!}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
                           >
                             <div className="text-[10px] text-[#3ec470] font-bold">🔗 View KOL Fulfillment Evidence (X post)</div>
-                            <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.fulfillmentEvidenceHash}</div>
+                            <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.fulfillmentEvidenceHash}</div>
                           </a>
-                        )}
+                        ) : auctionData?.fulfillmentEvidenceUri ? (
+                          <div className="bg-[#161616] border border-yellow-500/30 rounded px-2.5 py-2">
+                            <div className="text-[10px] text-yellow-500 font-bold">⚠️ Evidence URL failed security check (only https://x.com or https://twitter.com allowed)</div>
+                            <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.fulfillmentEvidenceUri}</div>
+                          </div>
+                        ) : null}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleFulfillmentAction('confirm')}
@@ -1009,33 +1015,43 @@ function ChainAuctionDetail({ address }: { address: string }) {
                     <div className="text-white/40 text-[10px] leading-relaxed">
                       争议已提交仲裁。资金保持锁定，等待平台仲裁结果。双方证据如下：
                     </div>
-                    {/* 显示 KOL 履约推文链接 */}
-                    {auctionData?.fulfillmentEvidenceUri ? (
+                    {/* 显示 KOL 履约推文链接（审计 P1：safeEvidenceUrl 净化） */}
+                    {safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri) ? (
                       <a
-                        href={auctionData.fulfillmentEvidenceUri}
+                        href={safeEvidenceUrl(auctionData?.fulfillmentEvidenceUri)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block bg-[#161616] border border-[#3ec470]/30 rounded px-2.5 py-2 hover:bg-[#3ec470]/5 transition-colors"
                       >
                         <div className="text-[10px] text-[#3ec470] font-bold">🔗 KOL Fulfillment Evidence (X post)</div>
-                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.fulfillmentEvidenceUri}</div>
-                        <div className="text-[9px] font-mono text-white/25 truncate mt-0.5">hash: {auctionData.fulfillmentEvidenceHash}</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.fulfillmentEvidenceUri}</div>
+                        <div className="text-[9px] font-mono text-white/25 truncate mt-0.5">hash: {auctionData?.fulfillmentEvidenceHash}</div>
                       </a>
+                    ) : auctionData?.fulfillmentEvidenceUri ? (
+                      <div className="bg-[#161616] border border-yellow-500/30 rounded px-2.5 py-2">
+                        <div className="text-[10px] text-yellow-500 font-bold">⚠️ Evidence URL failed security check</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.fulfillmentEvidenceUri}</div>
+                      </div>
                     ) : (
                       <div className="text-[9px] text-white/30">KOL fulfillment evidence: {auctionData?.fulfillmentEvidenceHash ?? 'N/A'}</div>
                     )}
-                    {/* 显示 winner 争议推文链接 */}
-                    {auctionData?.disputeEvidenceUri ? (
+                    {/* 显示 winner 争议推文链接（审计 P1：safeEvidenceUrl 净化） */}
+                    {safeEvidenceUrl(auctionData?.disputeEvidenceUri) ? (
                       <a
-                        href={auctionData.disputeEvidenceUri}
+                        href={safeEvidenceUrl(auctionData?.disputeEvidenceUri)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block bg-[#161616] border border-[#ea6668]/30 rounded px-2.5 py-2 hover:bg-[#ea6668]/5 transition-colors"
                       >
                         <div className="text-[10px] text-[#ff8a8c] font-bold">🔗 Winner Dispute Evidence (X post)</div>
-                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData.disputeEvidenceUri}</div>
-                        <div className="text-[9px] font-mono text-white/25 truncate mt-0.5">hash: {auctionData.disputeEvidenceHash}</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.disputeEvidenceUri}</div>
+                        <div className="text-[9px] font-mono text-white/25 truncate mt-0.5">hash: {auctionData?.disputeEvidenceHash}</div>
                       </a>
+                    ) : auctionData?.disputeEvidenceUri ? (
+                      <div className="bg-[#161616] border border-yellow-500/30 rounded px-2.5 py-2">
+                        <div className="text-[10px] text-yellow-500 font-bold">⚠️ Evidence URL failed security check</div>
+                        <div className="text-[9px] font-mono text-white/40 truncate mt-0.5">{auctionData?.disputeEvidenceUri}</div>
+                      </div>
                     ) : (
                       <div className="text-[9px] text-white/30">Dispute evidence: {auctionData?.disputeEvidenceHash ?? 'N/A'}</div>
                     )}

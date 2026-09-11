@@ -309,6 +309,9 @@ export default function KolProfilePage() {
   // 展示值：链上真实 curvePrice / totalSupply（无 mock 回退）
   const actualSupply = chainSupply ?? curveSupply;
   const actualMintPrice = chainPrice ?? curvePrice;
+  // 审计 P2：链上数据就绪标志——未就绪时 UI 显示 "—" 而非默认曲线值，
+  // 防止 RPC 故障时把默认供应量/价格冒充链上真实数据
+  const chainDataReady = chainSupply !== undefined && chainPrice !== undefined;
 
 
   /** 交易成功：用返回的新供应量 / 新价格刷新页面曲线状态（交易通知由弹窗 toast 处理） */
@@ -441,7 +444,7 @@ export default function KolProfilePage() {
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Supply</div>
-                <div className="font-mono text-sm font-bold">{actualSupply.toLocaleString()}</div>
+                <div className="font-mono text-sm font-bold">{chainDataReady ? actualSupply.toLocaleString() : '—'}</div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded p-3">
                 <div className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5">Pass TVL</div>
@@ -478,12 +481,12 @@ export default function KolProfilePage() {
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Latest Mint Price:</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-xs font-bold text-white">{formatMon(BigInt(Math.round(actualMintPrice*1e18)))} <span className="text-white/40">MON</span></span>
+                  <span className="font-mono text-xs font-bold text-white">{chainDataReady ? `${formatMon(BigInt(Math.round(actualMintPrice*1e18)))} MON` : '— MON'}</span>
                 </div>
               </div>
               <div className="bg-[#0f0f0f] border border-white/[0.04] rounded px-3 py-2 flex items-center gap-2">
                 <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]">Supply:</span>
-                <span className="font-mono text-xs font-bold text-white">{actualSupply.toLocaleString()}</span>
+                <span className="font-mono text-xs font-bold text-white">{chainDataReady ? actualSupply.toLocaleString() : '—'}</span>
               </div>
             </div>
 

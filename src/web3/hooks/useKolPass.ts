@@ -84,6 +84,9 @@ export function estimateMintCostWei(
   quantity: bigint,
 ): bigint | undefined {
   if (!curveConfig || currentSupply === undefined || quantity <= 0n) return undefined;
+  // 审计 P2：前端数量守卫——与合约 MAX_MINT_QUANTITY=50 对齐，
+  // 防止超大输入导致 for 循环在浏览器端卡死（合约最终会拒绝，但前端计算发生在交易之前）
+  if (quantity > 50n) return undefined;
   const { basePrice, maxPrice, baseSupply } = curveConfig;
   if (basePrice === undefined || maxPrice === undefined || baseSupply <= 0n) return undefined;
   const start = currentSupply;
@@ -136,9 +139,9 @@ export function useKolPass(
   const curveConfig = curveConfigRes.data as CurveConfig | undefined;
 
   // ===== 枚举用户持有的 tokenId（ERC721Enumerable.tokenOfOwnerByIndex）=====
-  // P2-4：移除前 20 个的硬编码限制，使用完整的 balanceOf 作为枚举数量。
-  // 为防止极端情况下 RPC 响应过大，设置 100 个的软上限（测试网场景足够）。
-  const MAX_ENUM_TOKENS = 100;
+  // 审计 P2：提高枚举上限至 500（原 100 会导致持仓 >100 的用户无法通过 UI 访问第 101 个以后的 tokenId）。
+  // 合约单笔 burn 上限 50，用户可分多笔燃烧；极端持仓 >500 需后续实现分页枚举。
+  const MAX_ENUM_TOKENS = 500;
   const holdingCount =
     account !== undefined ? (balanceOfRes.data as bigint | undefined) : undefined;
   const enumCount =

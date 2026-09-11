@@ -188,6 +188,8 @@ export interface WalletState {
   connectorName: string | null;
   /** 原始余额（wei），未连接或未查询时为 null */
   balanceRaw: bigint | null;
+  /** 审计 P2：链上余额读取失败标记——true 时 UI 应显示"余额暂不可用"而非乐观本地值 */
+  balanceStale: boolean;
 }
 
 // ============ API ============

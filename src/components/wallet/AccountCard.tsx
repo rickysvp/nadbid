@@ -23,7 +23,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
-  const { address, balanceMon, chainId, connectorName } = useWalletStore();
+  const { address, balanceMon, balanceStale, chainId, connectorName } = useWalletStore();
   const { disconnect } = useDisconnect();
   const { success, info } = useToast();
   const [copied, setCopied] = useState(false);
@@ -132,9 +132,12 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <span className="font-mono text-5xl font-black text-white tracking-tight">
-                {balanceMon.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {balanceStale ? '—' : balanceMon.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xl text-white/50 font-mono">$MON</span>
+              {balanceStale && (
+                <span className="text-[10px] text-yellow-500 font-bold">RPC unavailable — balance stale</span>
+              )}
               <div className="flex items-center gap-1 bg-[#1a2f22] text-[#3ec470] text-[11px] font-bold px-2 py-1 rounded border border-[#3ec470]/30">
                 <TrendingUp className="w-3 h-3" /> +2.4%
               </div>

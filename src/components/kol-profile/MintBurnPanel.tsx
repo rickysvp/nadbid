@@ -91,11 +91,14 @@ export function MintBurnPanel({
   const chainBurnable = account !== undefined ? (chain.userTokenIds ?? []) : [];
   const chainBurnReady = chainBurnable.length > 0;
 
-  /** 解析并钳制数量为合法整数；空 / 非法输入视为 0 */
+  /** 解析并钳制数量为合法整数；空 / 非法输入视为 0。
+   *  审计 P2：mint 上限 50（与合约 MAX_MINT_QUANTITY 对齐），防止超大输入
+   *  导致 estimateMintCostWei 的 for 循环在浏览器端卡死。 */
   const qtyNum = useMemo(() => {
     const n = Math.floor(Number(qty));
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  }, [qty]);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return isMint ? Math.min(n, 50) : n;
+  }, [qty, isMint]);
   const isQtyValid = qtyNum > 0;
 
   /** 总成本 / 总返还 = 数量 × 当前单位价格（债券曲线模型） */
@@ -150,7 +153,7 @@ export function MintBurnPanel({
       : curvePriceAt(newSupply, effectiveSupply, effectivePrice);
 
   /** 余额内可 mint 的最大数量 */
-  const maxMintQty = Math.max(0, Math.floor((wallet.balanceMon || 0) / (effectivePrice > 0 ? effectivePrice : 1)));
+  const maxMintQty = Math.min(50, Math.max(0, Math.floor((wallet.balanceMon || 0) / (effectivePrice > 0 ? effectivePrice : 1))));
 
   /** CTA 是否可点：数量合法、链上数据就绪（时序保护）、不在交易中。
    *  burn 特例：未连接钱包时仍可点击（点击后引导连接），避免按钮"点了没反应" */
@@ -328,6 +331,7 @@ export function MintBurnPanel({
           <input
             type="number"
             min="1"
+            max={isMint ? 50 : effectiveHolding}
             value={qty}
             onChange={(e) => setQty(e.target.value)}
             className="bg-transparent w-full px-3 font-mono text-[14px] text-white outline-none"

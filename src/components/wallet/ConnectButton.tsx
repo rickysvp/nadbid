@@ -39,7 +39,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { isConnected, address, balanceMon, chainId, connectorName } = useWalletStore();
+  const { isConnected, address, balanceMon, balanceStale, chainId, connectorName } = useWalletStore();
   const { disconnect } = useDisconnect();
   const { success, info } = useToast();
 
@@ -159,7 +159,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
             {shortenAddress(address ?? '')}
           </span>
           <span className="text-[12px] font-mono font-bold leading-none text-[#3ec470]">
-            {balanceMon.toLocaleString('en-US', { maximumFractionDigits: 2 })} MON
+            {balanceStale ? '— MON' : `${balanceMon.toLocaleString('en-US', { maximumFractionDigits: 2 })} MON`}
           </span>
         </div>
         <ChevronDown
