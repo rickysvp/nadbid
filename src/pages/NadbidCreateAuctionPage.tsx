@@ -13,7 +13,7 @@ import {
   Trophy,
   TrendingUp,
 } from 'lucide-react';
-import { parseUnits } from 'viem';
+import { isAddress, parseUnits } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConnectedAddress, useCreateAuction, useNadbidAuctionContract } from '../web3/hooks/useNadbidAuction';
 import { cn } from '../utils/cn';
@@ -115,10 +115,15 @@ export default function NadbidCreateAuctionPage() {
     }
   }, [assetType, amount]);
 
+  const assetAddrValid = (() => {
+    const v = assetAddr.trim();
+    return isAddress(v);
+  })();
+
   const canCreate =
     isReady &&
     !!address &&
-    !!assetAddr.trim() &&
+    assetAddrValid &&
     startPriceWei !== undefined &&
     incrementBps !== undefined &&
     incrementBps >= BigInt(MIN_INCREMENT_BPS) &&
@@ -126,13 +131,17 @@ export default function NadbidCreateAuctionPage() {
     amountWei !== undefined &&
     (reserveWei === undefined || reserveWei > 0n);
 
-  const assetValid = !!assetAddr.trim() && amountWei !== undefined;
+  const assetValid = assetAddrValid && amountWei !== undefined;
   const pricingValid =
     startPriceWei !== undefined && incrementBps !== undefined && incrementBps >= BigInt(MIN_INCREMENT_BPS) && incrementBps <= BigInt(MAX_INCREMENT_BPS) && (reserveWei === undefined || reserveWei > 0n);
 
   /** 第一步：授权资产给合约 */
   const handleApprove = async () => {
     if (!auctionAddr) return;
+    if (!assetAddrValid) {
+      toast.error?.('请输入有效的合约地址（0x + 40 位十六进制）');
+      return;
+    }
     if (assetType === '0') {
       await approveTx.write({
         address: assetAddr.trim() as `0x${string}`,
@@ -261,8 +270,13 @@ export default function NadbidCreateAuctionPage() {
               value={assetAddr}
               onChange={(e) => setAssetAddr(e.target.value)}
               placeholder="0x…"
-              className={inputCls}
+              className={cn(inputCls, assetAddr.trim() && !assetAddrValid && 'border-red-500/60')}
             />
+            {assetAddr.trim() && !assetAddrValid && (
+              <p className="mt-1.5 text-xs text-red-400">
+                Invalid address — must be 0x + 40 hex characters
+              </p>
+            )}
           </Field>
 
           {assetType !== '0' && (
