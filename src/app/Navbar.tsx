@@ -61,7 +61,7 @@ export default function Navbar() {
           <img
             src="/nadbid-logo.png?v=8"
             alt="NADBID"
-            className="h-8 w-auto md:h-9 overflow-visible"
+            className="h-10 w-auto md:h-11 overflow-visible"
             draggable={false}
           />
         </button>
