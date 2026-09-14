@@ -241,6 +241,7 @@ export default function NadbidAuctionDetailPage() {
                           abi: usdcAbi,
                           functionName: 'approve',
                           args: [useNadbidAuctionContract().address, payVal],
+                          gas: 150_000n,
                           onSuccess: invalidateAll,
                           successMessage: 'USDC approved',
                         })
@@ -258,6 +259,7 @@ export default function NadbidAuctionDetailPage() {
                           abi: nadbidAuctionAbi,
                           functionName: 'placeBid',
                           args: [auctionId!, nextPriceVal],
+                          gas: 500_000n,
                           onSuccess: invalidateAll,
                           successMessage: 'Bid placed — 120s timer reset',
                         })
@@ -290,6 +292,7 @@ export default function NadbidAuctionDetailPage() {
                       abi: nadbidAuctionAbi,
                       functionName: 'finalize',
                       args: [auctionId!],
+                      gas: 5_000_000n,
                       onSuccess: invalidateAll,
                       successMessage: 'Auction finalized',
                     })
@@ -309,6 +312,7 @@ export default function NadbidAuctionDetailPage() {
                       abi: nadbidAuctionAbi,
                       functionName: 'claimSeller',
                       args: [auctionId!],
+                      gas: 1_000_000n,
                       onSuccess: invalidateAll,
                       successMessage: 'Seller earnings claimed',
                     })
@@ -494,6 +498,7 @@ function BatchRow({
                 abi: nadbidAuctionAbi,
                 functionName: 'claimRefund',
                 args: [auctionId, batchId],
+                gas: 500_000n,
                 onSuccess: invalidateAll,
                 successMessage: 'Refund claimed',
               })
@@ -512,6 +517,7 @@ function BatchRow({
                 abi: nadbidAuctionAbi,
                 functionName: 'claimReward',
                 args: [auctionId, batchId],
+                gas: 500_000n,
                 onSuccess: invalidateAll,
                 successMessage: 'Dividends claimed',
               })

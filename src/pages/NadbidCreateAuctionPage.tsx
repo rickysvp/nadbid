@@ -139,6 +139,7 @@ export default function NadbidCreateAuctionPage() {
         abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
         args: [auctionAddr, amountWei!],
+        gas: 150_000n,
         successMessage: 'Token approved',
       });
     } else {
@@ -147,6 +148,7 @@ export default function NadbidCreateAuctionPage() {
         abi: SET_APPROVAL_ABI,
         functionName: 'setApprovalForAll',
         args: [auctionAddr, true],
+        gas: 150_000n,
         successMessage: 'NFT approved',
       });
     }
@@ -161,6 +163,7 @@ export default function NadbidCreateAuctionPage() {
       address: auctionAddr,
       abi: nadbidAuctionAbi,
       functionName: 'createAuction',
+      gas: 2_000_000n,
       args: [
         BigInt(assetType),
         assetAddr.trim() as `0x${string}`,
