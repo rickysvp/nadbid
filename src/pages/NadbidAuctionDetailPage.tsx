@@ -137,7 +137,7 @@ export default function NadbidAuctionDetailPage() {
                           <span className="text-[#111]/50"> × {fmtUsdc(meta.assetAmount)}</span>
                         )}
                       </span>
-                      <span className="nb-chip bg-[#3ec470]/15 px-2.5 py-0.5 text-xs text-[#111]">
+                      <span className="nb-chip bg-[#8b5cf6]/15 px-2.5 py-0.5 text-xs text-white">
                         {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
                       </span>
                     </div>
@@ -304,7 +304,7 @@ export default function NadbidAuctionDetailPage() {
                         'w-full rounded-xl border-2 border-[#111] px-4 py-3.5 text-sm font-black text-[#111] transition disabled:opacity-40 disabled:translate-y-0',
                         danger && !ended
                           ? 'animate-pulse bg-[#ff4d4f] shadow-[3px_3px_0_#ff4d4f] hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#ff4d4f]'
-                          : 'bg-[#3ec470] shadow-[3px_3px_0_#111] hover:-translate-y-0.5 hover:bg-[#4ade80] hover:shadow-[5px_5px_0_#111]',
+                          : 'bg-[#8b5cf6] shadow-[3px_3px_0_#111] hover:-translate-y-0.5 hover:bg-[#a78bfa] hover:shadow-[5px_5px_0_#111]',
                       )}
                     >
                       {bidTx.isLoading
@@ -359,7 +359,7 @@ export default function NadbidAuctionDetailPage() {
                       successMessage: 'Seller earnings claimed',
                     })
                   }
-                  className="w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3.5 text-sm font-black text-[#111] shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:bg-[#3ec470]/15 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
+                  className="w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3.5 text-sm font-black text-white shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:bg-[#8b5cf6]/15 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
                 >
                   {sellerTx.isLoading ? 'Claiming…' : 'Claim seller earnings'}
                 </button>
@@ -392,7 +392,7 @@ function StatusBadge({ status }: { status: number }) {
     <span
       className={cn(
         'rounded-md border-2 px-2.5 py-0.5 text-xs font-black',
-        st.tone === 'green' && 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]',
+        st.tone === 'green' && 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]',
         st.tone === 'blue' && 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
         st.tone === 'amber' && 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]',
         st.tone === 'red' && 'border-[#ff4d4f] bg-[#ff4d4f]/10 text-[#ff4d4f]',
@@ -420,7 +420,7 @@ function ResultPanel({ meta }: { meta: AuctionMeta }) {
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-[#111]">{shortenAddress(meta.winner)}</span>
-            <span className="rounded bg-[#3ec470]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#117a3d]">WINNER</span>
+            <span className="rounded bg-[#8b5cf6]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#117a3d]">WINNER</span>
           </div>
           <div className="flex justify-between text-[#111]/50">
             <span>Final price</span>
@@ -489,7 +489,7 @@ function BatchRow({
     <div
       className={cn(
         'flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 transition',
-        mine ? 'border-[#1a7f37]/30 bg-[#3ec470]/[0.05]' : 'border-[#111]/15 bg-[#fffdf7]',
+        mine ? 'border-[#1a7f37]/30 bg-[#8b5cf6]/[0.05]' : 'border-[#111]/15 bg-[#fffdf7]',
       )}
     >
       <div className="flex items-center gap-3.5 min-w-0">
@@ -519,7 +519,7 @@ function BatchRow({
             <span
               className={cn(
                 'flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold',
-                isWinner ? 'bg-[#3ec470]/15 text-[#117a3d]' : 'bg-[#111]/5 text-[#111]/50',
+                isWinner ? 'bg-[#8b5cf6]/15 text-[#117a3d]' : 'bg-[#111]/5 text-white/50',
               )}
             >
               <Trophy className="h-3 w-3" />
@@ -565,7 +565,7 @@ function BatchRow({
               })
             }
             disabled={rewardTx.isLoading}
-            className="rounded-lg bg-[#3ec470]/15 px-3 py-1.5 text-xs font-black text-[#117a3d] transition hover:bg-[#3ec470]/25 disabled:opacity-40"
+            className="rounded-lg bg-[#8b5cf6]/15 px-3 py-1.5 text-xs font-black text-[#117a3d] transition hover:bg-[#8b5cf6]/25 disabled:opacity-40"
           >
             {rewardTx.isLoading ? '…' : 'Claim dividends'}
           </button>

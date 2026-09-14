@@ -119,8 +119,8 @@ export function NetworkSwitcher({
             className={cn(
               'mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-[12px] transition-all',
               isPending || isMonadSwitching
-                ? 'bg-[#3ec470]/50 text-[#111]/50 cursor-not-allowed'
-                : 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]',
+                ? 'bg-[#8b5cf6]/50 text-white/50 cursor-not-allowed'
+                : 'bg-[#8b5cf6] text-white hover:bg-[#a78bfa]',
             )}
           >
             {isPending || isMonadSwitching ? (
@@ -160,7 +160,7 @@ export function NetworkSwitcher({
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left',
                 isActive
-                  ? 'bg-[#3ec470]/10 border-[#1a7f37]/40'
+                  ? 'bg-[#8b5cf6]/10 border-[#1a7f37]/40'
                   : isPending
                     ? 'opacity-50 cursor-not-allowed bg-white/[0.02] border-[#111]/15'
                     : 'bg-white/[0.03] border-[#111]/15 hover:bg-white/[0.06] hover:border-[#111]/[0.12]',
@@ -170,7 +170,7 @@ export function NetworkSwitcher({
                 className={cn(
                   'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
                   isActive
-                    ? 'bg-[#3ec470]/20'
+                    ? 'bg-[#8b5cf6]/20'
                     : 'bg-[#111]/5',
                 )}
               >
@@ -193,7 +193,7 @@ export function NetworkSwitcher({
                     {chain.name}
                   </span>
                   {isTarget && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#117a3d] bg-[#3ec470]/10 px-1.5 py-0.5 rounded border border-[#1a7f37]/20">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#117a3d] bg-[#8b5cf6]/10 px-1.5 py-0.5 rounded border border-[#1a7f37]/20">
                       Primary
                     </span>
                   )}

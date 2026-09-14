@@ -13,9 +13,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   default:
-    'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)] active:scale-[0.98]',
+    'bg-[#8b5cf6] text-white hover:bg-[#a78bfa] shadow-[0_0_15px_rgba(139,92,246,0.15)] hover:shadow-[0_0_25px_rgba(139,92,246,0.25)] active:scale-[0.98]',
   primary:
-    'bg-[#3ec470] text-black hover:bg-[#4ade80] shadow-[0_0_15px_rgba(62,196,112,0.1)] hover:shadow-[0_0_25px_rgba(62,196,112,0.2)] active:scale-[0.98]',
+    'bg-[#8b5cf6] text-white hover:bg-[#a78bfa] shadow-[0_0_15px_rgba(139,92,246,0.15)] hover:shadow-[0_0_25px_rgba(139,92,246,0.25)] active:scale-[0.98]',
   secondary:
     'bg-white/5 border border-white/10 text-white hover:bg-white/10',
   ghost:
@@ -32,7 +32,7 @@ const sizeStyles: Record<ButtonSize, string> = {
 
 /**
  * 统一按钮组件 — 4 级变体
- * default/primary: 绿色 CTA（primary 为兼容别名）
+ * default/primary: 紫色 CTA（primary 为兼容别名）
  * secondary: 白底黑边次要操作
  * ghost: 文字按钮
  * danger: 红色危险操作

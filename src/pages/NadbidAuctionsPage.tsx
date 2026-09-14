@@ -74,7 +74,7 @@ export default function NadbidAuctionsPage() {
         </div>
         <Link
           to={ROUTES.NADBID_CREATE}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-5 py-2.5 text-sm font-black text-[#111] transition hover:bg-[#4ade80] hover:shadow-[0_0_24px_rgba(62,196,112,0.35)]"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#a78bfa] hover:shadow-[0_0_24px_rgba(139,92,246,0.35)]"
         >
           <Plus className="h-4 w-4" />
           Create Auction
@@ -131,7 +131,7 @@ export default function NadbidAuctionsPage() {
               <p className="mt-1 text-sm text-[#111]/40">Be the first to list an asset on-chain.</p>
               <Link
                 to={ROUTES.NADBID_CREATE}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-5 py-2.5 text-sm font-black text-[#111] hover:bg-[#4ade80]"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-5 py-2.5 text-sm font-black text-white hover:bg-[#a78bfa]"
               >
                 <Plus className="h-4 w-4" />
                 Create the first auction
@@ -192,7 +192,7 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
             isLive
               ? ended
                 ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
-                : 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
+                : 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]'
               : st.tone === 'gray'
                 ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
                 : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
@@ -219,7 +219,7 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
             {a.assetType === 1 && <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
+            <span className="nb-chip bg-[#8b5cf6]/15 px-1.5 py-0 text-[10px] text-white">
               {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
             </span>
             <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>

@@ -357,7 +357,7 @@ export default function NadbidCreateAuctionPage() {
           <div className="mx-auto mt-8 grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <div key={step} className="nb-card-flat p-4 text-left">
-                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-[#111] bg-[#3ec470] font-mono text-xs font-black text-[#111]">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-[#111] bg-[#8b5cf6] font-mono text-xs font-black text-white">
                   {i + 1}
                 </div>
                 <div className="mt-2.5 text-sm font-black text-[#111]">{step}</div>
@@ -383,9 +383,9 @@ export default function NadbidCreateAuctionPage() {
               className={cn(
                 'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold transition',
                 i === step
-                  ? 'bg-[#3ec470] text-[#111]'
+                  ? 'bg-[#8b5cf6] text-white'
                   : i < step
-                    ? 'bg-[#3ec470]/10 text-[#117a3d]'
+                    ? 'bg-[#8b5cf6]/10 text-[#117a3d]'
                     : 'bg-[#111]/5 text-[#111]/40',
               )}
             >
@@ -416,7 +416,7 @@ export default function NadbidCreateAuctionPage() {
                   className={cn(
                     'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition',
                     assetType === t.v
-                      ? 'border-[#1a7f37]/50 bg-[#3ec470]/10 text-[#117a3d]'
+                      ? 'border-[#1a7f37]/50 bg-[#8b5cf6]/10 text-[#117a3d]'
                       : 'border-[#111]/15 bg-[#fffdf7] text-[#111]/60 hover:border-[#111]/25',
                   )}
                 >
@@ -473,7 +473,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               disabled={!assetValid}
               onClick={() => setStep(1)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-6 py-3 text-sm font-black text-[#111] transition hover:bg-[#4ade80] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               Continue
               <ArrowRight className="h-4 w-4" />
@@ -517,7 +517,7 @@ export default function NadbidCreateAuctionPage() {
           </div>
 
           {/* 费用说明 */}
-          <div className="mt-5 rounded-xl border border-[#1a7f37]/15 bg-[#3ec470]/[0.04] p-4 text-sm">
+          <div className="mt-5 rounded-xl border border-[#1a7f37]/15 bg-[#8b5cf6]/[0.04] p-4 text-sm">
             <div className="mb-2 text-xs font-black uppercase tracking-wider text-[#117a3d]">Payout structure</div>
             <div className="grid grid-cols-2 gap-2.5 text-[#111]/70">
               <div className="flex items-center gap-2">
@@ -546,7 +546,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               disabled={!pricingValid}
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-6 py-3 text-sm font-black text-[#111] transition hover:bg-[#4ade80] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               Review & confirm
               <ArrowRight className="h-4 w-4" />
@@ -579,7 +579,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               onClick={handleCreate}
               disabled={!canCreate || createTx.isLoading}
-              className="flex-1 rounded-xl bg-[#3ec470] px-4 py-3 text-sm font-black text-[#111] transition hover:bg-[#4ade80] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-[#8b5cf6] px-4 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               {createTx.isLoading
                 ? 'Creating…'

@@ -10,7 +10,7 @@ import Toaster from './Toaster';
  */
 export default function AppLayout() {
   return (
-    <div className="min-h-screen font-sans selection:bg-brand-green selection:text-black bg-transparent relative">
+    <div className="min-h-screen font-sans selection:bg-brand-purple selection:text-black bg-transparent relative">
       <GeometricBackground />
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />

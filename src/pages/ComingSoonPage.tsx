@@ -37,7 +37,7 @@ export default function ComingSoonPage({ title, tagline, features, note }: Comin
           <ul className="mt-3 space-y-2.5">
             {features.map((f) => (
               <li key={f} className="nb-card-flat flex items-center gap-3 px-4 py-3 text-sm font-bold">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-[#3ec470]" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" />
                 {f}
               </li>
             ))}
@@ -48,7 +48,7 @@ export default function ComingSoonPage({ title, tagline, features, note }: Comin
 
         <Link
           to={ROUTES.NADBID}
-          className="mt-9 inline-flex items-center gap-2 rounded-xl border-2 border-[#111] bg-[#3ec470] px-7 py-3.5 font-black text-[#111] shadow-[4px_4px_0_#111] transition hover:bg-[#4ade80] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
+          className="mt-9 inline-flex items-center gap-2 rounded-xl border-2 border-[#111] bg-[#8b5cf6] px-7 py-3.5 font-black text-white shadow-[4px_4px_0_#111] transition hover:bg-[#a78bfa] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
         >
           Back to auctions
           <ArrowRight className="h-4 w-4" />

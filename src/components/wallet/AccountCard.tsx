@@ -63,7 +63,7 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
       className="relative overflow-hidden bg-gradient-to-br from-[#161616] via-[#0f0f0f] to-[#0a0a0a] border border-[#111]/15 rounded-3xl p-8 mb-8"
     >
       {/* 装饰光晕 */}
-      <div className="absolute top-0 right-0 w-72 h-72 bg-[#3ec470]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-72 h-72 bg-[#8b5cf6]/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="relative z-10">
         {/* 顶部：头像 + 地址 + 操作按钮 */}

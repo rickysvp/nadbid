@@ -66,7 +66,7 @@ export default function HomePage() {
               <span
                 className={cn(
                   'rounded-xl border-2 border-[#111] px-3 py-1 text-xs font-black shadow-[2px_2px_0_#111]',
-                  liveCount > 0 ? 'bg-[#3ec470]/15 text-[#117a3d]' : 'bg-[#fffdf7] text-[#111]/50',
+                  liveCount > 0 ? 'bg-[#8b5cf6]/15 text-[#117a3d]' : 'bg-[#fffdf7] text-white/50',
                 )}
               >
                 {liveCount > 0 ? `${liveCount} LIVE NOW` : 'NO LIVE AUCTIONS'} · {list.length} TOTAL
@@ -91,7 +91,7 @@ export default function HomePage() {
                 </div>
                 <ul className="mt-4 divide-y-2 divide-[#111]/10 text-sm leading-snug text-[#111]/70">
                   <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec470] px-2 py-0.5 font-mono text-[11px] font-black">1</span>
+                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#8b5cf6] px-2 py-0.5 font-mono text-[11px] font-black">1</span>
                     <span>
                       <span className="font-black text-[#111]">Bid</span> USDC at the next price — payment retained on-chain.
                     </span>
@@ -173,7 +173,7 @@ export default function HomePage() {
                         className={cn(
                           'rounded-md border-2 px-2 py-0.5 text-[10px] font-black',
                           a.status === AuctionStatus.LIVE
-                            ? 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
+                            ? 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]'
                             : a.status === AuctionStatus.SETTLED
                               ? 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]'
                               : 'border-[#111]/25 bg-[#111]/5 text-[#111]/50',
@@ -207,7 +207,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
 
   return (
     <div className="relative nb-card overflow-hidden p-7 md:p-9 transition hover:-translate-y-1 hover:shadow-[8px_8px_0_#111]">
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-[#3ec470]" />
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-[#8b5cf6]" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="nb-sticker bg-[#ffe94a] px-3 py-1 text-[11px] font-black text-[#111]">
@@ -220,7 +220,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
               isLive
                 ? ended
                   ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
-                  : 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
+                  : 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]'
                 : st.tone === 'blue'
                   ? 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]'
                   : 'border-[#111]/25 bg-[#111]/5 text-[#111]/50',
@@ -255,7 +255,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
             )}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#111]/50">
-            <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
+            <span className="nb-chip bg-[#8b5cf6]/15 px-2 py-0.5 text-[11px] text-white">
               {ASSET_LABEL[a.assetType] ?? 'Asset'}
             </span>
             <span className="font-mono">{shortenAddress(a.assetAddr)}</span>
@@ -332,7 +332,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
 
             <Link
               to={nadbidDetailPath(a.id)}
-              className="sm:ml-auto inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#111] bg-[#3ec470] px-8 py-4 text-base font-black text-[#111] shadow-[4px_4px_0_#111] transition hover:bg-[#4ade80] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
+              className="sm:ml-auto inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#111] bg-[#8b5cf6] px-8 py-4 text-base font-black text-white shadow-[4px_4px_0_#111] transition hover:bg-[#a78bfa] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
             >
               {isLive && !ended ? 'Place a bid' : 'View auction'}
               <ArrowRight className="h-4.5 w-4.5" />

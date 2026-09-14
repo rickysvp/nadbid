@@ -5,7 +5,12 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* ===== Neo-Brutalism 设计系统（亮色） ===== */
-  /* 品牌主色 */
+  /* 品牌主色 — 紫（LOGO 渐变主色） */
+  --color-brand-purple: #8b5cf6;
+  --color-brand-purple-deep: #6d28d9;
+  --color-brand-purple-hover: #a78bfa;
+
+  /* 品牌辅助色 — 绿（LOGO 渐变次色） */
   --color-brand-green: #3ec470;
   --color-brand-green-deep: #117a3d;
   --color-brand-green-hover: #4ade80;
@@ -143,7 +148,7 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 3px solid #3ec4f0;
+  outline: 3px solid #8b5cf6;
   outline-offset: 0;
   box-shadow: 3px 3px 0px 0px #111111;
 }
@@ -159,13 +164,31 @@ a {
 
 /* 键盘可见焦点 */
 :focus-visible {
-  outline: 3px solid #3ec4f0;
+  outline: 3px solid #8b5cf6;
   outline-offset: 2px;
 }
 
 /* ============================================
    品牌颜色工具类（显式定义，与 @theme 变量一致）
    ============================================ */
+.bg-brand-purple { background-color: #8b5cf6; }
+.text-brand-purple { color: #8b5cf6; }
+.border-brand-purple { border-color: #8b5cf6; }
+.bg-brand-purple\/5 { background-color: rgba(139, 92, 246, 0.05); }
+.bg-brand-purple\/10 { background-color: rgba(139, 92, 246, 0.1); }
+.bg-brand-purple\/15 { background-color: rgba(139, 92, 246, 0.15); }
+.bg-brand-purple\/20 { background-color: rgba(139, 92, 246, 0.2); }
+.bg-brand-purple\/30 { background-color: rgba(139, 92, 246, 0.3); }
+.border-brand-purple\/10 { border-color: rgba(139, 92, 246, 0.1); }
+.border-brand-purple\/20 { border-color: rgba(139, 92, 246, 0.2); }
+.border-brand-purple\/30 { border-color: rgba(139, 92, 246, 0.3); }
+.border-brand-purple\/50 { border-color: rgba(139, 92, 246, 0.5); }
+.text-brand-purple\/60 { color: rgba(139, 92, 246, 0.6); }
+.text-brand-purple\/70 { color: rgba(139, 92, 246, 0.7); }
+.text-brand-purple\/80 { color: rgba(139, 92, 246, 0.8); }
+.text-brand-purple\/90 { color: rgba(139, 92, 246, 0.9); }
+.ring-brand-purple { --tw-ring-color: #8b5cf6; }
+
 .bg-brand-green { background-color: #3ec470; }
 .text-brand-green { color: #3ec470; }
 .border-brand-green { border-color: #3ec470; }

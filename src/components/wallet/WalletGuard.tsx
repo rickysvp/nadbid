@@ -71,8 +71,8 @@ export function WalletGuard({ children }: { children: ReactNode }) {
                 disabled={isPending}
                 className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-black text-base transition-all ${
                   isPending
-                    ? 'bg-[#3ec470]/50 text-[#111]/50 cursor-not-allowed'
-                    : 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]'
+                    ? 'bg-[#8b5cf6]/50 text-white/50 cursor-not-allowed'
+                    : 'bg-[#8b5cf6] text-white hover:bg-[#a78bfa]'
                 }`}
               >
                 {isPending ? (

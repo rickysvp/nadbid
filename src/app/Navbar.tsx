@@ -7,9 +7,10 @@ import { NAV_ITEMS } from '../config/routes';
 import { cn } from '../utils/cn';
 
 /**
- * 顶部导航栏 — NADBID
+ * 顶部导航栏 — NADBID（LOGO 紫绿黄色系）
  * - fixed 定位：滚动 >24px 后切换为浅色毛玻璃背景
  * - 居中 pill 导航：Home / Staking / Claim / Referral
+ * - 主色紫色（LOGO 渐变主色），active 紫底白字 + 黄色角标
  * - 右侧：ConnectButton
  * - 移动端：汉堡菜单收纳导航项
  */
@@ -66,11 +67,11 @@ export default function Navbar() {
           />
         </button>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation — 紫调 pill */}
         <div
           className={cn(
             'hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 px-3 py-1.5 rounded-full border transition-colors duration-300',
-            'bg-[#111]/5 border-[#111]/15',
+            'bg-[#8b5cf6]/8 border-[#8b5cf6]/25',
           )}
         >
           {NAV_ITEMS.map((item) => {
@@ -82,12 +83,14 @@ export default function Navbar() {
                 className={cn(
                   'relative px-3.5 py-2 rounded-full font-bold text-[13px] tracking-wide transition-all duration-200',
                   active
-                    ? 'bg-[#3ec470] text-[#111] shadow-[2px_2px_0_#111]'
-                    : 'text-[#111]/50 hover:text-[#111] hover:bg-[#111]/5',
+                    ? 'bg-[#8b5cf6] text-white shadow-[2px_2px_0_#111]'
+                    : 'text-[#6d28d9]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                 )}
               >
                 {item.label}
-                {active && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#111]" />}
+                {active && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#ffe94a] border border-[#111]" />
+                )}
               </button>
             );
           })}
@@ -101,7 +104,7 @@ export default function Navbar() {
           <button
             className={cn(
               'lg:hidden flex items-center justify-center w-10 h-10 rounded-xl border transition-colors',
-              'border-[#111]/15 text-[#111] bg-[#111]/5',
+              'border-[#8b5cf6]/30 text-[#6d28d9] bg-[#8b5cf6]/8',
             )}
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
@@ -131,12 +134,12 @@ export default function Navbar() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors',
                       active
-                        ? 'bg-[#3ec470] text-[#111] shadow-[2px_2px_0_#111]'
-                        : 'text-[#111]/60 hover:text-[#111] hover:bg-[#111]/5',
+                        ? 'bg-[#8b5cf6] text-white shadow-[2px_2px_0_#111]'
+                        : 'text-[#6d28d9]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                     )}
                   >
                     {item.label}
-                    {active && <Sparkles className="w-3.5 h-3.5 text-[#3ec470]" />}
+                    {active && <Sparkles className="w-3.5 h-3.5 text-[#ffe94a]" />}
                   </button>
                 );
               })}

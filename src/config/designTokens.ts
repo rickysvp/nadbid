@@ -25,9 +25,9 @@ export const colors = {
   accent: {
     green: '#3ec470',
     greenHover: '#4ade80',
-    greenSoft: 'rgba(62,196,112,0.1)',
+    greenSoft: 'rgba(139,92,246,0.15)',
     greenBorder: 'rgba(62,196,112,0.3)',
-    greenGlow: 'rgba(62,196,112,0.1)',
+    greenGlow: 'rgba(139,92,246,0.15)',
     purple: '#a855f7',
     amber: '#fbbf24',
     red: '#ef4444',
@@ -64,8 +64,8 @@ export const radius = {
 } as const;
 
 export const shadows = {
-  greenGlow: '0 0 15px rgba(62,196,112,0.1)',
-  greenGlowStrong: '0 0 25px rgba(62,196,112,0.2)',
+  greenGlow: '0 0 15px rgba(139,92,246,0.15)',
+  greenGlowStrong: '0 0 25px rgba(139,92,246,0.2)',
 } as const;
 
 export const spacing = {

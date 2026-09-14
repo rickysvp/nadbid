@@ -100,7 +100,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
           className={cn(
             'flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap',
             isDark
-              ? 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]'
+              ? 'bg-[#8b5cf6] text-white hover:bg-[#a78bfa]'
               : 'bg-[#111] text-[#117a3d] hover:bg-black',
           )}
         >
@@ -203,7 +203,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                   <span
                     className={cn(
                       'text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border',
-                      'text-[#117a3d] bg-[#3ec470]/10 border-[#1a7f37]/30',
+                      'text-[#117a3d] bg-[#8b5cf6]/10 border-[#1a7f37]/30',
                     )}
                   >
                     {connectorName}

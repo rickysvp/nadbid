@@ -47,8 +47,8 @@ export const TYPOGRAPHY = {
 // 阴影
 export const SHADOWS = {
   card: 'shadow-lg',
-  primaryGlow: 'shadow-[0_0_15px_rgba(62,196,112,0.1)]',
-  primaryGlowHover: 'shadow-[0_0_25px_rgba(62,196,112,0.2)]',
+  primaryGlow: 'shadow-[0_0_15px_rgba(139,92,246,0.15)]',
+  primaryGlowHover: 'shadow-[0_0_25px_rgba(139,92,246,0.2)]',
 } as const;
 
 // 动画时长

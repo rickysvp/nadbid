@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 
 const TYPE_TILE: Record<number, string> = {
   0: 'bg-[#3ec4f0]/20',
-  1: 'bg-[#3ec470]/20',
+  1: 'bg-[#8b5cf6]/20',
   2: 'bg-[#ff6ba9]/20',
 };
 
