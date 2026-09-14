@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { AlertTriangle, Loader2, Globe } from 'lucide-react';
-import { useSwitchChain } from 'wagmi';
+import { AlertTriangle, Loader2, Globe, Copy } from 'lucide-react';
+import { useState } from 'react';
 import { useWalletStore } from '../../stores/walletStore';
 import { monadTestnet } from '../../web3/config';
+import { useSwitchToMonad } from '../../web3/useSwitchToMonad';
 import { useToast } from '../../hooks/useToast';
 
 /**
@@ -12,14 +13,14 @@ import { useToast } from '../../hooks/useToast';
  *   - 未连接钱包：直接渲染 children（NADBID 允许游客浏览列表/详情，
  *     连接由各操作面板按需引导）
  *   - 已连接但网络错误：显示全屏阻断页 + "Switch to Monad" 按钮
- *     （必须切回 Monad 才能继续，防止用户在错误链上签名/读写 Monad 合约地址，
- *      同时避免 wagmi 对未知 chainId 抛 "Provider not found"）
+ *     （显式 addEthereumChain 兜底，兼容 OKX；失败时提供手动添加参数）
  *   - 已连接且网络正确：直接渲染 children
  */
 export function WalletGuard({ children }: { children: ReactNode }) {
   const { isConnected, chainId } = useWalletStore();
-  const { switchChain, isPending } = useSwitchChain();
-  const { error: toastError } = useToast();
+  const { switchToMonad, isPending } = useSwitchToMonad();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [showManual, setShowManual] = useState(false);
 
   // 未连接：放行（游客可浏览）
   if (!isConnected) {
@@ -30,16 +31,23 @@ export function WalletGuard({ children }: { children: ReactNode }) {
 
   // 错误网络：阻断业务渲染，强制切回 Monad Testnet
   if (isWrongNetwork) {
-    const handleSwitch = () => {
+    const handleSwitch = async () => {
       if (isPending) return;
-      switchChain(
-        { chainId: monadTestnet.id },
-        {
-          onError: (err) => {
-            toastError(err.message ?? 'Failed to switch network');
-          },
-        },
-      );
+      try {
+        await switchToMonad();
+        toastSuccess('Switched to Monad Testnet');
+      } catch {
+        // 错误已由 useSwitchToMonad toast
+      }
+    };
+
+    const copyRpc = async () => {
+      try {
+        await navigator.clipboard.writeText('https://testnet-rpc.monad.xyz');
+        toastSuccess('RPC URL copied');
+      } catch {
+        toastError('Copy failed');
+      }
     };
 
     return (
@@ -79,6 +87,46 @@ export function WalletGuard({ children }: { children: ReactNode }) {
                   </>
                 )}
               </button>
+            </div>
+
+            {/* 手动添加 Monad 网络（OKX 等钱包自动切换失败的兜底） */}
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => setShowManual((v) => !v)}
+                className="text-xs text-white/40 hover:text-white/70 underline underline-offset-4"
+              >
+                {showManual ? 'Hide' : "Wallet won't switch? Add Monad Testnet manually"}
+              </button>
+              {showManual && (
+                <div className="mt-4 text-left bg-black/30 border border-white/[0.06] rounded-2xl p-5 font-mono text-xs text-white/70 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Network Name</span>
+                    <span className="text-white">Monad Testnet</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>RPC URL</span>
+                    <span className="flex items-center gap-2 text-[#3ec470]">
+                      https://testnet-rpc.monad.xyz
+                      <button type="button" onClick={copyRpc} className="hover:text-white" aria-label="Copy RPC">
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Chain ID</span>
+                    <span className="text-white">10143</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Currency Symbol</span>
+                    <span className="text-white">MON</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Explorer</span>
+                    <span className="text-[#3ec470]">https://testnet.monadexplorer.com</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

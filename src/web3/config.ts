@@ -1,6 +1,6 @@
 import { http, createConfig } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
-import type { Chain, EIP1193Provider } from 'viem';
+import type { AddEthereumChainParameter, Chain, EIP1193Provider } from 'viem';
 
 /**
  * Monad 测试网链配置
@@ -25,6 +25,19 @@ export const monadTestnet = {
   },
   testnet: true,
 } as const satisfies Chain;
+
+/**
+ * Monad Testnet 网络参数（EIP-3085 wallet_addEthereumChain）。
+ * OKX 等钱包对非主流链的 wallet_switchEthereumChain 常返回非标准错误，
+ * 切网失败时前端显式调用 addEthereumChain 添加网络后再切换。
+ */
+export const monadChainParams: AddEthereumChainParameter = {
+  chainId: `0x${(10143).toString(16)}`,
+  chainName: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: [monadRpcUrl],
+  blockExplorerUrls: ['https://testnet.monadexplorer.com'],
+};
 
 /** 应用支持的链列表（审计修复：仅 Monad Testnet。移除 Sepolia 后钱包不再提供切到其他链的入口，
  *  错误网络态只会在钱包侧手动连接其他链时出现，WalletGuard 会阻断业务渲染） */

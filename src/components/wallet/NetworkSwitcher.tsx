@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSwitchChain } from 'wagmi';
+import { useSwitchToMonad } from '../../web3/useSwitchToMonad';
 import { Globe, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { useWalletStore } from '../../stores/walletStore';
 import { useToast } from '../../hooks/useToast';
@@ -35,6 +36,7 @@ export function NetworkSwitcher({
 }: NetworkSwitcherProps) {
   const { chainId } = useWalletStore();
   const { switchChain, isPending, error } = useSwitchChain();
+  const { switchToMonad, isPending: isMonadSwitching } = useSwitchToMonad();
   const { error: toastError } = useToast();
 
   const isDark = theme === 'dark';
@@ -49,8 +51,18 @@ export function NetworkSwitcher({
     }
   }, [error, toastError]);
 
-  const handleSwitch = (targetId: number = monadTestnet.id) => {
-    if (isPending || chainId === targetId) return;
+  const handleSwitch = async (targetId: number = monadTestnet.id) => {
+    if (isPending || isMonadSwitching || chainId === targetId) return;
+    if (targetId === monadTestnet.id) {
+      // Monad：走兼容 OKX 的显式 add+switch 路径
+      try {
+        await switchToMonad();
+        onSwitched?.(targetId);
+      } catch {
+        // 错误已 toast
+      }
+      return;
+    }
     switchChain(
       { chainId: targetId },
       {
@@ -103,15 +115,15 @@ export function NetworkSwitcher({
           <button
             type="button"
             onClick={() => handleSwitch(monadTestnet.id)}
-            disabled={isPending}
+            disabled={isPending || isMonadSwitching}
             className={cn(
               'mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-[12px] transition-all',
-              isPending
+              isPending || isMonadSwitching
                 ? 'bg-[#3ec470]/50 text-black/50 cursor-not-allowed'
                 : 'bg-[#3ec470] text-black hover:bg-[#4ade80]',
             )}
           >
-            {isPending ? (
+            {isPending || isMonadSwitching ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Switching…
