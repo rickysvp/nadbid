@@ -106,7 +106,7 @@ export default function NadbidCreateAuctionPage() {
   }, [incrementPct]);
 
   const amountWei = useMemo(() => {
-    if (assetType === '1') return 1n; // ERC721 单枚
+    if (assetType === '1') return 0n; // ERC721：单件 NFT 由 tokenId 定位，amount 必须为 0（合约 require(amount==0)）
     if (!amount) return undefined;
     try {
       return parseUnits(amount, assetType === '0' ? 6 : 0);
