@@ -59,6 +59,9 @@ const okxProvider: EIP1193Provider | undefined =
 
 export const wagmiConfig = createConfig({
   chains: supportedChains,
+  // 关闭 EIP-6963 自动发现：否则已显式注册的 MetaMask/OKX 会被再自动发现一次，
+  // 弹窗出现重复 MetaMask 项且连接互相竞争（CONNECTING 卡死）。
+  multiInjectedProviderDiscovery: false,
   connectors: [
     injected({ target: 'metaMask' }),
     ...(okxProvider
