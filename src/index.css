@@ -95,6 +95,20 @@
 }
 
 /* ============================================
+   LOGO 按钮：移除粗野边框
+   Logo 图本身不需要卡片框 / 硬阴影 / hover 位移
+   ============================================ */
+.logo-btn,
+.logo-btn:hover:not(:disabled),
+.logo-btn:active:not(:disabled) {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+  transform: none;
+}
+
+/* ============================================
    全局控件基线：按钮 / 输入框 统一粗野化
    ============================================ */
 button {

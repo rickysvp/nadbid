@@ -56,10 +56,10 @@ export default function Navbar() {
         <button
           onClick={() => go('/')}
           aria-label="NADBID home"
-          className="flex items-center cursor-pointer select-none"
+          className="logo-btn flex items-center cursor-pointer select-none"
         >
           <img
-            src="/nadbid-logo.png?v=3"
+            src="/nadbid-logo.png?v=4"
             alt="NADBID"
             className="h-8 w-auto md:h-9"
             draggable={false}
