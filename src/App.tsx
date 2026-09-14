@@ -17,6 +17,10 @@ const PointsPage = lazy(() => import('./pages/PointsPage'));
 const ArbitrationPage = lazy(() => import('./pages/ArbitrationPage'));
 const KolOnboardingPage = lazy(() => import('./pages/KolOnboardingPage'));
 const DocsPage = lazy(() => import('./pages/DocsPage'));
+// 新协议 NADBID 页面懒加载
+const NadbidAuctionsPage = lazy(() => import('./pages/NadbidAuctionsPage'));
+const NadbidAuctionDetailPage = lazy(() => import('./pages/NadbidAuctionDetailPage'));
+const NadbidCreateAuctionPage = lazy(() => import('./pages/NadbidCreateAuctionPage'));
 import { ROUTES } from './config/routes';
 
 /** 懒加载页面的加载占位 */
@@ -42,6 +46,9 @@ export default function App() {
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path={ROUTES.HOME} element={<HomePage />} />
+                <Route path={ROUTES.NADBID} element={<NadbidAuctionsPage />} />
+                <Route path={ROUTES.NADBID_DETAIL} element={<NadbidAuctionDetailPage />} />
+                <Route path={ROUTES.NADBID_CREATE} element={<NadbidCreateAuctionPage />} />
                 <Route path={ROUTES.AUCTIONS} element={<AuctionsPage />} />
                 <Route path={ROUTES.AUCTION_DETAIL} element={<AuctionDetailPage />} />
                 <Route path={ROUTES.KOL_PROFILE} element={<KolProfilePage />} />

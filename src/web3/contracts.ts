@@ -1,29 +1,27 @@
 import type { Abi } from 'viem';
 
 /**
- * 合约地址配置 — 从环境变量读取，未配置时为 undefined。
- *
- * 部署后在 .env 中填入实际地址：
- *   VITE_CONTRACT_REGISTRY=0x...
- *   VITE_CONTRACT_FACTORY=0x...
- *
- * KolPass / KolAuction 地址按 KOL 动态获取（Registry.getKol().passContracts / auctionContracts），
- * 不在静态配置中。
+ * 合约地址配置 — 从环境变量读取。
+ *   VITE_CONTRACT_REGISTRY / VITE_CONTRACT_FACTORY（旧 KOL 产品，维护中）
+ *   VITE_NADBID_AUCTION=0x...   （NADBIDAuction 新协议主合约）
+ *   VITE_USDC_ADDRESS=0x...     （结算稳定币，默认 Monad 测试网 USDC）
  */
 export const contractAddresses = {
-  /** NadbidRegistry 注册表合约（KOL 入驻、担保金、索引、仲裁角色） */
+  /** NadbidRegistry 注册表合约（旧 KOL 产品） */
   registry: import.meta.env.VITE_CONTRACT_REGISTRY as `0x${string}` | undefined,
-  /** NadbidFactory 工厂合约（创建 KolPass / KolAuction） */
+  /** NadbidFactory 工厂合约（旧 KOL 产品） */
   factory: import.meta.env.VITE_CONTRACT_FACTORY as `0x${string}` | undefined,
+  /** NADBIDAuction 拍卖主合约（新协议：创建/出价/结算/退款/分红） */
+  auction: import.meta.env.VITE_NADBID_AUCTION as `0x${string}` | undefined,
+  /** USDC 结算代币（新协议） */
+  usdc: (import.meta.env.VITE_USDC_ADDRESS || '0x534b2f3A21130d7a60830c2Df862319e593943A3') as `0x${string}`,
 } as const;
 
 export type ContractKey = keyof typeof contractAddresses;
 
 // ============================================================================
-// 合约 ABI — 从 contracts/out/*.sol/*.json 提取（compiler 0.8.28）。
-// 仅保留本项目使用的函数与事件，精简前端 bundle。
+// 旧 KOL 产品 ABI（KolPass/KolAuction/Registry/Factory）— 保留供旧页面使用
 // ============================================================================
-
 
 export const registryAbi =
 [
@@ -122,4 +120,61 @@ export const kolAuctionAbi =
   {"type": "event","name": "DisputeRaised","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "disputeEvidenceHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
   {"type": "event","name": "DisputeResolved","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "kolWon","type": "bool","indexed": false,"internalType": "bool"},{"name": "reasonHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
   {"type": "event","name": "RefundClaimed","inputs": [{"name": "bidder","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
+] as const satisfies Abi;
+
+// ============================================================================
+// 新协议 NADBID ABI — 由 forge out 自动提取
+// ============================================================================
+
+export const nadbidAuctionAbi = [
+  {"type": "function", "name": "BID_FEE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "DURATION", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "MAX_BATCHES", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "MAX_INCREMENT_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "MAX_REWARD_MULTIPLIER", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "MIN_INCREMENT_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "REWARD_SHARE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "SELLER_SHARE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "SETTLE_FEE_BPS", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionBatchCount", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionBatchStartId", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionCount", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionDeadline", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionFinalPrice", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionLastPrice", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionStatus", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint8", "internalType": "enum NADBIDAuction.AuctionStatus"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctionWinner", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"},
+  {"type": "function", "name": "auctions", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "status", "type": "uint8", "internalType": "enum NADBIDAuction.AuctionStatus"}, {"name": "seller", "type": "address", "internalType": "address"}, {"name": "assetType", "type": "uint8", "internalType": "enum NADBIDAuction.AssetType"}, {"name": "assetAddr", "type": "address", "internalType": "address"}, {"name": "assetTokenId", "type": "uint256", "internalType": "uint256"}, {"name": "assetAmount", "type": "uint256", "internalType": "uint256"}, {"name": "startPrice", "type": "uint256", "internalType": "uint256"}, {"name": "incrementBps", "type": "uint256", "internalType": "uint256"}, {"name": "reservePrice", "type": "uint256", "internalType": "uint256"}, {"name": "lastPrice", "type": "uint256", "internalType": "uint256"}, {"name": "deadline", "type": "uint256", "internalType": "uint256"}, {"name": "lastBatchBlock", "type": "uint256", "internalType": "uint256"}, {"name": "lastBatchId", "type": "uint256", "internalType": "uint256"}, {"name": "batchStartId", "type": "uint256", "internalType": "uint256"}, {"name": "batchCount", "type": "uint256", "internalType": "uint256"}, {"name": "totalPool", "type": "uint256", "internalType": "uint256"}, {"name": "candidatesPool", "type": "uint256", "internalType": "uint256"}, {"name": "retainedFees", "type": "uint256", "internalType": "uint256"}, {"name": "refunded", "type": "uint256", "internalType": "uint256"}, {"name": "rpu", "type": "uint256", "internalType": "uint256"}, {"name": "rpuFinal", "type": "uint256", "internalType": "uint256"}, {"name": "finalPrice", "type": "uint256", "internalType": "uint256"}, {"name": "winner", "type": "address", "internalType": "address"}], "stateMutability": "view"},
+  {"type": "function", "name": "batchByBlock", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}, {"name": "", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "batchCandidates", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}, {"name": "", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"},
+  {"type": "function", "name": "batchCounter", "inputs": [], "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "claimRefund", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "claimReward", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "claimSeller", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "createAuction", "inputs": [{"name": "assetType", "type": "uint8", "internalType": "enum NADBIDAuction.AssetType"}, {"name": "assetAddr", "type": "address", "internalType": "address"}, {"name": "tokenId", "type": "uint256", "internalType": "uint256"}, {"name": "amount", "type": "uint256", "internalType": "uint256"}, {"name": "startPrice", "type": "uint256", "internalType": "uint256"}, {"name": "incrementBps", "type": "uint256", "internalType": "uint256"}, {"name": "reservePrice", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "finalize", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "getBatch", "inputs": [{"name": "batchId", "type": "uint256", "internalType": "uint256"}], "outputs": [{"name": "", "type": "tuple", "internalType": "struct NADBIDAuction.BidBatch", "components": [{"name": "price", "type": "uint256", "internalType": "uint256"}, {"name": "blockNumber", "type": "uint256", "internalType": "uint256"}, {"name": "candidateCount", "type": "uint256", "internalType": "uint256"}, {"name": "selectedBidder", "type": "address", "internalType": "address"}, {"name": "snapshotRpu", "type": "uint256", "internalType": "uint256"}, {"name": "resolved", "type": "bool", "internalType": "bool"}]}], "stateMutability": "view"},
+  {"type": "function", "name": "isCandidate", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}, {"name": "", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "view"},
+  {"type": "function", "name": "owner", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"},
+  {"type": "function", "name": "placeBid", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}, {"name": "price", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "recoverExcess", "inputs": [{"name": "auctionId", "type": "uint256", "internalType": "uint256"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "refundClaimed", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}, {"name": "", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "view"},
+  {"type": "function", "name": "rewardClaimed", "inputs": [{"name": "", "type": "uint256", "internalType": "uint256"}, {"name": "", "type": "address", "internalType": "address"}], "outputs": [{"name": "", "type": "bool", "internalType": "bool"}], "stateMutability": "view"},
+  {"type": "function", "name": "setTreasury", "inputs": [{"name": "_treasury", "type": "address", "internalType": "address"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "treasury", "inputs": [], "outputs": [{"name": "", "type": "address", "internalType": "address"}], "stateMutability": "view"},
+  {"type": "event", "name": "AuctionCreated", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "seller", "type": "address", "indexed": true, "internalType": "address"}, {"name": "assetType", "type": "uint8", "indexed": false, "internalType": "enum NADBIDAuction.AssetType"}, {"name": "assetAddr", "type": "address", "indexed": false, "internalType": "address"}, {"name": "tokenId", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "startPrice", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "incrementBps", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "reservePrice", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "AuctionFinalized", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "winner", "type": "address", "indexed": false, "internalType": "address"}, {"name": "finalPrice", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "pool", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "sellerAmount", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "rewardAmount", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "platformAmount", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "BatchResolved", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "selectedBidder", "type": "address", "indexed": false, "internalType": "address"}, {"name": "candidates", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "BidPlaced", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "bidder", "type": "address", "indexed": true, "internalType": "address"}, {"name": "price", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "fee", "type": "uint256", "indexed": false, "internalType": "uint256"}, {"name": "deadline", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "RefundClaimed", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "bidder", "type": "address", "indexed": true, "internalType": "address"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "RewardClaimed", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "batchId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "bidder", "type": "address", "indexed": true, "internalType": "address"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+  {"type": "event", "name": "SellerClaimed", "inputs": [{"name": "auctionId", "type": "uint256", "indexed": true, "internalType": "uint256"}, {"name": "seller", "type": "address", "indexed": true, "internalType": "address"}, {"name": "amount", "type": "uint256", "indexed": false, "internalType": "uint256"}], "anonymous": false},
+] as const satisfies Abi;
+
+export const usdcAbi = [
+  {"type": "function", "name": "balanceOf", "inputs": [{"name": "account", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "allowance", "inputs": [{"name": "owner", "type": "address"}, {"name": "spender", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view"},
+  {"type": "function", "name": "approve", "inputs": [{"name": "spender", "type": "address"}, {"name": "amount", "type": "uint256"}], "outputs": [{"name": "", "type": "bool"}], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "decimals", "inputs": [], "outputs": [{"name": "", "type": "uint8"}], "stateMutability": "view"},
+  {"type": "function", "name": "transfer", "inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}], "outputs": [{"name": "", "type": "bool"}], "stateMutability": "nonpayable"},
 ] as const satisfies Abi;
