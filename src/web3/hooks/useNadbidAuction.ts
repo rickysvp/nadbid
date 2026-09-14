@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
+import { monadTestnet } from '../config';
 import { formatUnits } from 'viem';
 import { contractAddresses, nadbidAuctionAbi, usdcAbi } from '../contracts';
 import { useReadContract } from './useReadContract';
@@ -125,7 +126,7 @@ export function useUsdcContract() {
 /** 拍卖总数 */
 export function useAuctionCount() {
   const { address, abi, isReady } = useNadbidAuctionContract();
-  return useReadContract({ address, abi, functionName: 'auctionCount', args: [], query: { enabled: isReady } });
+  return useReadContract({ address, abi, functionName: 'auctionCount', args: [], chainId: monadTestnet.id, query: { enabled: isReady } });
 }
 
 /** 单场拍卖元数据 */
@@ -137,6 +138,7 @@ export function useAuctionMeta(id: bigint | undefined) {
     abi,
     functionName: 'auctions',
     args: enabled ? [id] : [],
+    chainId: monadTestnet.id,
     query: { enabled },
   });
   const meta = useMemo<AuctionMeta | undefined>(() => {
@@ -245,6 +247,7 @@ export function useBatchUserState(batchId: bigint | undefined, address: `0x${str
     abi,
     functionName: 'isCandidate',
     args: enabled ? [batchId, address] : [],
+    chainId: monadTestnet.id,
     query: { enabled },
   });
   const refunded = useReadContract({
@@ -252,6 +255,7 @@ export function useBatchUserState(batchId: bigint | undefined, address: `0x${str
     abi,
     functionName: 'refundClaimed',
     args: enabled ? [batchId, address] : [],
+    chainId: monadTestnet.id,
     query: { enabled },
   });
   const rewarded = useReadContract({
@@ -259,6 +263,7 @@ export function useBatchUserState(batchId: bigint | undefined, address: `0x${str
     abi,
     functionName: 'rewardClaimed',
     args: enabled ? [batchId, address] : [],
+    chainId: monadTestnet.id,
     query: { enabled },
   });
   return {
@@ -271,7 +276,7 @@ export function useBatchUserState(batchId: bigint | undefined, address: `0x${str
 /** USDC 余额 */
 export function useUsdcBalance(address: `0x${string}` | undefined) {
   const { address: usdc, abi } = useUsdcContract();
-  return useReadContract({ address: usdc, abi, functionName: 'balanceOf', args: address ? [address] : [], query: { enabled: !!address } });
+  return useReadContract({ address: usdc, abi, functionName: 'balanceOf', args: address ? [address] : [], chainId: monadTestnet.id, query: { enabled: !!address } });
 }
 
 /** USDC 授权额度 */
@@ -283,6 +288,7 @@ export function useUsdcAllowance(owner: `0x${string}` | undefined, spender: `0x$
     abi,
     functionName: 'allowance',
     args: enabled ? [owner, spender] : [],
+    chainId: monadTestnet.id,
     query: { enabled },
   });
 }
@@ -365,7 +371,7 @@ export interface AuctionListRow {
 
 /** 批量读取多个拍卖摘要（供列表页使用） */
 export function useAuctionList() {
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: monadTestnet.id });
   const { address: auctionAddr, isReady } = useNadbidAuctionContract();
   const countR = useAuctionCount();
   const count = countR.data !== undefined ? Number(countR.data) : 0;

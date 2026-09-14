@@ -4,6 +4,7 @@ import { WagmiProvider } from './web3/WagmiProvider';
 import { WalletStateSyncer } from './web3/WalletStateSyncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import AppLayout from './app/AppLayout';
+import { WalletGuard } from './components/wallet';
 import HomePage from './pages/HomePage';
 import { ROUTES } from './config/routes';
 
@@ -31,17 +32,19 @@ export default function App() {
       <WagmiProvider>
         <WalletStateSyncer />
         <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path={ROUTES.HOME} element={<HomePage />} />
-                <Route path={ROUTES.NADBID} element={<NadbidAuctionsPage />} />
-                <Route path={ROUTES.NADBID_DETAIL} element={<NadbidAuctionDetailPage />} />
-                <Route path={ROUTES.NADBID_CREATE} element={<NadbidCreateAuctionPage />} />
-                <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
-              </Route>
-            </Routes>
-          </Suspense>
+          <WalletGuard>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route element={<AppLayout />}>
+                  <Route path={ROUTES.HOME} element={<HomePage />} />
+                  <Route path={ROUTES.NADBID} element={<NadbidAuctionsPage />} />
+                  <Route path={ROUTES.NADBID_DETAIL} element={<NadbidAuctionDetailPage />} />
+                  <Route path={ROUTES.NADBID_CREATE} element={<NadbidCreateAuctionPage />} />
+                  <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </WalletGuard>
         </BrowserRouter>
       </WagmiProvider>
     </ErrorBoundary>
