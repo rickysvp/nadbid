@@ -1,6 +1,6 @@
 import { http, createConfig } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
-import type { Chain } from 'viem';
+import type { Chain, EIP1193Provider } from 'viem';
 
 /**
  * Monad 测试网链配置
@@ -32,13 +32,29 @@ export const supportedChains = [monadTestnet] as const;
 
 /**
  * wagmi 全局配置
- * - Connectors: MetaMask (injected) + WalletConnect
+ * - Connectors: MetaMask (injected) + OKX Wallet (injected) + WalletConnect
+ * - OKX 浏览器扩展注入 window.okxwallet（EIP-1193）。wagmi 无内置 OKX target，
+ *   这里运行时检测：仅当扩展已安装时才注册 connector（未安装不展示按钮，
+ *   也避免 wagmi target fallback 到 window.ethereum 误连 MetaMask）。
+ * - OKX 手机 App 走 WalletConnect（扫码），无需额外配置。
  * - Transports: HTTP for each supported chain
  */
+const okxProvider: EIP1193Provider | undefined =
+  typeof window !== 'undefined'
+    ? (window as unknown as { okxwallet?: EIP1193Provider }).okxwallet
+    : undefined;
+
 export const wagmiConfig = createConfig({
   chains: supportedChains,
   connectors: [
     injected({ target: 'metaMask' }),
+    ...(okxProvider
+      ? [
+          injected({
+            target: () => ({ id: 'okx', name: 'OKX Wallet', provider: okxProvider }),
+          }),
+        ]
+      : []),
     walletConnect({
       projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'c111313e8062592e9151a86a383f2994',
       showQrModal: true,
