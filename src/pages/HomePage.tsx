@@ -138,7 +138,7 @@ export default function HomePage() {
                   <Link
                     key={a.id.toString()}
                     to={nadbidDetailPath(a.id)}
-                    className="nb-card-flat flex items-center justify-between gap-3 px-4 py-3.5 transition hover:translate-x-1"
+                    className="nb-card-flat flex items-center justify-between gap-3 px-4 py-3.5 transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#111]"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="font-mono text-xs font-black text-[#111]/40">#{a.id.toString()}</span>
@@ -185,7 +185,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
   const st = STATUS_LABEL[a.status] ?? { text: 'Unknown', tone: 'gray' };
 
   return (
-    <div className="relative nb-card overflow-hidden p-7 md:p-9">
+    <div className="relative nb-card overflow-hidden p-7 md:p-9 transition hover:-translate-y-1 hover:shadow-[8px_8px_0_#111]">
       <div className="absolute top-0 left-0 w-full h-1.5 bg-[#3ec470]" />
       <div className="flex flex-wrap items-center gap-3">
         <span className="nb-sticker bg-[#ffe94a] px-3 py-1 text-[11px] font-black text-[#111]">

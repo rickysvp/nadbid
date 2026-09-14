@@ -104,10 +104,10 @@ export default function NadbidAuctionsPage() {
                   key={f.key}
                   onClick={() => setFilter(f.key)}
                   className={cn(
-                    'rounded-full px-4 py-1.5 text-sm font-bold transition',
+                    'rounded-xl border-2 px-4 py-1.5 text-sm font-black transition',
                     active
-                      ? 'bg-[#3ec470]/15 text-[#117a3d] ring-1 ring-[#3ec470]/40'
-                      : 'text-[#111]/40 hover:text-[#111] hover:bg-[#111]/5',
+                      ? 'border-[#111] bg-[#ffe94a] text-[#111] shadow-[2px_2px_0_#111]'
+                      : 'border-transparent text-[#111]/40 hover:text-[#111] hover:bg-[#111]/5',
                   )}
                 >
                   {f.label}
@@ -154,11 +154,11 @@ export default function NadbidAuctionsPage() {
 
 function StatCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-4 md:p-5">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[#111]/40 md:text-xs">{label}</div>
+    <div className="nb-card-flat p-4 md:p-5">
+      <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40 md:text-xs">{label}</div>
       <div
         className={cn(
-          'mt-1.5 font-mono text-xl md:text-2xl font-black truncate',
+          'mt-1.5 font-mono text-2xl md:text-3xl font-black truncate',
           accent ? 'text-[#117a3d]' : 'text-[#111]',
         )}
       >
@@ -178,21 +178,21 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
   return (
     <Link
       to={nadbidDetailPath(a.id)}
-      className="group relative overflow-hidden nb-card border border-[#111]/15 bg-[#fffdf7] p-5 transition hover:border-[#1a7f37]/30 hover:bg-[#fffdf7]"
+      className="group relative overflow-hidden nb-card p-5 transition hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
     >
-      {/* 顶部：编号 + 状态 */}
-      <div className="mb-4 flex items-start justify-between">
-        <span className="font-mono text-xs text-[#111]/40">#{a.id.toString()}</span>
+      {/* 顶部：编号 + 状态徽章 */}
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <span className="font-mono text-xs font-black text-[#111]/35">#{a.id.toString()}</span>
         <span
           className={cn(
-            'rounded-full px-2.5 py-0.5 text-xs font-bold',
+            'rounded-md border-2 px-2 py-0.5 text-[11px] font-black shrink-0',
             isLive
               ? ended
-                ? 'bg-amber-500/10 text-amber-400'
-                : 'bg-[#3ec470]/10 text-[#117a3d]'
+                ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
+                : 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
               : st.tone === 'gray'
-                ? 'bg-[#111]/5 text-[#111]/50'
-                : 'bg-sky-500/10 text-sky-400',
+                ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
+                : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
           )}
         >
           {isLive ? (ended ? 'Ending' : 'Live') : st.text}
@@ -200,36 +200,36 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
       </div>
 
       {/* 资产 */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 text-sm text-[#111]/60">
-          <span className="rounded bg-[#111]/60 px-1.5 py-0.5 font-mono text-xs">
-            {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
-          </span>
-          <span className="font-mono text-xs">{shortenAddress(a.assetAddr)}</span>
-        </div>
-        <div className="mt-2 text-2xl font-black text-[#111]">
-          {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
-        </div>
+      <div className="flex items-center gap-2">
+        <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
+          {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
+        </span>
+        <span className="font-mono text-xs text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
       </div>
 
-      {/* 底部信息 */}
-      <div className="flex items-center justify-between border-t border-[#111]/15 pt-3 text-xs text-[#111]/40">
-        <span className="flex items-center gap-1">
+      {/* 主价 */}
+      <div className="mt-3.5 text-3xl font-black tracking-tight text-[#111]">
+        {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
+      </div>
+
+      {/* 底部 meta */}
+      <div className="mt-5 flex items-center justify-between border-t-2 border-[#111]/10 pt-3 text-xs text-[#111]/45">
+        <span className="flex items-center gap-1.5 font-bold">
           <Users className="h-3.5 w-3.5" />
           {a.batchCount.toString()} batches
         </span>
         {isLive ? (
-          <span className={cn('flex items-center gap-1 font-mono', ended ? 'text-amber-400' : 'text-[#111]/50')}>
+          <span className={cn('flex items-center gap-1.5 font-mono font-black', ended ? 'text-[#b45309]' : 'text-[#117a3d]')}>
             <Clock className="h-3.5 w-3.5" />
-            {ended ? 'Ending' : `${secsLeft}s`}
+            {ended ? '0s' : `${secsLeft}s`}
           </span>
         ) : (
-          <span className="font-mono">Pool {fmtUsdc(a.totalPool)}</span>
+          <span className="font-mono font-bold">Pool {fmtUsdc(a.totalPool)}</span>
         )}
       </div>
 
       {a.reservePrice > 0n && (
-        <div className="mt-2 flex items-center gap-1 text-[11px] text-[#111]/40">
+        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-[#111]/40">
           <ShieldCheck className="h-3 w-3" />
           Reserve {fmtUsdc(a.reservePrice)} USDC
         </div>

@@ -14,11 +14,13 @@ import {
   ShieldCheck,
   Trophy,
   TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { isAddress, parseUnits } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConnectedAddress, useCreateAuction, useNadbidAuctionContract } from '../web3/hooks/useNadbidAuction';
 import { cn } from '../utils/cn';
+import { ConnectButton } from '../components/wallet';
 import { useToast } from '../hooks/useToast';
 import { useWriteContractTx } from '../web3/hooks/useWriteContractTx';
 import { nadbidAuctionAbi } from '../web3/contracts';
@@ -103,7 +105,7 @@ const IS_APPROVED_FOR_ALL_ABI = [
 const STEPS = ['Asset', 'Pricing', 'Confirm'] as const;
 
 const inputCls =
-  'w-full rounded-xl border border-[#111]/15 bg-[#fffdf7] px-4 py-3 text-sm text-[#111] placeholder-white/25 outline-none transition focus:border-[#1a7f37]/50';
+  'w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3 text-sm text-[#111] placeholder-[#111]/30 outline-none shadow-[2px_2px_0_rgba(17,17,17,0.25)] transition focus:border-[#117a3d] focus:shadow-[2px_2px_0_#1a7f37]';
 
 export default function NadbidCreateAuctionPage() {
   const navigate = useNavigate();
@@ -339,8 +341,32 @@ export default function NadbidCreateAuctionPage() {
   if (!address) {
     return (
       <Shell>
-        <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-12 text-center text-sm text-[#111]/40">
-          Connect your wallet to create an auction.
+        <div className="nb-card p-8 md:p-10 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#111] bg-[#ffe94a] shadow-[3px_3px_0_#111]">
+            <Wallet className="h-6 w-6" />
+          </div>
+          <h2 className="mt-5 text-2xl font-black text-[#111]">Connect your wallet to create an auction</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#111]/55">
+            You&apos;ll need a Monad testnet wallet to deposit the asset, approve it and lock the auction parameters
+            on-chain.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <ConnectButton variant="dark" />
+          </div>
+
+          <div className="mx-auto mt-8 grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={step} className="nb-card-flat p-4 text-left">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-[#111] bg-[#3ec470] font-mono text-xs font-black text-[#111]">
+                  {i + 1}
+                </div>
+                <div className="mt-2.5 text-sm font-black text-[#111]">{step}</div>
+                <div className="mt-0.5 text-[11px] leading-snug text-[#111]/45">
+                  {i === 0 ? 'Pick asset type & address' : i === 1 ? 'Start price, increment, reserve' : 'Approve & publish'}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </Shell>
     );

@@ -5,7 +5,6 @@ import {
   HandCoins,
   ShieldCheck,
   Trophy,
-  Wallet,
   AlertTriangle,
   Users,
   TrendingUp,
@@ -107,74 +106,85 @@ export default function NadbidAuctionDetailPage() {
         </div>
       ) : (
         <>
-          {/* ===== 顶部信息 ===== */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-black text-[#111]">Auction #{idParam}</h1>
-                <StatusBadge status={meta.status} />
-              </div>
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#111]/50">
-                <span className="rounded bg-[#111]/60 px-1.5 py-0.5 font-mono text-xs">
-                  {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
-                </span>
-                <span className="font-mono text-xs">{shortenAddress(meta.assetAddr)}</span>
-                {meta.assetType === 1 && <span className="font-mono text-xs">#{meta.assetTokenId.toString()}</span>}
-                {meta.assetType !== 1 && <span className="font-mono text-xs">× {fmtUsdc(meta.assetAmount)}</span>}
-              </p>
-              <p className="mt-1.5 text-xs text-[#111]/40">
-                Seller <span className="font-mono">{shortenAddress(meta.seller)}</span>
-                {meta.reservePrice > 0n && <> · Reserve {fmtUsdc(meta.reservePrice)} USDC</>}
-                {meta.incrementBps > 0n && <> · +{Number(meta.incrementBps) / 100}% per bid</>}
-              </p>
-            </div>
-
-            {/* 倒计时 */}
-            {meta.status === AuctionStatus.LIVE && (
-              <div
-                className={cn(
-                  'flex items-center gap-4 nb-card px-6 py-4',
-                  ended
-                    ? 'border-[#f5a623] bg-[#f5a623]/10 shadow-[4px_4px_0_#f5a623]'
-                    : danger
-                      ? 'border-[#ff4d4f] bg-[#ff4d4f]/5 shadow-[4px_4px_0_#ff4d4f]'
-                      : '',
-                )}
-              >
-                <CircularProgress
-                  progress={ended ? 0 : progress}
-                  size={104}
-                  strokeWidth={7}
-                  label={ended ? '0' : `${secsLeft}`}
-                  sublabel={ended ? 'Ended' : danger ? 'Final seconds' : 'seconds left'}
-                  danger={danger}
-                />
-                <div className="hidden sm:block max-w-[180px]">
-                  <div className="text-xs font-bold uppercase tracking-wider text-[#111]/40">Countdown</div>
-                  <div className={cn('mt-1 text-sm font-bold leading-snug', danger ? 'text-[#ff4d4f]' : 'text-[#111]/70')}>
-                    {ended
-                      ? 'Auction ended — finalize to settle.'
-                      : danger
-                        ? 'Last 15 seconds! No bid resets the clock.'
-                        : 'Timer resets to 120s on every bid.'}
-                  </div>
+          {/* ===== 头部聚合卡：标题 + 资产 + 倒计时 ===== */}
+          <div className="nb-card p-6 md:p-7">
+            <div className="flex flex-wrap items-start justify-between gap-6">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="font-mono text-3xl md:text-4xl font-black tracking-tighter">
+                    Auction <span className="text-[#117a3d]">#{idParam}</span>
+                  </h1>
+                  <StatusBadge status={meta.status} />
+                </div>
+                <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+                  <span className="nb-chip bg-[#3ec470]/15 px-2.5 py-0.5 text-xs text-[#111]">
+                    {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
+                  </span>
+                  <span className="font-mono text-[#111]/60">{shortenAddress(meta.assetAddr)}</span>
+                  {meta.assetType === 1 && <span className="font-mono text-[#111]/60">#{meta.assetTokenId.toString()}</span>}
+                  {meta.assetType !== 1 && <span className="font-mono text-[#111]/60">× {fmtUsdc(meta.assetAmount)}</span>}
+                  <span className="text-[#111]/20">·</span>
+                  <span className="text-[#111]/50">
+                    Seller <span className="font-mono font-bold text-[#111]/70">{shortenAddress(meta.seller)}</span>
+                  </span>
+                  {meta.reservePrice > 0n && (
+                    <span className="nb-chip bg-[#f5a623]/15 px-2.5 py-0.5 text-xs text-[#b45309]">
+                      Reserve {fmtUsdc(meta.reservePrice)} USDC
+                    </span>
+                  )}
+                  {meta.incrementBps > 0n && (
+                    <span className="text-xs text-[#111]/40">+{Number(meta.incrementBps) / 100}% per bid</span>
+                  )}
                 </div>
               </div>
-            )}
+
+              {/* 倒计时 */}
+              {meta.status === AuctionStatus.LIVE && (
+                <div
+                  className={cn(
+                    'flex items-center gap-4 rounded-xl border-2 px-5 py-4',
+                    ended
+                      ? 'border-[#f5a623] bg-[#f5a623]/10 shadow-[4px_4px_0_#f5a623]'
+                      : danger
+                        ? 'border-[#ff4d4f] bg-[#ff4d4f]/5 shadow-[4px_4px_0_#ff4d4f]'
+                        : 'border-[#111] bg-[#fffdf7] shadow-[4px_4px_0_#111]',
+                  )}
+                >
+                  <CircularProgress
+                    progress={ended ? 0 : progress}
+                    size={96}
+                    strokeWidth={7}
+                    label={ended ? '0' : `${secsLeft}`}
+                    sublabel={ended ? 'Ended' : danger ? 'Final seconds' : 'seconds left'}
+                    danger={danger}
+                  />
+                  <div className="hidden sm:block max-w-[170px]">
+                    <div className="text-xs font-black uppercase tracking-wider text-[#111]/40">Countdown</div>
+                    <div className={cn('mt-1 text-sm font-bold leading-snug', danger ? 'text-[#ff4d4f]' : 'text-[#111]/70')}>
+                      {ended
+                        ? 'Auction ended — finalize to settle.'
+                        : danger
+                          ? 'Last 15 seconds! No bid resets the clock.'
+                          : 'Timer resets to 120s on every bid.'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 数据四列 */}
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatBox label="Current price" value={fmtUsdc(curPrice)} sub="USDC" />
+              <StatBox label="Total pool" value={fmtUsdc(meta.totalPool)} sub="USDC retained" accent />
+              <StatBox label="Next bid" value={fmtUsdc(nextPriceVal)} sub={`+${Number(meta.incrementBps) / 100}%`} />
+              <StatBox label="Batches" value={meta.batchCount.toString()} sub="price levels" />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            {/* ===== 左栏：资金 + 批次 ===== */}
-            <div className="space-y-6 lg:col-span-3">
-              {/* 资金统计 */}
-              <div className="grid grid-cols-3 gap-3">
-                <StatBox label="Current price" value={fmtUsdc(curPrice)} sub="USDC" />
-                <StatBox label="Total pool" value={fmtUsdc(meta.totalPool)} sub="USDC retained" accent />
-                <StatBox label="Batches" value={meta.batchCount.toString()} sub="price levels" />
-              </div>
-
-              {/* 批次列表（BidBoard） */}
-              <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-5">
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* ===== 左：出价历史 ===== */}
+            <div className="space-y-6 lg:col-span-2">
+              <div className="nb-card p-6">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-black text-[#111]/70">
                   <Users className="h-4 w-4 text-[#117a3d]" />
                   Bid history{' '}
@@ -183,7 +193,7 @@ export default function NadbidAuctionDetailPage() {
                   )}
                 </h2>
                 {batchIds.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-[#111]/40">No bids yet.</p>
+                  <p className="py-8 text-center text-sm text-[#111]/40">No bids yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {batchIds.map((bId) => (
@@ -194,30 +204,27 @@ export default function NadbidAuctionDetailPage() {
               </div>
             </div>
 
-            {/* ===== 右栏：出价 / 操作 ===== */}
-            <div className="space-y-4 lg:col-span-2">
-              {/* 余额 */}
-              <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-5">
-                <h2 className="mb-2 flex items-center gap-2 text-sm font-black text-[#111]/70">
-                  <Wallet className="h-4 w-4 text-[#117a3d]" />
-                  Your USDC
-                </h2>
-                <div className="text-2xl font-black text-[#111]">{fmtUsdc(bal?.data as bigint | undefined)}</div>
-                <div className="text-xs text-[#111]/40">USDC balance</div>
-              </div>
-
+            {/* ===== 右：出价 / 操作 ===== */}
+            <div className="space-y-4">
               {meta.status === AuctionStatus.LIVE && (
                 <div
                   className={cn(
-                    'nb-card border p-5',
-                    danger && !ended ? 'border-[#ff4d4f] bg-[#ff4d4f]/5' : '',
+                    'nb-card p-5',
+                    danger && !ended ? 'border-[#ff4d4f] shadow-[4px_4px_0_#ff4d4f]' : '',
                   )}
                 >
-                  <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-[#111]/70">
-                    <HandCoins className="h-4 w-4 text-[#117a3d]" />
-                    Place bid
-                  </h2>
-                  <div className="mb-4 space-y-1.5 rounded-xl bg-[#fffdf7] p-3.5 text-sm">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="flex items-center gap-2 text-sm font-black text-[#111]/70">
+                      <HandCoins className="h-4 w-4 text-[#117a3d]" />
+                      Place bid
+                    </h2>
+                    <div className="text-right">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Your USDC</div>
+                      <div className="font-mono text-lg font-black leading-tight text-[#111]">{fmtUsdc(bal?.data as bigint | undefined)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 space-y-1.5 text-sm">
                     <div className="flex justify-between">
                       <span className="text-[#111]/50">Next price</span>
                       <span className="font-mono font-bold text-[#111]">{fmtUsdc(nextPriceVal)}</span>
@@ -233,7 +240,9 @@ export default function NadbidAuctionDetailPage() {
                   </div>
 
                   {!address ? (
-                    <p className="text-sm text-[#111]/40">Connect your wallet to bid.</p>
+                    <p className="rounded-xl border-2 border-dashed border-[#111]/25 px-3 py-3 text-center text-sm text-[#111]/40">
+                      Connect your wallet to bid.
+                    </p>
                   ) : needApprove ? (
                     <button
                       disabled={approveTx.isLoading}
@@ -248,7 +257,7 @@ export default function NadbidAuctionDetailPage() {
                           successMessage: 'USDC approved',
                         })
                       }
-                      className="w-full rounded-xl bg-white px-4 py-3 text-sm font-black text-[#111] transition hover:bg-white/90 disabled:opacity-50"
+                      className="w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3.5 text-sm font-black text-[#111] shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
                     >
                       {approveTx.isLoading ? 'Approving…' : `Approve ${fmtUsdc(payVal)} USDC`}
                     </button>
@@ -267,10 +276,10 @@ export default function NadbidAuctionDetailPage() {
                         })
                       }
                       className={cn(
-                        'w-full rounded-xl px-4 py-3 text-sm font-black text-[#111] transition disabled:opacity-40',
+                        'w-full rounded-xl border-2 border-[#111] px-4 py-3.5 text-sm font-black text-[#111] transition disabled:opacity-40 disabled:translate-y-0',
                         danger && !ended
-                          ? 'animate-pulse bg-red-500 hover:bg-red-400'
-                          : 'bg-[#3ec470] hover:bg-[#4ade80]',
+                          ? 'animate-pulse bg-[#ff4d4f] shadow-[3px_3px_0_#ff4d4f] hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#ff4d4f]'
+                          : 'bg-[#3ec470] shadow-[3px_3px_0_#111] hover:-translate-y-0.5 hover:bg-[#4ade80] hover:shadow-[5px_5px_0_#111]',
                       )}
                     >
                       {bidTx.isLoading
@@ -283,7 +292,7 @@ export default function NadbidAuctionDetailPage() {
                     </button>
                   )}
 
-                  <p className="mt-3 flex items-start gap-1.5 text-xs text-[#111]/40">
+                  <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-[#111]/40">
                     <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#117a3d]/60" />
                     Retained bids are non-refundable. If outbid later, you keep earning dividends from 15% of each new
                     bid. Same-block losers get their full payment refunded instantly.
@@ -305,7 +314,7 @@ export default function NadbidAuctionDetailPage() {
                       successMessage: 'Auction finalized',
                     })
                   }
-                  className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-black text-amber-400 transition hover:bg-amber-500/20 disabled:opacity-40"
+                  className="w-full rounded-xl border-2 border-[#111] bg-[#ffe94a] px-4 py-3.5 text-sm font-black text-[#111] shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#111] disabled:opacity-40 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
                 >
                   {finalizeTx.isLoading ? 'Finalizing…' : ended ? 'Finalize / Settle auction' : `Finalize after countdown (${secsLeft}s)`}
                 </button>
@@ -325,7 +334,7 @@ export default function NadbidAuctionDetailPage() {
                       successMessage: 'Seller earnings claimed',
                     })
                   }
-                  className="w-full rounded-xl bg-white px-4 py-3 text-sm font-black text-[#111] transition hover:bg-white/90 disabled:opacity-50"
+                  className="w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3.5 text-sm font-black text-[#111] shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:bg-[#3ec470]/15 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
                 >
                   {sellerTx.isLoading ? 'Claiming…' : 'Claim seller earnings'}
                 </button>
@@ -342,12 +351,12 @@ export default function NadbidAuctionDetailPage() {
 
 function StatBox({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-4">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[#111]/40 md:text-xs">{label}</div>
-      <div className={cn('mt-1.5 font-mono text-xl md:text-2xl font-black truncate', accent ? 'text-[#117a3d]' : 'text-[#111]')}>
+    <div className="nb-card-flat p-4">
+      <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40 md:text-xs">{label}</div>
+      <div className={cn('mt-1.5 font-mono text-2xl md:text-3xl font-black truncate', accent ? 'text-[#117a3d]' : 'text-[#111]')}>
         {value}
       </div>
-      {sub && <div className="text-[11px] text-[#111]/40">{sub}</div>}
+      {sub && <div className="mt-0.5 text-[11px] text-[#111]/40">{sub}</div>}
     </div>
   );
 }
@@ -357,12 +366,12 @@ function StatusBadge({ status }: { status: number }) {
   return (
     <span
       className={cn(
-        'rounded-full px-3 py-1 text-xs font-black',
-        st.tone === 'green' && 'bg-[#3ec470]/10 text-[#117a3d]',
-        st.tone === 'blue' && 'bg-sky-500/10 text-sky-400',
-        st.tone === 'amber' && 'bg-amber-500/10 text-amber-400',
-        st.tone === 'red' && 'bg-red-500/10 text-red-400',
-        st.tone === 'gray' && 'bg-[#111]/5 text-[#111]/50',
+        'rounded-md border-2 px-2.5 py-0.5 text-xs font-black',
+        st.tone === 'green' && 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]',
+        st.tone === 'blue' && 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
+        st.tone === 'amber' && 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]',
+        st.tone === 'red' && 'border-[#ff4d4f] bg-[#ff4d4f]/10 text-[#ff4d4f]',
+        st.tone === 'gray' && 'border-[#111]/25 bg-[#111]/5 text-[#111]/50',
       )}
     >
       {st.text}
