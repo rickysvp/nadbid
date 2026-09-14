@@ -59,7 +59,7 @@ export default function Navbar() {
           className="flex items-center cursor-pointer select-none"
         >
           <img
-            src="/nadbid-logo.png?v=2"
+            src="/nadbid-logo.png?v=3"
             alt="NADBID"
             className="h-8 w-auto md:h-9"
             draggable={false}
