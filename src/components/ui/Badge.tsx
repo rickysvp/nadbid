@@ -23,19 +23,19 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  live: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  upcoming: 'bg-white/5 text-white/40 border border-white/10',
-  ended: 'bg-white/5 text-white/30 border border-white/10',
-  settled: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  arbitrating: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30',
-  failed: 'bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30',
-  claimable: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  stake_active: 'bg-[#3ec470]/10 text-[#3ec470] border border-[#3ec470]/30',
-  stake_pending: 'bg-white/5 text-white/40 border border-white/10',
-  unlocking: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30',
-  neutral: 'bg-white/5 text-white/60 border border-white/10',
-  amber: 'bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/20',
-  default: 'bg-white/5 text-white/60 border border-white/10',
+  live: 'bg-[#3ec470]/15 text-[#117a3d] border-2 border-[#117a3d]',
+  upcoming: 'bg-[#111]/5 text-[#111]/50 border-2 border-[#111]/25',
+  ended: 'bg-[#111]/5 text-[#111]/40 border-2 border-[#111]/20',
+  settled: 'bg-[#3ec470]/15 text-[#117a3d] border-2 border-[#117a3d]',
+  arbitrating: 'bg-[#f5a623]/15 text-[#b45309] border-2 border-[#f5a623]',
+  failed: 'bg-[#ff4d4f]/10 text-[#ff4d4f] border-2 border-[#ff4d4f]/60',
+  claimable: 'bg-[#3ec470]/15 text-[#117a3d] border-2 border-[#117a3d]',
+  stake_active: 'bg-[#3ec470]/15 text-[#117a3d] border-2 border-[#117a3d]',
+  stake_pending: 'bg-[#111]/5 text-[#111]/50 border-2 border-[#111]/25',
+  unlocking: 'bg-[#f5a623]/15 text-[#b45309] border-2 border-[#f5a623]',
+  neutral: 'bg-[#111]/5 text-[#111]/60 border-2 border-[#111]/25',
+  amber: 'bg-[#f5a623]/15 text-[#b45309] border-2 border-[#f5a623]',
+  default: 'bg-[#111]/5 text-[#111]/60 border-2 border-[#111]/25',
 };
 
 /**

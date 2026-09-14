@@ -17,9 +17,9 @@ export interface StatCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const valueVariants = {
-  default: 'text-white/80',
+  default: 'text-[#111]/80',
   green: 'text-[#3ec470]',
-  white: 'text-white',
+  white: 'text-[#111]',
 };
 
 /**
@@ -38,25 +38,25 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <div
-      className={cn('bg-[#161616] border border-white/[0.04] rounded-lg p-5 min-w-[160px]', className)}
+      className={cn('nb-card-flat p-5 min-w-[160px]', className)}
       {...props}
     >
-      <div className="text-[9px] text-white/40 font-bold uppercase tracking-[0.15em] mb-2">
+      <div className="text-[9px] text-[#111]/40 font-bold uppercase tracking-[0.15em] mb-2">
         {label}
       </div>
       <div className="flex items-baseline gap-2">
         <span className={cn('font-mono text-xl font-bold tracking-tight', valueVariants[variant])}>
           {typeof value === 'number' ? value.toLocaleString('en-US') : value}
         </span>
-        {unit && <span className="text-sm text-white/50 font-mono">{unit}</span>}
+        {unit && <span className="text-sm text-[#111]/50 font-mono">{unit}</span>}
       </div>
       {trend && (
         <div
           className={cn(
             'mt-2 text-[10px] font-bold',
-            trendDirection === 'up' && 'text-[#3ec470]',
-            trendDirection === 'down' && 'text-red-400',
-            trendDirection === 'neutral' && 'text-white/40',
+            trendDirection === 'up' && 'text-[#117a3d]',
+            trendDirection === 'down' && 'text-[#ff4d4f]',
+            trendDirection === 'neutral' && 'text-[#111]/40',
           )}
         >
           {trend}

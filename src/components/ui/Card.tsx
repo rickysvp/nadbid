@@ -25,7 +25,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-[#161616] border border-white/[0.04] rounded-xl',
+          'nb-card rounded-xl',
           hoverable && 'hover:border-white/[0.08] transition-all cursor-pointer',
           paddingStyles[padding],
           className,
@@ -54,7 +54,7 @@ export function CardHeader({
 }) {
   return (
     <div className={cn('flex items-center justify-between mb-6', className)}>
-      <h3 className="text-lg font-bold text-white tracking-wide">{title}</h3>
+      <h3 className="text-lg font-bold text-[#111] tracking-wide">{title}</h3>
       {action}
     </div>
   );

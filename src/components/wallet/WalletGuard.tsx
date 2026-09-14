@@ -53,12 +53,12 @@ export function WalletGuard({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen bg-transparent pt-32 pb-24">
         <div className="max-w-3xl mx-auto px-6 lg:px-12">
-          <div className="bg-[#161616] border border-red-500/30 rounded-3xl p-16 text-center">
+          <div className="bg-[#fffdf7] border border-red-500/30 rounded-3xl p-16 text-center">
             <div className="w-24 h-24 mx-auto mb-8 rounded-3xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
               <AlertTriangle className="w-12 h-12 text-red-400" />
             </div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-4">Wrong Network</h1>
-            <p className="text-white/50 text-lg max-w-md mx-auto mb-3">
+            <h1 className="text-4xl font-black text-[#111] tracking-tight mb-4">Wrong Network</h1>
+            <p className="text-[#111]/50 text-lg max-w-md mx-auto mb-3">
               NADBID runs on Monad Testnet (chain {monadTestnet.id}).
             </p>
             <p className="text-red-400/70 font-mono text-sm mb-10">
@@ -71,8 +71,8 @@ export function WalletGuard({ children }: { children: ReactNode }) {
                 disabled={isPending}
                 className={`flex items-center gap-2 px-8 py-3.5 rounded-xl font-black text-base transition-all ${
                   isPending
-                    ? 'bg-[#3ec470]/50 text-black/50 cursor-not-allowed'
-                    : 'bg-[#3ec470] text-black hover:bg-[#4ade80]'
+                    ? 'bg-[#3ec470]/50 text-[#111]/50 cursor-not-allowed'
+                    : 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]'
                 }`}
               >
                 {isPending ? (
@@ -94,36 +94,36 @@ export function WalletGuard({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => setShowManual((v) => !v)}
-                className="text-xs text-white/40 hover:text-white/70 underline underline-offset-4"
+                className="text-xs text-[#111]/40 hover:text-[#111]/70 underline underline-offset-4"
               >
                 {showManual ? 'Hide' : "Wallet won't switch? Add Monad Testnet manually"}
               </button>
               {showManual && (
-                <div className="mt-4 text-left bg-black/30 border border-white/[0.06] rounded-2xl p-5 font-mono text-xs text-white/70 space-y-2">
+                <div className="mt-4 text-left bg-[#fbf7ee] border border-[#111]/15 nb-card p-5 font-mono text-xs text-[#111]/70 space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <span>Network Name</span>
-                    <span className="text-white">Monad Testnet</span>
+                    <span className="text-[#111]">Monad Testnet</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>RPC URL</span>
-                    <span className="flex items-center gap-2 text-[#3ec470]">
+                    <span className="flex items-center gap-2 text-[#117a3d]">
                       https://testnet-rpc.monad.xyz
-                      <button type="button" onClick={copyRpc} className="hover:text-white" aria-label="Copy RPC">
+                      <button type="button" onClick={copyRpc} className="hover:text-[#111]" aria-label="Copy RPC">
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Chain ID</span>
-                    <span className="text-white">10143</span>
+                    <span className="text-[#111]">10143</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Currency Symbol</span>
-                    <span className="text-white">MON</span>
+                    <span className="text-[#111]">MON</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Explorer</span>
-                    <span className="text-[#3ec470]">https://testnet.monadexplorer.com</span>
+                    <span className="text-[#117a3d]">https://testnet.monadexplorer.com</span>
                   </div>
                 </div>
               )}

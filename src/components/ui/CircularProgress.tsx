@@ -43,9 +43,9 @@ export function CircularProgress({
       {/* 警示光环：常驻红描边 + ping 扩散脉冲（仅最后 15 秒） */}
       {danger && (
         <>
-          <span className="absolute inset-0 rounded-full border-2 border-red-500/70" aria-hidden="true" />
+          <span className="absolute inset-0 rounded-full border-[3px] border-[#ff4d4f]/80" aria-hidden="true" />
           <span
-            className="absolute inset-0 rounded-full border-2 border-red-500/50 animate-ping"
+            className="absolute inset-0 rounded-full border-[3px] border-[#ff4d4f]/60 animate-ping"
             aria-hidden="true"
           />
         </>
@@ -57,7 +57,7 @@ export function CircularProgress({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={danger ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.06)'}
+          stroke={danger ? 'rgba(255,77,79,0.15)' : 'rgba(17,17,17,0.08)'}
           strokeWidth={strokeWidth}
         />
         {/* 进度环 */}
@@ -66,7 +66,7 @@ export function CircularProgress({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={danger ? '#ef4444' : '#3ec470'}
+          stroke={danger ? '#ff4d4f' : '#1a7f37'}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -81,11 +81,11 @@ export function CircularProgress({
             key={danger ? 'danger' : 'normal'}
             animate={
               danger
-                ? { scale: [1, 1.18, 1], color: ['#fca5a5', '#ef4444', '#fca5a5'] }
-                : { scale: 1, color: '#ffffff' }
+                ? { scale: [1, 1.22, 1], color: ['#ff9a9c', '#ff4d4f', '#ff9a9c'] }
+                : { scale: 1, color: '#111111' }
             }
             transition={danger ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
-            className={cn('font-mono text-xl font-bold', danger ? 'text-red-500' : 'text-white')}
+            className={cn('font-mono text-xl font-black', danger ? 'text-[#ff4d4f]' : 'text-[#111]')}
           >
             {label}
           </motion.span>
@@ -94,7 +94,7 @@ export function CircularProgress({
           <span
             className={cn(
               'text-[9px] font-bold uppercase tracking-wider mt-1',
-              danger ? 'text-red-400/90' : 'text-white/40',
+              danger ? 'text-[#ff4d4f]' : 'text-[#111]/40',
             )}
           >
             {sublabel}

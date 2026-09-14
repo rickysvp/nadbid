@@ -31,23 +31,23 @@ export function Countdown({ target, enabled = true, size = 'md', label, classNam
   return (
     <div className={cn('font-mono', className)}>
       {label && (
-        <div className="text-[9px] text-white/40 font-bold uppercase tracking-[0.15em] mb-2">
+        <div className="text-[9px] text-[#111]/40 font-bold uppercase tracking-[0.15em] mb-2">
           {label}
         </div>
       )}
       <div className={cn('flex items-center gap-1 font-bold tracking-tight', sizeStyles[size])}>
         {days > 0 && (
           <>
-            <span className={isExpired ? 'text-white/30' : 'text-white'}>{days}</span>
-            <span className="text-white/30 text-[0.8em]">d</span>
-            <span className="text-white/20 mx-0.5">·</span>
+            <span className={isExpired ? 'text-[#111]/30' : 'text-[#111]'}>{days}</span>
+            <span className="text-[#111]/30 text-[0.8em]">d</span>
+            <span className="text-[#111]/20 mx-0.5">·</span>
           </>
         )}
-        <span className={isExpired ? 'text-white/30' : 'text-white'}>{pad(hours)}</span>
-        <span className="text-white/20">:</span>
-        <span className={isExpired ? 'text-white/30' : 'text-white'}>{pad(minutes)}</span>
-        <span className="text-white/20">:</span>
-        <span className={isExpired ? 'text-white/30' : 'text-[#3ec470]'}>{pad(seconds)}</span>
+        <span className={isExpired ? 'text-[#111]/30' : 'text-[#111]'}>{pad(hours)}</span>
+        <span className="text-[#111]/20">:</span>
+        <span className={isExpired ? 'text-[#111]/30' : 'text-[#111]'}>{pad(minutes)}</span>
+        <span className="text-[#111]/20">:</span>
+        <span className={isExpired ? 'text-[#111]/30' : 'text-[#117a3d]'}>{pad(seconds)}</span>
       </div>
     </div>
   );

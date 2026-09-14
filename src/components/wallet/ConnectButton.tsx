@@ -100,8 +100,8 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
           className={cn(
             'flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap',
             isDark
-              ? 'bg-[#3ec470] text-black hover:bg-[#4ade80]'
-              : 'bg-[#111] text-[#3ec470] hover:bg-black',
+              ? 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]'
+              : 'bg-[#111] text-[#117a3d] hover:bg-black',
           )}
         >
           <Wallet className="w-4 h-4" />
@@ -122,11 +122,11 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
         className={cn(
           'flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl border transition-all',
           isWrongNetwork
-            ? 'bg-red-500/10 border-red-500/40 text-white hover:bg-red-500/15'
+            ? 'bg-red-500/10 border-red-500/40 text-[#111] hover:bg-red-500/15'
             : isDark
-              ? 'bg-white/[0.03] border-white/10 hover:bg-white/[0.08] text-white'
-              : 'bg-black/5 border-black/10 hover:bg-black/10 text-black',
-          dropdownOpen && !isWrongNetwork && (isDark ? 'bg-white/[0.08] border-white/20' : 'bg-black/10'),
+              ? 'bg-white/[0.03] border-[#111]/15 hover:bg-white/[0.08] text-[#111]'
+              : 'bg-[#111]/5 border-[#111]/15 hover:bg-[#111]/10 text-[#111]',
+          dropdownOpen && !isWrongNetwork && (isDark ? 'bg-white/[0.08] border-[#111]/25' : 'bg-[#111]/10'),
           dropdownOpen && isWrongNetwork && 'bg-red-500/15 border-red-500/50',
         )}
       >
@@ -138,14 +138,14 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
               isWrongNetwork
                 ? 'bg-[#111] border-red-500/50'
                 : isDark
-                  ? 'bg-[#111] border-white/10'
-                  : 'bg-white border-black/10',
+                  ? 'bg-[#111] border-[#111]/15'
+                  : 'bg-white border-[#111]/15',
             )}
             alt="Wallet avatar"
           />
           {isWrongNetwork && (
             <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#0e0e0e] flex items-center justify-center">
-              <span className="text-[8px] font-black text-white leading-none">!</span>
+              <span className="text-[8px] font-black text-[#111] leading-none">!</span>
             </div>
           )}
         </div>
@@ -158,7 +158,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
           >
             {shortenAddress(address ?? '')}
           </span>
-          <span className="text-[12px] font-mono font-bold leading-none text-[#3ec470]">
+          <span className="text-[12px] font-mono font-bold leading-none text-[#117a3d]">
             {balanceStale ? '— MON' : `${balanceMon.toLocaleString('en-US', { maximumFractionDigits: 2 })} MON`}
           </span>
         </div>
@@ -180,16 +180,14 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
               'absolute right-0 top-full mt-2.5 w-72 border rounded-xl shadow-2xl overflow-hidden z-50 text-left',
-              isDark
-                ? 'bg-[#0e0e0e] border-white/[0.08] text-white'
-                : 'bg-white border-black/10 text-black shadow-[0_10px_40px_rgba(0,0,0,0.1)]',
+              'bg-white border-[#111] text-[#111] shadow-[0_10px_40px_rgba(0,0,0,0.12)]',
             )}
           >
             {/* 网络状态 + 切换（TASK 5: NetworkSwitcher） */}
             <div
               className={cn(
                 'px-3 py-3 border-b',
-                isDark ? 'border-white/[0.06] bg-[#161616]' : 'border-black/5 bg-gray-50',
+                'border-[#111]/15 bg-[#fbf7ee]',
               )}
             >
               {connectorName && (
@@ -197,7 +195,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                   <span
                     className={cn(
                       'text-[9px] font-bold uppercase tracking-widest',
-                      isDark ? 'text-white/40' : 'text-black/40',
+                      isDark ? 'text-[#111]/40' : 'text-[#111]/40',
                     )}
                   >
                     Wallet
@@ -205,9 +203,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                   <span
                     className={cn(
                       'text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border',
-                      isDark
-                        ? 'text-[#3ec470] bg-[#3ec470]/10 border-[#3ec470]/20'
-                        : 'text-[#2a9d54] bg-[#3ec470]/10 border-[#3ec470]/30',
+                      'text-[#117a3d] bg-[#3ec470]/10 border-[#1a7f37]/30',
                     )}
                   >
                     {connectorName}
@@ -225,13 +221,11 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                 onClick={handleCopy}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-bold',
-                  isDark
-                    ? 'hover:bg-white/5 text-white/80 hover:text-white'
-                    : 'hover:bg-black/5 text-black/70 hover:text-black',
+                  'hover:bg-[#111]/5 text-[#111]/70 hover:text-[#111]',
                 )}
               >
                 {copied ? (
-                  <Check className="w-4 h-4 text-[#3ec470] flex-shrink-0" />
+                  <Check className="w-4 h-4 text-[#117a3d] flex-shrink-0" />
                 ) : (
                   <Copy className="w-4 h-4 opacity-60 flex-shrink-0" />
                 )}
@@ -246,9 +240,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                 onClick={handleExplorer}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-bold',
-                  isDark
-                    ? 'hover:bg-white/5 text-white/80 hover:text-white'
-                    : 'hover:bg-black/5 text-black/70 hover:text-black',
+                  'hover:bg-[#111]/5 text-[#111]/70 hover:text-[#111]',
                 )}
               >
                 <ExternalLink className="w-4 h-4 opacity-60 flex-shrink-0" />
@@ -259,7 +251,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
               <div
                 className={cn(
                   'h-px w-full my-1',
-                  isDark ? 'bg-white/[0.06]' : 'bg-black/5',
+                  'bg-[#111]/5',
                 )}
               />
 
@@ -269,9 +261,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
                 onClick={handleDisconnect}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-bold',
-                  isDark
-                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300'
-                    : 'hover:bg-red-50 text-red-500 hover:text-red-600',
+                  'hover:bg-red-50 text-red-500 hover:text-red-600',
                 )}
               >
                 <LogOut className="w-4 h-4 opacity-70 flex-shrink-0" />

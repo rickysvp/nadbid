@@ -47,8 +47,8 @@ export default function Navbar() {
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         solid
-          ? 'bg-[#0e0e0e]/85 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_10px_40px_rgba(0,0,0,0.35)]'
-          : 'bg-transparent border-b border-transparent',
+          ? 'bg-[#fffdf7]/92 backdrop-blur-xl border-b-2 border-[#111] shadow-[0_6px_0_rgba(17,17,17,0.14)]'
+          : 'bg-transparent border-b-2 border-transparent',
       )}
     >
       <div className="w-full flex justify-between items-center px-6 md:px-10 py-4 md:py-5 max-w-[1600px] mx-auto">
@@ -56,7 +56,7 @@ export default function Navbar() {
         <div
           className={cn(
             'font-black text-2xl md:text-3xl tracking-tighter flex items-center gap-2.5 cursor-pointer select-none',
-            onHome ? 'text-black' : 'text-white',
+            'text-[#111]',
           )}
           onClick={() => go('/')}
         >
@@ -73,11 +73,7 @@ export default function Navbar() {
         <div
           className={cn(
             'hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 px-3 py-1.5 rounded-full border transition-colors duration-300',
-            solid
-              ? 'bg-white/[0.04] border-white/[0.08]'
-              : onHome
-                ? 'bg-black/5 border-black/10'
-                : 'bg-white/5 border-white/10 backdrop-blur-md',
+            'bg-[#111]/5 border-[#111]/15',
           )}
         >
           {NAV_ITEMS.map((item) => {
@@ -89,15 +85,8 @@ export default function Navbar() {
                 className={cn(
                   'relative px-3.5 py-2 rounded-full font-bold text-[13px] tracking-wide transition-all duration-200',
                   active
-                    ? cn(
-                        'text-[#3ec470]',
-                        solid || !onHome
-                          ? 'bg-[#3ec470]/10'
-                          : 'bg-black/5',
-                      )
-                    : onHome
-                      ? 'text-black/50 hover:text-black hover:bg-black/5'
-                      : 'text-white/50 hover:text-white hover:bg-white/[0.06]',
+                    ? cn('text-[#117a3d]', 'bg-[#3ec470]/15')
+                    : 'text-[#111]/50 hover:text-[#111] hover:bg-[#111]/5',
                 )}
               >
                 {item.label}
@@ -113,7 +102,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => go(ROUTES.NADBID_CREATE)}
-            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-all hover:bg-[#4ade80] hover:shadow-[0_0_20px_rgba(62,196,112,0.4)] hover:-translate-y-0.5 whitespace-nowrap"
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-all hover:bg-[#4ade80] hover:-translate-y-0.5 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             Create
@@ -125,7 +114,7 @@ export default function Navbar() {
           <button
             className={cn(
               'lg:hidden flex items-center justify-center w-10 h-10 rounded-xl border transition-colors',
-              onHome ? 'border-black/10 text-black bg-black/5' : 'border-white/10 text-white bg-white/5',
+              'border-[#111]/15 text-[#111] bg-[#111]/5',
             )}
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
@@ -143,7 +132,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="lg:hidden overflow-hidden border-t border-white/[0.06] bg-[#0e0e0e]/95 backdrop-blur-xl"
+            className="lg:hidden overflow-hidden border-t-2 border-[#111] bg-[#fffdf7]/97 backdrop-blur-xl"
           >
             <div className="px-6 py-4 flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
@@ -155,8 +144,8 @@ export default function Navbar() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors',
                       active
-                        ? 'bg-[#3ec470]/10 text-[#3ec470]'
-                        : 'text-white/60 hover:text-white hover:bg-white/[0.05]',
+                        ? 'bg-[#3ec470]/15 text-[#117a3d]'
+                        : 'text-[#111]/60 hover:text-[#111] hover:bg-[#111]/5',
                     )}
                   >
                     {item.label}

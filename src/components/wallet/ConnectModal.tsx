@@ -73,12 +73,12 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-sm bg-[#161616] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-sm bg-[#fffdf7] border border-[#111]/15 nb-card shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-              <h2 className="font-display text-xl font-black text-white tracking-tight">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#111]/15">
+              <h2 className="font-display text-xl font-black text-[#111] tracking-tight">
                 Connect Wallet
               </h2>
               <button
@@ -88,8 +88,8 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
                 className={cn(
                   'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
                   isPending
-                    ? 'text-white/20 cursor-not-allowed'
-                    : 'text-white/40 hover:text-white hover:bg-white/10',
+                    ? 'text-[#111]/30 cursor-not-allowed'
+                    : 'text-[#111]/40 hover:text-[#111] hover:bg-[#111]/10',
                 )}
                 aria-label="Close"
               >
@@ -99,7 +99,7 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
 
             {/* Body */}
             <div className="p-6">
-              <p className="text-white/50 text-sm mb-5 leading-relaxed">
+              <p className="text-[#111]/50 text-sm mb-5 leading-relaxed">
                 Select a wallet to connect to NADBID. Your wallet will be used for
                 bidding, minting, staking, and claiming rewards on Monad.
               </p>
@@ -125,34 +125,34 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
                       className={cn(
                         'w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all',
                         isPending
-                          ? 'opacity-50 cursor-not-allowed border-white/[0.06] bg-white/[0.02]'
-                          : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#3ec470]/40',
+                          ? 'opacity-50 cursor-not-allowed border-[#111]/15 bg-white/[0.02]'
+                          : 'border-[#111]/15 bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#1a7f37]/40',
                       )}
                     >
                       {/* Icon */}
-                      <div className="w-10 h-10 rounded-lg bg-[#3ec470]/10 border border-[#3ec470]/20 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-[#3ec470]/10 border border-[#1a7f37]/20 flex items-center justify-center flex-shrink-0">
                         {isConnecting ? (
-                          <Loader2 className="w-5 h-5 text-[#3ec470] animate-spin" />
+                          <Loader2 className="w-5 h-5 text-[#117a3d] animate-spin" />
                         ) : isWalletConnect ? (
-                          <QrCode className="w-5 h-5 text-[#3ec470]" />
+                          <QrCode className="w-5 h-5 text-[#117a3d]" />
                         ) : (
-                          <Wallet className="w-5 h-5 text-[#3ec470]" />
+                          <Wallet className="w-5 h-5 text-[#117a3d]" />
                         )}
                       </div>
 
                       {/* Name */}
                       <div className="flex-1 text-left">
-                        <span className="font-bold text-sm text-white block">
+                        <span className="font-bold text-sm text-[#111] block">
                           {connector.name}
                         </span>
-                        <span className="text-[10px] text-white/40 font-mono uppercase tracking-wider">
+                        <span className="text-[10px] text-[#111]/40 font-mono uppercase tracking-wider">
                           {isWalletConnect ? 'Scan QR code' : 'Browser extension'}
                         </span>
                       </div>
 
                       {/* Connecting indicator */}
                       {isConnecting && (
-                        <span className="text-[10px] text-[#3ec470] font-bold uppercase tracking-wider">
+                        <span className="text-[10px] text-[#117a3d] font-bold uppercase tracking-wider">
                           Connecting…
                         </span>
                       )}
@@ -162,7 +162,7 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
               </div>
 
               {/* Footer note */}
-              <p className="mt-5 text-[10px] text-white/30 text-center font-mono">
+              <p className="mt-5 text-[10px] text-[#111]/40 text-center font-mono">
                 By connecting, you agree to NADBID&apos;s Terms of Service
               </p>
             </div>

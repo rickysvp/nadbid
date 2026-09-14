@@ -4,44 +4,149 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* 品牌色 — 与 uiConstants.ts COLORS.primary 保持一致 */
+  /* ===== Neo-Brutalism 设计系统（亮色） ===== */
+  /* 品牌主色 */
   --color-brand-green: #3ec470;
+  --color-brand-green-deep: #117a3d;
   --color-brand-green-hover: #4ade80;
-  --color-brand-green-dim: rgba(62, 196, 112, 0.1);
-  --color-brand-green-border: rgba(62, 196, 112, 0.3);
+
+  /* 撞色强调（每块面积只用一个） */
+  --color-nb-yellow: #ffe94a;
+  --color-nb-cyan: #3ec4f0;
+  --color-nb-pink: #ff6ba9;
+  --color-nb-red: #ff4d4f;
 
   /* 表面色 */
-  --color-surface-bg: #0a0a0a;
-  --color-surface-card: #161616;
-  --color-surface-card-hover: #1a1a1a;
-  --color-surface-inner: #0f0f0f;
+  --color-surface-bg: #f2ede3;   /* 奶油底 */
+  --color-surface-card: #fffdf7; /* 纸白卡 */
+  --color-surface-inner: #fbf7ee;
+  --color-surface-black: #111111;
 
   /* 文本色 */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: rgba(255, 255, 255, 0.6);
-  --color-text-muted: rgba(255, 255, 255, 0.4);
-  --color-text-faint: rgba(255, 255, 255, 0.3);
+  --color-text-primary: #111111;
+  --color-text-secondary: rgba(17, 17, 17, 0.6);
+  --color-text-muted: rgba(17, 17, 17, 0.4);
+  --color-text-faint: rgba(17, 17, 17, 0.3);
 
   /* 边框色 */
-  --color-border-default: rgba(255, 255, 255, 0.04);
-  --color-border-hover: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(17, 17, 17, 0.15);
+  --color-border-strong: #111111;
 
   /* 状态色 */
-  --color-danger: #ef4444;
-  --color-warning: #fbbf24;
+  --color-danger: #ff4d4f;
+  --color-warning: #f5a623;
 
-  /* 阴影 */
-  --shadow-brutal: 4px 4px 0px 0px #000;
-  --shadow-brutal-sm: 2px 2px 0px 0px #000;
-  --shadow-brutal-lg: 8px 8px 0px 0px #000;
-  --shadow-primary-glow: 0 0 15px rgba(62, 196, 112, 0.1);
-  --shadow-primary-glow-hover: 0 0 25px rgba(62, 196, 112, 0.2);
+  /* 硬阴影（无模糊位移阴影，Neo-Brutalism 核心） */
+  --shadow-brutal: 4px 4px 0px 0px #111111;
+  --shadow-brutal-sm: 2px 2px 0px 0px #111111;
+  --shadow-brutal-lg: 7px 7px 0px 0px #111111;
+  --shadow-brutal-xl: 10px 10px 0px 0px #111111;
 }
 
 @layer utilities {
   .text-shadow-brutal {
-    text-shadow: 2px 2px 0px #000;
+    text-shadow: 2px 2px 0px #111;
   }
+  .text-shadow-brutal-sm {
+    text-shadow: 1px 1px 0px #111;
+  }
+}
+
+/* ============================================
+   Neo-Brutalism 基元类
+   ============================================ */
+.nb-card {
+  background: #fffdf7;
+  border: 2px solid #111111;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0px 0px #111111;
+}
+
+.nb-card-flat {
+  background: #fffdf7;
+  border: 2px solid #111111;
+  border-radius: 10px;
+}
+
+.nb-sticker {
+  display: inline-block;
+  background: #ffe94a;
+  border: 2px solid #111111;
+  border-radius: 6px;
+  box-shadow: 3px 3px 0px 0px #111111;
+  transform: rotate(-1.5deg);
+  font-weight: 900;
+}
+
+.nb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 2px solid #111111;
+  border-radius: 9999px;
+  background: #fffdf7;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.nb-rule {
+  border: 0;
+  border-top: 3px solid #111111;
+}
+
+/* ============================================
+   全局控件基线：按钮 / 输入框 统一粗野化
+   ============================================ */
+button {
+  border: 2px solid #111111;
+  box-shadow: 3px 3px 0px 0px #111111;
+  font-weight: 800;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.15s ease;
+  border-radius: 8px;
+}
+button:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px 0px #111111;
+}
+button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #111111;
+}
+button:disabled {
+  box-shadow: 2px 2px 0px 0px rgba(17, 17, 17, 0.25);
+  border-color: rgba(17, 17, 17, 0.25);
+}
+
+input,
+select,
+textarea {
+  border: 2px solid #111111;
+  background: #fffdf7;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0px 0px rgba(17, 17, 17, 0.35);
+  color: #111111;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 3px solid #3ec4f0;
+  outline-offset: 0;
+  box-shadow: 3px 3px 0px 0px #111111;
+}
+input::placeholder,
+textarea::placeholder {
+  color: rgba(17, 17, 17, 0.35);
+}
+
+/* 链接 hover 下划线 */
+a {
+  transition: color 0.12s ease;
+}
+
+/* 键盘可见焦点 */
+:focus-visible {
+  outline: 3px solid #3ec4f0;
+  outline-offset: 2px;
 }
 
 /* ============================================
@@ -78,8 +183,11 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background: #0a0a0a;
-  color: #ffffff;
+  background: #f2ede3;
+  background-image:
+    radial-gradient(rgba(17, 17, 17, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #111111;
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -110,16 +218,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #f2ede3;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(17, 17, 17, 0.25);
+  border: 2px solid #111111;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(17, 17, 17, 0.4);
 }
 
 ::-webkit-scrollbar-corner {
@@ -128,8 +237,8 @@ body {
 
 /* 选中文本 */
 ::selection {
-  background: rgba(62, 196, 112, 0.15);
-  color: #3ec470;
+  background: #ffe94a;
+  color: #111111;
 }
 
 /* ============================================

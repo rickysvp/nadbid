@@ -4,7 +4,7 @@
  */
 export function GeometricBackground() {
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex justify-center bg-[#050505]">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex justify-center bg-[#f2ede3]">
       <svg
         className="absolute inset-0 w-full h-full opacity-100"
         viewBox="0 0 1440 900"
@@ -13,14 +13,14 @@ export function GeometricBackground() {
       >
         <defs>
           <linearGradient id="line-glow-1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.01)" />
-            <stop offset="50%" stopColor="rgba(255,255,255,0.12)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0.01)" />
+            <stop offset="0%" stopColor="rgba(17,17,17,0.05)" />
+            <stop offset="50%" stopColor="rgba(17,17,17,0.14)" />
+            <stop offset="100%" stopColor="rgba(17,17,17,0.05)" />
           </linearGradient>
           <linearGradient id="line-glow-2" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="rgba(62,196,112,0.02)" />
-            <stop offset="50%" stopColor="rgba(62,196,112,0.25)" />
-            <stop offset="100%" stopColor="rgba(62,196,112,0.02)" />
+            <stop offset="0%" stopColor="rgba(62,196,112,0.08)" />
+            <stop offset="50%" stopColor="rgba(62,196,112,0.3)" />
+            <stop offset="100%" stopColor="rgba(62,196,112,0.08)" />
           </linearGradient>
           <mask id="fade-out">
             <rect width="1440" height="900" fill="url(#mask-grad)" />
@@ -45,10 +45,10 @@ export function GeometricBackground() {
           <circle cx="250" cy="750" r="250" stroke="url(#line-glow-1)" strokeWidth="0.5" fill="none" />
 
           {/* Accent nodes at intersections */}
-          <circle cx="600" cy="800" r="2" fill="rgba(62,196,112,0.5)" />
-          <circle cx="200" cy="900" r="1.5" fill="rgba(255,255,255,0.4)" />
-          <circle cx="1000" cy="1000" r="2" fill="rgba(62,196,112,0.5)" />
-          <circle cx="685" cy="400" r="1.5" fill="rgba(255,255,255,0.4)" />
+          <circle cx="600" cy="800" r="2" fill="rgba(17,122,61,0.55)" />
+          <circle cx="200" cy="900" r="1.5" fill="rgba(17,17,17,0.35)" />
+          <circle cx="1000" cy="1000" r="2" fill="rgba(17,122,61,0.55)" />
+          <circle cx="685" cy="400" r="1.5" fill="rgba(17,17,17,0.35)" />
         </g>
       </svg>
     </div>

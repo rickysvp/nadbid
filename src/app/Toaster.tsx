@@ -6,26 +6,26 @@ import type { ToastType } from '../types';
 const toastConfig: Record<ToastType, { icon: typeof CheckCircle; bg: string; border: string; text: string }> = {
   success: {
     icon: CheckCircle,
-    bg: 'bg-[#0d1611]',
-    border: 'border-[#3ec470]/30',
-    text: 'text-[#3ec470]',
+    bg: 'bg-[#111111]',
+    border: 'border-[#1a7f37]/30',
+    text: 'text-[#117a3d]',
   },
   error: {
     icon: XCircle,
-    bg: 'bg-[#160d0d]',
-    border: 'border-red-400/30',
+    bg: 'bg-[#111111]',
+    border: 'border-[#ff4d4f]',
     text: 'text-red-400',
   },
   info: {
     icon: Info,
-    bg: 'bg-[#0d1116]',
-    border: 'border-blue-400/30',
+    bg: 'bg-[#111111]',
+    border: 'border-[#3ec4f0]',
     text: 'text-blue-400',
   },
   warning: {
     icon: AlertTriangle,
-    bg: 'bg-[#16140d]',
-    border: 'border-amber-400/30',
+    bg: 'bg-[#111111]',
+    border: 'border-[#f5a623]',
     text: 'text-amber-400',
   },
 };
@@ -57,12 +57,12 @@ export default function Toaster() {
             )}
           >
             <Icon className={cn('w-5 h-5 shrink-0 mt-0.5', config.text)} />
-            <p className="flex-1 text-sm text-white/90 font-medium leading-relaxed">
+            <p className="flex-1 text-sm text-[#111]/90 font-medium leading-relaxed">
               {toast.message}
             </p>
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 text-white/30 hover:text-white/60 transition-colors"
+              className="shrink-0 text-[#111]/40 hover:text-[#111]/60 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

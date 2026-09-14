@@ -81,20 +81,20 @@ export function NetworkSwitcher({
             isWrongNetwork
               ? 'bg-red-500/10 border-red-500/30'
               : isDark
-                ? 'bg-white/[0.03] border-white/[0.06]'
+                ? 'bg-white/[0.03] border-[#111]/15'
                 : 'bg-black/[0.03] border-black/[0.08]',
           )}
         >
           {isWrongNetwork ? (
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
           ) : (
-            <Globe className="w-4 h-4 text-[#3ec470] flex-shrink-0" />
+            <Globe className="w-4 h-4 text-[#117a3d] flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <div
               className={cn(
                 'text-[9px] font-bold uppercase tracking-widest mb-0.5',
-                isDark ? 'text-white/40' : 'text-black/40',
+                isDark ? 'text-[#111]/40' : 'text-[#111]/40',
               )}
             >
               {isWrongNetwork ? 'Wrong Network' : 'Network'}
@@ -102,7 +102,7 @@ export function NetworkSwitcher({
             <div
               className={cn(
                 'text-[13px] font-bold truncate',
-                isWrongNetwork ? 'text-red-400' : isDark ? 'text-white' : 'text-black',
+                isWrongNetwork ? 'text-red-400' : isDark ? 'text-[#111]' : 'text-[#111]',
               )}
             >
               {currentChainName}
@@ -119,8 +119,8 @@ export function NetworkSwitcher({
             className={cn(
               'mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold text-[12px] transition-all',
               isPending || isMonadSwitching
-                ? 'bg-[#3ec470]/50 text-black/50 cursor-not-allowed'
-                : 'bg-[#3ec470] text-black hover:bg-[#4ade80]',
+                ? 'bg-[#3ec470]/50 text-[#111]/50 cursor-not-allowed'
+                : 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]',
             )}
           >
             {isPending || isMonadSwitching ? (
@@ -143,7 +143,7 @@ export function NetworkSwitcher({
   /* ==================== full 模式：链列表 ==================== */
   return (
     <div className="w-full">
-      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 mb-3">
+      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#111]/40 mb-3">
         Network
       </div>
       <div className="space-y-2">
@@ -160,10 +160,10 @@ export function NetworkSwitcher({
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left',
                 isActive
-                  ? 'bg-[#3ec470]/10 border-[#3ec470]/40'
+                  ? 'bg-[#3ec470]/10 border-[#1a7f37]/40'
                   : isPending
-                    ? 'opacity-50 cursor-not-allowed bg-white/[0.02] border-white/[0.06]'
-                    : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.12]',
+                    ? 'opacity-50 cursor-not-allowed bg-white/[0.02] border-[#111]/15'
+                    : 'bg-white/[0.03] border-[#111]/15 hover:bg-white/[0.06] hover:border-[#111]/[0.12]',
               )}
             >
               <div
@@ -171,15 +171,15 @@ export function NetworkSwitcher({
                   'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
                   isActive
                     ? 'bg-[#3ec470]/20'
-                    : 'bg-white/[0.05]',
+                    : 'bg-[#111]/5',
                 )}
               >
                 {isActive && !isSwitching ? (
-                  <Check className="w-4 h-4 text-[#3ec470]" />
+                  <Check className="w-4 h-4 text-[#117a3d]" />
                 ) : isSwitching ? (
-                  <Loader2 className="w-4 h-4 text-white/50 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-[#111]/50 animate-spin" />
                 ) : (
-                  <Globe className="w-4 h-4 text-white/50" />
+                  <Globe className="w-4 h-4 text-[#111]/50" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -187,23 +187,23 @@ export function NetworkSwitcher({
                   <span
                     className={cn(
                       'text-[14px] font-bold',
-                      isActive ? 'text-[#3ec470]' : 'text-white',
+                      isActive ? 'text-[#117a3d]' : 'text-[#111]',
                     )}
                   >
                     {chain.name}
                   </span>
                   {isTarget && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#3ec470] bg-[#3ec470]/10 px-1.5 py-0.5 rounded border border-[#3ec470]/20">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-[#117a3d] bg-[#3ec470]/10 px-1.5 py-0.5 rounded border border-[#1a7f37]/20">
                       Primary
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-white/40 font-mono">
+                <div className="text-[11px] text-[#111]/40 font-mono">
                   Chain ID: {chain.id} · {chain.nativeCurrency.symbol}
                 </div>
               </div>
               {isActive && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#3ec470]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#117a3d]">
                   Active
                 </span>
               )}

@@ -74,8 +74,8 @@ export function WrongNetworkBanner({ className = '', onSwitched }: WrongNetworkB
               disabled={isPending}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-[12px] transition-all flex-shrink-0 ${
                 isPending
-                  ? 'bg-[#3ec470]/50 text-black/50 cursor-not-allowed'
-                  : 'bg-[#3ec470] text-black hover:bg-[#4ade80]'
+                  ? 'bg-[#3ec470]/50 text-[#111]/50 cursor-not-allowed'
+                  : 'bg-[#3ec470] text-[#111] hover:bg-[#4ade80]'
               }`}
             >
               {isPending ? (
