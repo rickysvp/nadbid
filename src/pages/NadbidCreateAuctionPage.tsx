@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { usePublicClient } from 'wagmi';
+import { monadTestnet } from '../web3/config';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -52,6 +54,26 @@ type AssetType = '0' | '1' | '2'; // ERC20 / ERC721 / ERC1155
 
 const MIN_INCREMENT_BPS = 100; // 1%
 const MAX_INCREMENT_BPS = 5000; // 50%
+const SUPPORTS_INTERFACE_ABI = [
+  {
+    type: 'function',
+    name: 'supportsInterface',
+    inputs: [{ name: 'interfaceId', type: 'bytes4' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+const DECIMALS_ABI = [
+  {
+    type: 'function',
+    name: 'decimals',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+] as const;
+
 const STEPS = ['Asset', 'Pricing', 'Confirm'] as const;
 
 const inputCls =
@@ -105,6 +127,65 @@ export default function NadbidCreateAuctionPage() {
     return BigInt(Math.round(pct * 100));
   }, [incrementPct]);
 
+  const publicClient = usePublicClient({ chainId: monadTestnet.id });
+  const [assetProbe, setAssetProbe] = useState<'idle' | 'checking' | 'ok' | 'noCode' | 'badType'>('idle');
+
+  // 链上资产探测：地址必须存在合约代码，且接口与所选资产类型匹配，
+  // 否则创建时 transferFrom/transferFrom 必然 revert（浪费 gas）。
+  useEffect(() => {
+    let cancelled = false;
+    const v = assetAddr.trim();
+    if (!isAddress(v)) {
+      setAssetProbe('idle');
+      return;
+    }
+    if (!publicClient) {
+      setAssetProbe('idle');
+      return;
+    }
+    setAssetProbe('checking');
+    (async () => {
+      try {
+        const code = await publicClient.getCode({ address: v as `0x${string}` });
+        if (cancelled) return;
+        if (!code || code === '0x') {
+          setAssetProbe('noCode');
+          return;
+        }
+        const addr = v as `0x${string}`;
+        if (assetType === '0') {
+          await publicClient.readContract({
+            address: addr,
+            abi: DECIMALS_ABI,
+            functionName: 'decimals',
+          });
+          if (!cancelled) setAssetProbe('ok');
+        } else if (assetType === '1') {
+          const ok = await publicClient.readContract({
+            address: addr,
+            abi: SUPPORTS_INTERFACE_ABI,
+            functionName: 'supportsInterface',
+            args: ['0x80ac58cd'],
+          });
+          if (!cancelled) setAssetProbe(ok ? 'ok' : 'badType');
+        } else {
+          const ok = await publicClient.readContract({
+            address: addr,
+            abi: SUPPORTS_INTERFACE_ABI,
+            functionName: 'supportsInterface',
+            args: ['0xd9b67a26'],
+          });
+          if (!cancelled) setAssetProbe(ok ? 'ok' : 'badType');
+        }
+      } catch {
+        if (!cancelled) setAssetProbe('badType');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assetAddr, assetType, publicClient]);
+
   const amountWei = useMemo(() => {
     if (assetType === '1') return 0n; // ERC721：单件 NFT 由 tokenId 定位，amount 必须为 0（合约 require(amount==0)）
     if (!amount) return undefined;
@@ -124,6 +205,7 @@ export default function NadbidCreateAuctionPage() {
     isReady &&
     !!address &&
     assetAddrValid &&
+    assetProbe === 'ok' &&
     startPriceWei !== undefined &&
     incrementBps !== undefined &&
     incrementBps >= BigInt(MIN_INCREMENT_BPS) &&
@@ -140,6 +222,10 @@ export default function NadbidCreateAuctionPage() {
     if (!auctionAddr) return;
     if (!assetAddrValid) {
       toast.error?.('请输入有效的合约地址（0x + 40 位十六进制）');
+      return;
+    }
+    if (assetProbe !== 'ok') {
+      toast.error?.('资产合约探测未通过：地址无合约或类型不匹配');
       return;
     }
     if (assetType === '0') {
@@ -276,6 +362,22 @@ export default function NadbidCreateAuctionPage() {
               <p className="mt-1.5 text-xs text-red-400">
                 Invalid address — must be 0x + 40 hex characters
               </p>
+            )}
+            {assetAddrValid && assetProbe === 'checking' && (
+              <p className="mt-1.5 text-xs text-white/40">Probing on-chain…</p>
+            )}
+            {assetAddrValid && assetProbe === 'noCode' && (
+              <p className="mt-1.5 text-xs text-red-400">
+                No contract at this address on Monad Testnet — check the address or deploy it first
+              </p>
+            )}
+            {assetAddrValid && assetProbe === 'badType' && (
+              <p className="mt-1.5 text-xs text-red-400">
+                Address exists but is not a valid {assetType === '0' ? 'ERC-20' : assetType === '1' ? 'ERC-721 (supportsInterface 0x80ac58cd)' : 'ERC-1155 (0xd9b67a26)'} — pick the right asset type
+              </p>
+            )}
+            {assetAddrValid && assetProbe === 'ok' && (
+              <p className="mt-1.5 text-xs text-[#3ec470]">Contract verified on-chain ✓</p>
             )}
           </Field>
 
