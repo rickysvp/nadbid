@@ -6,6 +6,8 @@ import { useAuctionList, fmtUsdc, STATUS_LABEL, ASSET_LABEL, AuctionStatus } fro
 import { shortenAddress } from '../utils/format';
 import { cn } from '../utils/cn';
 import { CircularProgress } from '../components/ui/CircularProgress';
+import { AssetThumb } from '../components/ui/AssetThumb';
+import { useAssetMeta } from '../web3/hooks/useAssetMeta';
 
 const DURATION_SECONDS = 120;
 const WARNING_SECONDS = 15;
@@ -201,6 +203,7 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
   const progress = isLive ? Math.min(100, Math.max(0, (secsLeft / DURATION_SECONDS) * 100)) : 0;
   const danger = isLive && !ended && secsLeft <= WARNING_SECONDS;
   const st = STATUS_LABEL[a.status] ?? { text: 'Unknown', tone: 'gray' };
+  const assetMeta = useAssetMeta(a.assetType, a.assetAddr, a.assetType === 1 ? a.assetTokenId : undefined);
 
   return (
     <div className="relative nb-card overflow-hidden p-7 md:p-9 transition hover:-translate-y-1 hover:shadow-[8px_8px_0_#111]">
@@ -230,11 +233,31 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
         Auction <span className="text-[#117a3d]">#{a.id.toString()}</span>
       </h1>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-bold text-[#111]/60">
-        <span className="nb-chip bg-[#3ec470]/15 text-[#111]">{ASSET_LABEL[a.assetType] ?? 'Asset'}</span>
-        <span className="font-mono">{shortenAddress(a.assetAddr)}</span>
-        {a.assetType === 1 && <span className="font-mono">#{a.assetTokenId.toString()}</span>}
-        {a.assetType !== 1 && <span className="font-mono">× {fmtUsdc(a.assetAmount)}</span>}
+      <div className="mt-5 flex flex-wrap items-center gap-4">
+        <AssetThumb
+          assetType={a.assetType}
+          assetAddr={a.assetAddr}
+          tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
+          className="h-16 w-16"
+        />
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-xl font-black leading-tight text-[#111]">
+              {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading asset…' : 'Unnamed asset')}
+              {a.assetType === 1 && <span className="text-[#117a3d]"> #{a.assetTokenId.toString()}</span>}
+              {a.assetType !== 1 && a.assetAmount > 0n && (
+                <span className="text-[#111]/50"> × {fmtUsdc(a.assetAmount)}</span>
+              )}
+            </span>
+            <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
+              {ASSET_LABEL[a.assetType] ?? 'Asset'}
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-bold text-[#111]/45">
+            <span className="font-mono">{shortenAddress(a.assetAddr)}</span>
+            {assetMeta.data?.symbol && <span className="font-mono">· {assetMeta.data.symbol}</span>}
+          </div>
+        </div>
       </div>
 
       <div className="mt-7 grid grid-cols-2 md:grid-cols-4 gap-3">

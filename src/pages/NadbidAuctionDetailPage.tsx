@@ -38,6 +38,8 @@ import { contractAddresses, nadbidAuctionAbi, usdcAbi } from '../web3/contracts'
 import { shortenAddress } from '../utils/format';
 import { cn } from '../utils/cn';
 import { CircularProgress } from '../components/ui/CircularProgress';
+import { AssetThumb } from '../components/ui/AssetThumb';
+import { useAssetMeta } from '../web3/hooks/useAssetMeta';
 
 const DURATION_SECONDS = 120;
 const WARNING_SECONDS = 15;
@@ -63,6 +65,7 @@ export default function NadbidAuctionDetailPage() {
   }, [queryClient]);
 
   const bal = useUsdcBalance(address);
+  const assetMeta = useAssetMeta(meta?.assetType, meta?.assetAddr, meta?.assetTokenId, !!meta);
   const allowance = useUsdcAllowance(address, useNadbidAuctionContract().address);
   const approveTx = useApproveUsdc();
   const bidTx = usePlaceBid();
@@ -116,17 +119,39 @@ export default function NadbidAuctionDetailPage() {
                   </h1>
                   <StatusBadge status={meta.status} />
                 </div>
-                <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
-                  <span className="nb-chip bg-[#3ec470]/15 px-2.5 py-0.5 text-xs text-[#111]">
-                    {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
-                  </span>
-                  <span className="font-mono text-[#111]/60">{shortenAddress(meta.assetAddr)}</span>
-                  {meta.assetType === 1 && <span className="font-mono text-[#111]/60">#{meta.assetTokenId.toString()}</span>}
-                  {meta.assetType !== 1 && <span className="font-mono text-[#111]/60">× {fmtUsdc(meta.assetAmount)}</span>}
-                  <span className="text-[#111]/20">·</span>
-                  <span className="text-[#111]/50">
-                    Seller <span className="font-mono font-bold text-[#111]/70">{shortenAddress(meta.seller)}</span>
-                  </span>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <AssetThumb
+                    assetType={meta.assetType}
+                    assetAddr={meta.assetAddr}
+                    tokenId={meta.assetType === 1 ? meta.assetTokenId : undefined}
+                    className="h-16 w-16"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-lg font-black leading-tight text-[#111]">
+                        {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading asset…' : 'Unnamed asset')}
+                        {meta.assetType === 1 && (
+                          <span className="text-[#117a3d]"> #{meta.assetTokenId.toString()}</span>
+                        )}
+                        {meta.assetType !== 1 && meta.assetAmount > 0n && (
+                          <span className="text-[#111]/50"> × {fmtUsdc(meta.assetAmount)}</span>
+                        )}
+                      </span>
+                      <span className="nb-chip bg-[#3ec470]/15 px-2.5 py-0.5 text-xs text-[#111]">
+                        {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#111]/50">
+                      <span className="font-mono">{shortenAddress(meta.assetAddr)}</span>
+                      {assetMeta.data?.symbol && <span className="font-mono">· {assetMeta.data.symbol}</span>}
+                      <span className="text-[#111]/20">·</span>
+                      <span>
+                        Seller <span className="font-mono font-bold text-[#111]/70">{shortenAddress(meta.seller)}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
                   {meta.reservePrice > 0n && (
                     <span className="nb-chip bg-[#f5a623]/15 px-2.5 py-0.5 text-xs text-[#b45309]">
                       Reserve {fmtUsdc(meta.reservePrice)} USDC

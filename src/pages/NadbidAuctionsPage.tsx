@@ -11,6 +11,8 @@ import {
   type AuctionListRow,
 } from '../web3/hooks/useNadbidAuction';
 import { shortenAddress } from '../utils/format';
+import { AssetThumb } from '../components/ui/AssetThumb';
+import { useAssetMeta } from '../web3/hooks/useAssetMeta';
 import { cn } from '../utils/cn';
 import { ROUTES, nadbidDetailPath } from '../config/routes';
 
@@ -174,6 +176,7 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
   const ended = isLive && nowMs >= Number(a.deadline) * 1000;
   const secsLeft = Number(a.deadline) * 1000 - nowMs > 0 ? Math.ceil((Number(a.deadline) * 1000 - nowMs) / 1000) : 0;
   const price = a.lastPrice > 0n ? a.lastPrice : a.startPrice;
+  const assetMeta = useAssetMeta(a.assetType, a.assetAddr, a.assetType === 1 ? a.assetTokenId : undefined);
 
   return (
     <Link
@@ -200,11 +203,27 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
       </div>
 
       {/* 资产 */}
-      <div className="flex items-center gap-2">
-        <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
-          {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
-        </span>
-        <span className="font-mono text-xs text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
+      <div className="flex items-center gap-3">
+        <AssetThumb
+          assetType={a.assetType}
+          assetAddr={a.assetAddr}
+          tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
+          className="h-11 w-11"
+        />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-black text-[#111]">
+              {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
+            </span>
+            {a.assetType === 1 && <span className="shrink-0 font-mono text-[11px] text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
+              {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
+            </span>
+            <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
+          </div>
+        </div>
       </div>
 
       {/* 主价 */}
