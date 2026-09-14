@@ -99,7 +99,7 @@ export default function NadbidAuctionDetailPage() {
                 <span className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-xs">{ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}</span>
                 <span className="font-mono text-xs">{shortenAddress(meta.assetAddr)}</span>
                 {meta.assetType === 1 && <span className="font-mono text-xs">#{meta.assetTokenId.toString()}</span>}
-                {meta.assetType !== 1 && <span className="font-mono text-xs">× {meta.assetAmount.toString()}</span>}
+                {meta.assetType !== 1 && <span className="font-mono text-xs">× {fmtUsdc(meta.assetAmount)}</span>}
               </p>
               <p className="mt-1 text-xs text-white/40">
                 Seller <span className="font-mono">{shortenAddress(meta.seller)}</span>

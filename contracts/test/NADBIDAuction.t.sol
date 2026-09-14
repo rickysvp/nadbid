@@ -476,6 +476,38 @@ contract NADBIDAuctionTest is Test {
         assertApproxEqAbs(reward, expected, 2, "recoverExcess must not affect payable rewards");
     }
 
+    function test_RecoverExcess_AfterClaimed_RecoversStructuralResidual() public {
+        // 关键回归：分红已领后，recoverExcess 必须回收结构性残余（≈首笔×14.25%），
+        // 而不是把已发奖励计入 obligation 导致残余永久沉淀。
+        uint256 id = _createERC20AuctionDefault();
+        vm.roll(100);
+        vm.prank(alice);
+        auction.placeBid(id, P0);
+        vm.prevrandao(bytes32(uint256(0)));
+        vm.roll(101);
+        uint256 p2 = _nextPrice(P0, 100);
+        vm.prank(bob);
+        auction.placeBid(id, p2);
+        vm.warp(block.timestamp + 121);
+        vm.prevrandao(bytes32(uint256(0)));
+        auction.finalize(id);
+
+        uint256 b100 = auction.batchByBlock(id, 100);
+        vm.prank(alice);
+        auction.claimReward(id, b100); // alice 已领分红
+        vm.prank(seller);
+        auction.claimSeller(id); // 卖家先领取（recover 不应侵占卖家份额）
+
+        uint256 tBefore = usdc.balanceOf(treasury);
+        auction.recoverExcess(id);
+        uint256 tAfter = usdc.balanceOf(treasury);
+        // 结构性残余 ≈ 首笔出价的 14.25%（首笔不产生分红，但奖励池按总池计提）
+        assertApproxEqAbs(tAfter - tBefore, P0 * 1500 / 10000 * 9500 / 10000, 2,
+            "structural residual must be recoverable after rewards claimed");
+        // 合约应清空（除极小 dust）
+        assertLe(usdc.balanceOf(address(auction)), 3);
+    }
+
     // ============ 权限与边界 ============
 
     function test_Owner_CanSetTreasury() public {

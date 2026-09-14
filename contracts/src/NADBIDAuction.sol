@@ -347,15 +347,17 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         uint256 refundPending = a.candidatesPool - pool - a.retainedFees - a.refunded;
         uint256 sellerPending = sellerAmtFinalized[auctionId] ? 0 : sellerAmount;
 
-        uint256 payableRewards;
+        uint256 unclaimedRewards;
         for (uint256 i = a.batchStartId; i <= a.lastBatchId; i++) {
             BidBatch storage b = batches[i];
             if (!b.resolved) continue;
-            payableRewards += _dividend(a, b);
+            if (b.selectedBidder == address(0)) continue;
+            if (rewardClaimed[i][b.selectedBidder]) continue; // 已领取的扣除，只计算未领
+            unclaimedRewards += _dividend(a, b);
         }
 
         uint256 balance = IERC20(bidToken).balanceOf(address(this));
-        uint256 obligation = refundPending + sellerPending + payableRewards;
+        uint256 obligation = refundPending + sellerPending + unclaimedRewards;
         if (balance > obligation) {
             uint256 excess = balance - obligation;
             IERC20(bidToken).safeTransfer(treasury, excess);

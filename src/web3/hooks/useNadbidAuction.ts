@@ -209,11 +209,29 @@ export function useBatchMeta(batchId: bigint | undefined) {
     query: { enabled },
   });
   const batch = useMemo<BatchMeta | undefined>(() => {
+    // getBatch 的 ABI 是命名 struct（components），viem 会解析成对象而非数组；
+    // 兼容两种形态避免 d[0]/d[2] 读到 undefined。
     const d = r.data as
       | [bigint, bigint, bigint, `0x${string}`, bigint, boolean]
+      | {
+          price: bigint;
+          blockNumber: bigint;
+          candidateCount: bigint;
+          selectedBidder: `0x${string}`;
+          snapshotRpu: bigint;
+          resolved: boolean;
+        }
       | undefined;
     if (!d) return undefined;
-    return { price: d[0], blockNumber: d[1], candidateCount: d[2], selectedBidder: d[3], snapshotRpu: d[4], resolved: d[5] };
+    const isArr = Array.isArray(d);
+    return {
+      price: (isArr ? d[0] : d.price) as bigint,
+      blockNumber: (isArr ? d[1] : d.blockNumber) as bigint,
+      candidateCount: (isArr ? d[2] : d.candidateCount) as bigint,
+      selectedBidder: (isArr ? d[3] : d.selectedBidder) as `0x${string}`,
+      snapshotRpu: (isArr ? d[4] : d.snapshotRpu) as bigint,
+      resolved: (isArr ? d[5] : d.resolved) as boolean,
+    };
   }, [r.data]);
   return { ...r, batch };
 }
@@ -375,12 +393,13 @@ export function useAuctionList() {
               address: auctionAddr!,
               abi: nadbidAuctionAbi,
               functionName: 'auctions',
-              args: [BigInt(i)],
+              // 合约 auctionId 从 1 开始
+              args: [BigInt(i + 1)],
             })
             .then((d) => {
               const v = d as readonly unknown[];
               return {
-                id: BigInt(i),
+                id: BigInt(i + 1),
                 status: Number(v[0]) as number,
                 seller: v[1] as `0x${string}`,
                 assetType: Number(v[2]) as number,
