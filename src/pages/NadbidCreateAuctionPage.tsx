@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { usePublicClient } from 'wagmi';
+import { usePublicClient, useReadContract } from 'wagmi';
 import { monadTestnet } from '../web3/config';
 import { Link } from 'react-router-dom';
 import {
@@ -70,6 +70,32 @@ const DECIMALS_ABI = [
     name: 'decimals',
     inputs: [],
     outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+const ALLOWANCE_ABI = [
+  {
+    type: 'function',
+    name: 'allowance',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const;
+
+const IS_APPROVED_FOR_ALL_ABI = [
+  {
+    type: 'function',
+    name: 'isApprovedForAll',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'operator', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
 ] as const;
@@ -200,6 +226,26 @@ export default function NadbidCreateAuctionPage() {
     const v = assetAddr.trim();
     return isAddress(v);
   })();
+  const approvalArgs = useMemo(() => {
+    if (!address || !auctionAddr) return undefined;
+    return [address, auctionAddr] as readonly [`0x${string}`, `0x${string}`];
+  }, [address, auctionAddr]);
+  const approvalQuery = useReadContract({
+    chainId: monadTestnet.id,
+    address: (assetAddrValid ? assetAddr.trim() : '') as `0x${string}` | undefined,
+    abi: assetType === '0' ? ALLOWANCE_ABI : IS_APPROVED_FOR_ALL_ABI,
+    functionName: assetType === '0' ? 'allowance' : 'isApprovedForAll',
+    args: approvalArgs,
+    query: { enabled: !!address && !!auctionAddr && assetAddrValid },
+  });
+  const assetApproved = useMemo(() => {
+    if (!approvalQuery.data || !auctionAddr) return false;
+    if (assetType === '0') {
+      if (typeof approvalQuery.data !== 'bigint' || amountWei === undefined) return false;
+      return approvalQuery.data >= amountWei;
+    }
+    return approvalQuery.data === true;
+  }, [approvalQuery.data, assetType, amountWei, auctionAddr]);
 
   const canCreate =
     isReady &&
@@ -211,7 +257,8 @@ export default function NadbidCreateAuctionPage() {
     incrementBps >= BigInt(MIN_INCREMENT_BPS) &&
     incrementBps <= BigInt(MAX_INCREMENT_BPS) &&
     amountWei !== undefined &&
-    (reserveWei === undefined || reserveWei > 0n);
+    (reserveWei === undefined || reserveWei > 0n) &&
+    assetApproved;
 
   const assetValid = assetAddrValid && amountWei !== undefined;
   const pricingValid =
@@ -248,6 +295,7 @@ export default function NadbidCreateAuctionPage() {
       });
     }
     toast.success?.('Approved. You can now create the auction.');
+    queryClient.invalidateQueries();
   };
 
   /** 第二步：创建拍卖 */
@@ -505,7 +553,11 @@ export default function NadbidCreateAuctionPage() {
               disabled={!canCreate || createTx.isLoading}
               className="flex-1 rounded-xl bg-[#3ec470] px-4 py-3 text-sm font-black text-black transition hover:bg-[#4ade80] disabled:opacity-40"
             >
-              {createTx.isLoading ? 'Creating…' : 'Create auction'}
+              {createTx.isLoading
+                ? 'Creating…'
+                : assetAddrValid && !assetApproved
+                  ? 'Approve asset first'
+                  : 'Create auction'}
             </button>
           </div>
 
