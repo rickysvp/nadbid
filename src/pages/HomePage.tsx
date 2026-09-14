@@ -232,110 +232,113 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
         <span className="font-mono text-xs font-black text-[#111]/35">AUCTION #{a.id.toString()}</span>
       </div>
 
-      {/* 拍品主视觉（最大占比） */}
-      <div className="mt-5">
-        <AssetThumb
-          assetType={a.assetType}
-          assetAddr={a.assetAddr}
-          tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
-          variant="hero"
-          className="h-56 w-full md:h-72"
-        />
-      </div>
+      {/* 左图右文：拍品 LOGO + 介绍 */}
+      <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        {/* 左：代币图标 / NFT 图片 */}
+        <div>
+          <AssetThumb
+            assetType={a.assetType}
+            assetAddr={a.assetAddr}
+            tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
+            variant="hero"
+            className="aspect-square w-full h-auto"
+          />
+        </div>
 
-      {/* 拍品名 + meta */}
-      <div className="mt-5">
-        <h1 className="truncate text-2xl font-black tracking-tighter md:text-3xl">
-          {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading asset…' : 'Unnamed asset')}
-          {a.assetType === 1 && <span className="text-[#117a3d]"> #{a.assetTokenId.toString()}</span>}
-          {a.assetType !== 1 && a.assetAmount > 0n && (
-            <span className="text-[#111]/50"> × {fmtUsdc(a.assetAmount)}</span>
-          )}
-        </h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#111]/50">
-          <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
-            {ASSET_LABEL[a.assetType] ?? 'Asset'}
-          </span>
-          <span className="font-mono">{shortenAddress(a.assetAddr)}</span>
-          {assetMeta.data?.symbol && <span className="font-mono">· {assetMeta.data.symbol}</span>}
-          <span className="text-[#111]/20">·</span>
-          <span>
-            Seller <span className="font-mono font-bold text-[#111]/70">{shortenAddress(a.seller)}</span>
-          </span>
-          {a.reservePrice > 0n && (
-            <span className="nb-chip bg-[#f5a623]/15 px-2 py-0.5 text-[11px] text-[#b45309]">
-              Reserve {fmtUsdc(a.reservePrice)}
+        {/* 右：介绍 */}
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate text-2xl font-black tracking-tighter md:text-3xl">
+            {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading asset…' : 'Unnamed asset')}
+            {a.assetType === 1 && <span className="text-[#117a3d]"> #{a.assetTokenId.toString()}</span>}
+            {a.assetType !== 1 && a.assetAmount > 0n && (
+              <span className="text-[#111]/50"> × {fmtUsdc(a.assetAmount)}</span>
+            )}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#111]/50">
+            <span className="nb-chip bg-[#3ec470]/15 px-2 py-0.5 text-[11px] text-[#111]">
+              {ASSET_LABEL[a.assetType] ?? 'Asset'}
             </span>
-          )}
-        </div>
-      </div>
-
-      {/* 数据行 */}
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <div className="nb-card-flat p-3.5">
-          <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Current price</div>
-          <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(price)}</div>
-          <div className="text-[10px] text-[#111]/40">USDC</div>
-        </div>
-        <div className="nb-card-flat p-3.5">
-          <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Total pool</div>
-          <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(a.totalPool)}</div>
-          <div className="text-[10px] text-[#111]/40">USDC retained</div>
-        </div>
-        <div className="nb-card-flat p-3.5">
-          <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Next bid</div>
-          <div className="mt-1 font-mono text-xl font-black">
-            {fmtUsdc(a.lastPrice > 0n ? a.lastPrice + (a.lastPrice * a.incrementBps) / 10000n : a.startPrice)}
+            <span className="font-mono">{shortenAddress(a.assetAddr)}</span>
+            {assetMeta.data?.symbol && <span className="font-mono">· {assetMeta.data.symbol}</span>}
+            <span className="text-[#111]/20">·</span>
+            <span>
+              Seller <span className="font-mono font-bold text-[#111]/70">{shortenAddress(a.seller)}</span>
+            </span>
+            {a.reservePrice > 0n && (
+              <span className="nb-chip bg-[#f5a623]/15 px-2 py-0.5 text-[11px] text-[#b45309]">
+                Reserve {fmtUsdc(a.reservePrice)}
+              </span>
+            )}
           </div>
-          <div className="text-[10px] text-[#111]/40">+{Number(a.incrementBps) / 100}%</div>
-        </div>
-      </div>
 
-      <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
-        {/* 倒计时 / 终局 */}
-        <div className="flex items-center gap-4">
-          {isLive ? (
-            <CircularProgress
-              progress={ended ? 0 : progress}
-              size={92}
-              strokeWidth={6}
-              label={ended ? '0' : `${secsLeft}`}
-              sublabel={ended ? 'Ended' : danger ? 'Final seconds' : 'seconds left'}
-              danger={danger}
-            />
-          ) : (
-            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-full border-2 border-[#111] bg-[#111] text-center text-[#fffdf7]">
-              <div>
-                <div className="font-mono text-lg font-black leading-none">{st.text}</div>
-                <div className="mt-1 text-[9px] font-bold uppercase tracking-wider text-[#fffdf7]/60">status</div>
+          {/* 数据行 */}
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="nb-card-flat p-3.5">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Current price</div>
+              <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(price)}</div>
+              <div className="text-[10px] text-[#111]/40">USDC</div>
+            </div>
+            <div className="nb-card-flat p-3.5">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Total pool</div>
+              <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(a.totalPool)}</div>
+              <div className="text-[10px] text-[#111]/40">USDC retained</div>
+            </div>
+            <div className="nb-card-flat p-3.5">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Next bid</div>
+              <div className="mt-1 font-mono text-xl font-black">
+                {fmtUsdc(a.lastPrice > 0n ? a.lastPrice + (a.lastPrice * a.incrementBps) / 10000n : a.startPrice)}
+              </div>
+              <div className="text-[10px] text-[#111]/40">+{Number(a.incrementBps) / 100}%</div>
+            </div>
+          </div>
+
+          {/* 倒计时 / 终局 + CTA */}
+          <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
+            <div className="flex items-center gap-4">
+              {isLive ? (
+                <CircularProgress
+                  progress={ended ? 0 : progress}
+                  size={88}
+                  strokeWidth={6}
+                  label={ended ? '0' : `${secsLeft}`}
+                  sublabel={ended ? 'Ended' : danger ? 'Final seconds' : 'seconds left'}
+                  danger={danger}
+                />
+              ) : (
+                <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-2 border-[#111] bg-[#111] text-center text-[#fffdf7]">
+                  <div>
+                    <div className="font-mono text-lg font-black leading-none">{st.text}</div>
+                    <div className="mt-1 text-[9px] font-bold uppercase tracking-wider text-[#fffdf7]/60">status</div>
+                  </div>
+                </div>
+              )}
+              <div className="max-w-[200px]">
+                <div className="text-xs font-black uppercase tracking-wider text-[#111]/40">
+                  {isLive ? 'Countdown' : 'Final result'}
+                </div>
+                <div className={cn('mt-1 text-sm font-bold leading-snug', danger ? 'text-[#ff4d4f]' : 'text-[#111]/70')}>
+                  {isLive
+                    ? ended
+                      ? 'Timer ran out — finalize to settle the auction.'
+                      : danger
+                        ? 'Last 15 seconds! Bid to reset the 120s clock.'
+                        : 'Timer resets to 120s on every bid.'
+                    : a.winner !== '0x0000000000000000000000000000000000000000'
+                      ? `Won at ${fmtUsdc(a.finalPrice)} USDC by ${shortenAddress(a.winner)}`
+                      : 'Auction closed without a winner.'}
+                </div>
               </div>
             </div>
-          )}
-          <div className="max-w-[180px]">
-            <div className="text-xs font-black uppercase tracking-wider text-[#111]/40">
-              {isLive ? 'Countdown' : 'Final result'}
-            </div>
-            <div className={cn('mt-1 text-sm font-bold leading-snug', danger ? 'text-[#ff4d4f]' : 'text-[#111]/70')}>
-              {isLive
-                ? ended
-                  ? 'Timer ran out — finalize to settle the auction.'
-                  : danger
-                    ? 'Last 15 seconds! Bid to reset the 120s clock.'
-                    : 'Timer resets to 120s on every bid.'
-                : a.winner !== '0x0000000000000000000000000000000000000000'
-                  ? `Won at ${fmtUsdc(a.finalPrice)} USDC by ${shortenAddress(a.winner)}`
-                  : 'Auction closed without a winner.'}
-            </div>
+
+            <Link
+              to={nadbidDetailPath(a.id)}
+              className="sm:ml-auto inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#111] bg-[#3ec470] px-8 py-4 text-base font-black text-[#111] shadow-[4px_4px_0_#111] transition hover:bg-[#4ade80] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
+            >
+              {isLive && !ended ? 'Place a bid' : 'View auction'}
+              <ArrowRight className="h-4.5 w-4.5" />
+            </Link>
           </div>
         </div>
-
-        <Link
-          to={nadbidDetailPath(a.id)}
-          className="sm:ml-auto inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#111] bg-[#3ec470] px-8 py-4 text-base font-black text-[#111] shadow-[4px_4px_0_#111] transition hover:bg-[#4ade80] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
-        >
-          {isLive && !ended ? 'Place a bid' : 'View auction'}
-          <ArrowRight className="h-4.5 w-4.5" />
-        </Link>
       </div>
     </div>
   );

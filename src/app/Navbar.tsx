@@ -53,21 +53,18 @@ export default function Navbar() {
     >
       <div className="w-full flex justify-between items-center px-6 md:px-10 py-4 md:py-5 max-w-[1600px] mx-auto">
         {/* Logo */}
-        <div
-          className={cn(
-            'font-black text-2xl md:text-3xl tracking-tighter flex items-center gap-2.5 cursor-pointer select-none',
-            'text-[#111]',
-          )}
+        <button
           onClick={() => go('/')}
+          aria-label="NADBID home"
+          className="flex items-center cursor-pointer select-none"
         >
-          <span
-            className={cn(
-              'w-2 h-2 rounded-full bg-[#3ec470]',
-              onHome ? 'shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'shadow-[0_0_10px_rgba(52,211,153,0.8)]',
-            )}
+          <img
+            src="/nadbid-logo.png"
+            alt="NADBID"
+            className="h-8 w-auto md:h-9"
+            draggable={false}
           />
-          NADBID
-        </div>
+        </button>
 
         {/* Desktop Navigation */}
         <div

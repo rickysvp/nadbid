@@ -202,34 +202,34 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
         </span>
       </div>
 
-      {/* 拍品主视觉 */}
-      <div className="-mx-5 -mt-5 mb-4">
+      {/* 左图右文：拍品 LOGO + 介绍 */}
+      <div className="flex gap-4">
         <AssetThumb
           assetType={a.assetType}
           assetAddr={a.assetAddr}
           tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
           variant="hero"
-          className="h-40 w-full rounded-none border-x-0 border-t-0 shadow-none md:h-44"
+          className="h-28 w-28 shrink-0 md:h-32 md:w-32"
         />
-      </div>
+        <div className="flex min-w-0 flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-base font-black text-[#111]">
+              {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
+            </span>
+            {a.assetType === 1 && <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
+              {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
+            </span>
+            <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
+          </div>
 
-      {/* 拍品名 */}
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-base font-black text-[#111]">
-          {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
-        </span>
-        {a.assetType === 1 && <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
-      </div>
-      <div className="mt-1 flex items-center gap-1.5">
-        <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
-          {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
-        </span>
-        <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
-      </div>
-
-      {/* 主价 */}
-      <div className="mt-3.5 text-3xl font-black tracking-tight text-[#111]">
-        {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
+          {/* 主价 */}
+          <div className="mt-auto pt-2 text-3xl font-black tracking-tight text-[#111]">
+            {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
+          </div>
+        </div>
       </div>
 
       {/* 底部 meta */}
