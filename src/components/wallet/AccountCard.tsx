@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { useDisconnect } from 'wagmi';
+import { disconnectWallet } from '../../web3/disconnectWallet';
 import { Wallet, Copy, Check, ExternalLink, LogOut, TrendingUp } from 'lucide-react';
 import { useWalletStore } from '../../stores/walletStore';
 import { useToast } from '../../hooks/useToast';
@@ -24,7 +24,7 @@ interface AccountCardProps {
 
 export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
   const { address, balanceMon, balanceStale, chainId, connectorName } = useWalletStore();
-  const { disconnect } = useDisconnect();
+
   const { success, info } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -51,9 +51,9 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleDisconnect = () => {
-    disconnect();
-    info('Wallet disconnected');
+  const handleDisconnect = async () => {
+    const { extensionReminder } = await disconnectWallet();
+    info(extensionReminder ? 'Wallet disconnected — 如需彻底退出，请在 OKX/MetaMask 扩展中移除本站授权' : 'Wallet disconnected');
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useDisconnect } from 'wagmi';
+import { disconnectWallet } from '../../web3/disconnectWallet';
 import {
   Wallet,
   Copy,
@@ -40,7 +40,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { isConnected, address, balanceMon, balanceStale, chainId, connectorName } = useWalletStore();
-  const { disconnect } = useDisconnect();
+
   const { success, info } = useToast();
 
   const isDark = variant === 'dark';
@@ -69,10 +69,10 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
     }
   };
 
-  const handleDisconnect = () => {
-    disconnect();
+  const handleDisconnect = async () => {
+    const { extensionReminder } = await disconnectWallet();
     setDropdownOpen(false);
-    info('Wallet disconnected');
+    info(extensionReminder ? 'Wallet disconnected — 如需彻底退出，请在 OKX/MetaMask 扩展中移除本站授权' : 'Wallet disconnected');
   };
 
   const handleExplorer = () => {
