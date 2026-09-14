@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { ROUTES } from '../config/routes';
 
 /**
- * 页脚 — 严格匹配原 DEMO 视觉
+ * 页脚 — NADBID
  * Logo + 描述 + Platform/Resources/Legal 链接 + 社交媒体 + 巨型底部 Logo
- * P2-9 修复：所有占位链接改为实际路由或明确标记 "Soon"，避免点击无反应
+ * 旧 KOL 合约链接已替换为 NADBIDAuction 主合约；未上线链接明确标记 Soon
  */
 export function Footer() {
   return (
@@ -16,7 +16,8 @@ export function Footer() {
             NADBID
           </div>
           <p className="text-gray-500 text-sm max-w-sm leading-relaxed">
-            Decentralized influencer auctions and KOL access passes on Monad.
+            Bid with USDC. Non-refundable retained bids, early-bird dividends, last bid wins the asset. On-chain
+            auctions on Monad.
           </p>
         </div>
 
@@ -24,11 +25,8 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-xs tracking-wider uppercase text-gray-400 mb-6">Platform</h4>
             <ul className="space-y-4 text-gray-500 text-sm">
-              <li><Link to={ROUTES.WALLET} className="hover:text-white transition-colors">Trade Passes</Link></li>
-              <li className="flex items-center gap-2">
-                <Link to={ROUTES.STAKING} className="hover:text-white transition-colors">Stake & Earn</Link>
-                <span className="text-[9px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
-              </li>
+              <li><Link to={ROUTES.NADBID} className="hover:text-white transition-colors">Auctions</Link></li>
+              <li><Link to={ROUTES.NADBID_CREATE} className="hover:text-white transition-colors">Create Auction</Link></li>
               <li className="flex items-center gap-2">
                 <span className="text-gray-600 cursor-not-allowed">Leaderboard</span>
                 <span className="text-[9px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
@@ -38,25 +36,24 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-xs tracking-wider uppercase text-gray-400 mb-6">Resources</h4>
             <ul className="space-y-4 text-gray-500 text-sm">
-              <li><Link to={ROUTES.DOCS} className="hover:text-white transition-colors">Documentation</Link></li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0x785cb9d1d67e5a19df1f800254a36ba90d4c5f62"
+                  href="https://testnet.monadexplorer.com/address/0xa4995aabf1910ec713a9b17a0b679e9ef95547ee"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
                 >
-                  Registry Contract
+                  NADBIDAuction Contract
                 </a>
               </li>
               <li>
                 <a
-                  href="https://testnet.monadexplorer.com/address/0x5ac2cecbe225e394a4f19639b729f37a64b90c42"
+                  href="https://testnet.monadexplorer.com/token/0x534b2f3a21130d7a60830c2df862319e593943a3"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
                 >
-                  Factory Contract
+                  USDC (Testnet)
                 </a>
               </li>
               <li>
@@ -82,8 +79,9 @@ export function Footer() {
                 <span className="text-gray-600 cursor-not-allowed">Privacy Policy</span>
                 <span className="text-[9px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
               </li>
-              <li>
-                <Link to={ROUTES.DOCS} className="hover:text-white transition-colors">Risk Disclaimer</Link>
+              <li className="flex items-center gap-2">
+                <span className="text-gray-600 cursor-not-allowed">Risk Disclaimer</span>
+                <span className="text-[9px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
               </li>
             </ul>
           </div>
@@ -92,7 +90,7 @@ export function Footer() {
 
       <div className="w-full border-t border-white/5">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center py-8 text-gray-500 text-sm">
-          <p>&copy; 2024 nadbid.fun. All rights reserved.</p>
+          <p>&copy; 2026 nadbid.fun. All rights reserved.</p>
           <div className="flex items-center gap-4 mt-4 md:mt-0">
             <a
               href="https://x.com/nadbid"

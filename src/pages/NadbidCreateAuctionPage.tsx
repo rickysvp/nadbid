@@ -1,12 +1,25 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Coins, Image as ImageIcon, Layers, PlusCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clock,
+  Coins,
+  Image as ImageIcon,
+  Layers,
+  PlusCircle,
+  ShieldCheck,
+  Trophy,
+  TrendingUp,
+} from 'lucide-react';
 import { parseUnits } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConnectedAddress, useCreateAuction, useNadbidAuctionContract } from '../web3/hooks/useNadbidAuction';
 import { cn } from '../utils/cn';
 import { useToast } from '../hooks/useToast';
 import { useWriteContractTx } from '../web3/hooks/useWriteContractTx';
+import { nadbidAuctionAbi } from '../web3/contracts';
 
 /** 资产授权 ABI（精简） */
 const ERC20_APPROVE_ABI = [
@@ -39,6 +52,10 @@ type AssetType = '0' | '1' | '2'; // ERC20 / ERC721 / ERC1155
 
 const MIN_INCREMENT_BPS = 100; // 1%
 const MAX_INCREMENT_BPS = 5000; // 50%
+const STEPS = ['Asset', 'Pricing', 'Confirm'] as const;
+
+const inputCls =
+  'w-full rounded-xl border border-white/10 bg-[#0f0f0f] px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:border-[#3ec470]/50';
 
 export default function NadbidCreateAuctionPage() {
   const address = useConnectedAddress();
@@ -48,6 +65,7 @@ export default function NadbidCreateAuctionPage() {
   const createTx = useCreateAuction();
   const approveTx = useWriteContractTx();
 
+  const [step, setStep] = useState(0);
   const [assetType, setAssetType] = useState<AssetType>('0');
   const [assetAddr, setAssetAddr] = useState('');
   const [tokenId, setTokenId] = useState('');
@@ -108,12 +126,16 @@ export default function NadbidCreateAuctionPage() {
     amountWei !== undefined &&
     (reserveWei === undefined || reserveWei > 0n);
 
+  const assetValid = !!assetAddr.trim() && amountWei !== undefined;
+  const pricingValid =
+    startPriceWei !== undefined && incrementBps !== undefined && incrementBps >= BigInt(MIN_INCREMENT_BPS) && incrementBps <= BigInt(MAX_INCREMENT_BPS) && (reserveWei === undefined || reserveWei > 0n);
+
   /** 第一步：授权资产给合约 */
   const handleApprove = async () => {
     if (!auctionAddr) return;
     if (assetType === '0') {
       await approveTx.write({
-        address: assetAddr as `0x${string}`,
+        address: assetAddr.trim() as `0x${string}`,
         abi: ERC20_APPROVE_ABI,
         functionName: 'approve',
         args: [auctionAddr, amountWei!],
@@ -121,7 +143,7 @@ export default function NadbidCreateAuctionPage() {
       });
     } else {
       await approveTx.write({
-        address: assetAddr as `0x${string}`,
+        address: assetAddr.trim() as `0x${string}`,
         abi: SET_APPROVAL_ABI,
         functionName: 'setApprovalForAll',
         args: [auctionAddr, true],
@@ -137,7 +159,7 @@ export default function NadbidCreateAuctionPage() {
     const tokenIdWei = assetType === '0' ? 0n : BigInt(tokenId || 0);
     const hash = await createTx.write({
       address: auctionAddr,
-      abi: createAbi(),
+      abi: nadbidAuctionAbi,
       functionName: 'createAuction',
       args: [
         BigInt(assetType),
@@ -156,32 +178,53 @@ export default function NadbidCreateAuctionPage() {
     }
   };
 
-  return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <Link to="/nadbid" className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#3ec470]">
-        <ArrowLeft className="h-4 w-4" />
-        All auctions
-      </Link>
-
-      <h1 className="mb-1 flex items-center gap-3 text-2xl font-bold text-white">
-        <PlusCircle className="h-7 w-7 text-[#3ec470]" />
-        Create auction
-      </h1>
-      <p className="mb-6 text-sm text-white/50">
-        List any on-chain asset (ERC-20 / ERC-721 / ERC-1155). Bidders pay in USDC; the asset is escrowed at creation
-        and delivered to the winner automatically on settle.
-      </p>
-
-      {!isReady ? (
-        <div className="rounded-xl border border-white/5 bg-[#161616] p-8 text-center text-sm text-white/40">
+  if (!isReady) {
+    return (
+      <Shell>
+        <div className="rounded-2xl border border-white/5 bg-[#161616] p-12 text-center text-sm text-white/40">
           Contract not deployed. Set <span className="font-mono text-[#3ec470]">VITE_NADBID_AUCTION</span> first.
         </div>
-      ) : !address ? (
-        <div className="rounded-xl border border-white/5 bg-[#161616] p-8 text-center text-sm text-white/40">
+      </Shell>
+    );
+  }
+
+  if (!address) {
+    return (
+      <Shell>
+        <div className="rounded-2xl border border-white/5 bg-[#161616] p-12 text-center text-sm text-white/40">
           Connect your wallet to create an auction.
         </div>
-      ) : (
-        <div className="space-y-5 rounded-xl border border-white/5 bg-[#161616] p-6">
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      {/* 步骤指示器 */}
+      <div className="mb-8 flex items-center gap-2">
+        {STEPS.map((s, i) => (
+          <div key={s} className="flex items-center gap-2">
+            <button
+              onClick={() => i < step && setStep(i)}
+              className={cn(
+                'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold transition',
+                i === step
+                  ? 'bg-[#3ec470] text-black'
+                  : i < step
+                    ? 'bg-[#3ec470]/10 text-[#3ec470]'
+                    : 'bg-white/5 text-white/40',
+              )}
+            >
+              {i < step ? <Check className="h-3 w-3" /> : <span className="font-mono">{i + 1}</span>}
+              {s}
+            </button>
+            {i < STEPS.length - 1 && <div className="h-px w-6 bg-white/10" />}
+          </div>
+        ))}
+      </div>
+
+      {step === 0 && (
+        <StepCard title="What are you auctioning?" desc="List any on-chain asset. It is escrowed at creation and delivered to the winner automatically.">
           {/* 资产类型 */}
           <div>
             <label className="mb-2 block text-sm font-semibold text-white/70">Asset type</label>
@@ -197,7 +240,7 @@ export default function NadbidCreateAuctionPage() {
                   key={t.v}
                   onClick={() => setAssetType(t.v)}
                   className={cn(
-                    'flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition',
+                    'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition',
                     assetType === t.v
                       ? 'border-[#3ec470]/50 bg-[#3ec470]/10 text-[#3ec470]'
                       : 'border-white/10 bg-[#0f0f0f] text-white/60 hover:border-white/20',
@@ -210,7 +253,7 @@ export default function NadbidCreateAuctionPage() {
             </div>
           </div>
 
-          <Field label="Asset contract address" hint="e.g. Wrapped BTC, MON, NFT collection">
+          <Field label="Asset contract address" hint="e.g. Wrapped BTC, MON, an NFT collection">
             <input
               value={assetAddr}
               onChange={(e) => setAssetAddr(e.target.value)}
@@ -231,74 +274,169 @@ export default function NadbidCreateAuctionPage() {
             </Field>
           )}
 
-          <Field label="Start price (USDC)" hint="起拍价，第一笔出价即此价">
-            <input value={startPrice} onChange={(e) => setStartPrice(e.target.value)} placeholder="10" className={inputCls} />
-          </Field>
+          <div className="mt-6 flex justify-end">
+            <button
+              disabled={!assetValid}
+              onClick={() => setStep(1)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-6 py-3 text-sm font-black text-black transition hover:bg-[#4ade80] disabled:opacity-40"
+            >
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </StepCard>
+      )}
 
-          <Field label={`Increment per bid (${incrementPct}% = +${incrementPct}%)`} hint={`范围 1% – 50%`}>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              step={1}
-              value={incrementPct}
-              onChange={(e) => setIncrementPct(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
+      {step === 1 && (
+        <StepCard title="Set the price ladder" desc="Fixed 120s countdown per bid — the timer resets every time someone bids.">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Start price (USDC)" hint="起拍价，第一笔出价即此价">
+              <input value={startPrice} onChange={(e) => setStartPrice(e.target.value)} placeholder="10" className={inputCls} />
+            </Field>
 
-          <Field label="Reserve price (USDC, optional)" hint="未达保留价 → 流拍全额退款，资产退回">
-            <input value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="0" className={inputCls} />
-          </Field>
+            <Field label={`Increment per bid (${incrementPct}%)`} hint="范围 1% – 50%">
+              <input
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                value={incrementPct}
+                onChange={(e) => setIncrementPct(e.target.value)}
+                className={inputCls}
+              />
+            </Field>
 
-          {/* 摘要 */}
-          <div className="rounded-lg bg-[#0f0f0f] p-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-white/50">Auction escrow</span>
-              <span className="font-mono text-white">
-                {assetType === '0' ? `${amount || '—'} ${shorten(assetAddr)}` : assetType === '1' ? `#${tokenId || '—'} ${shorten(assetAddr)}` : `${amount || '—'}× #${tokenId || '—'} ${shorten(assetAddr)}`}
-              </span>
-            </div>
-            <div className="mt-1.5 flex justify-between">
-              <span className="text-white/50">Start price</span>
-              <span className="font-mono text-[#3ec470]">{startPrice ? `${startPrice} USDC` : '—'}</span>
-            </div>
-            <div className="mt-1.5 flex justify-between">
-              <span className="text-white/50">Reserve</span>
-              <span className="font-mono text-white/80">{reservePrice ? `${reservePrice} USDC` : 'none'}</span>
+            <Field label="Reserve price (USDC, optional)" hint="未达保留价 → 流拍全额退款，资产退回">
+              <input value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="0" className={inputCls} />
+            </Field>
+
+            {/* 固定时长（只读） */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-white/70">Auction duration</label>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0f0f0f] px-4 py-3">
+                <Clock className="h-4 w-4 text-[#3ec470]" />
+                <span className="font-mono text-sm font-black text-white">120 seconds</span>
+                <span className="text-xs text-white/35">fixed · resets on each bid</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          {/* 费用说明 */}
+          <div className="mt-5 rounded-xl border border-[#3ec470]/15 bg-[#3ec470]/[0.04] p-4 text-sm">
+            <div className="mb-2 text-xs font-black uppercase tracking-wider text-[#3ec470]">Payout structure</div>
+            <div className="grid grid-cols-2 gap-2.5 text-white/70">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 shrink-0 text-[#3ec470]" />
+                You receive <b className="text-white">85% of the pool</b> (net of 5% settle fee)
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 shrink-0 text-[#3ec470]" />
+                15% of pool → earlier bidders as dividends
+              </div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#3ec470]" />
+                Bidders pay a 1% fee on each bid
+              </div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#3ec470]" />
+                Reserve not met → all bids refunded
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-between">
+            <button onClick={() => setStep(0)} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-white/70 hover:text-white">
+              Back
+            </button>
+            <button
+              disabled={!pricingValid}
+              onClick={() => setStep(2)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#3ec470] px-6 py-3 text-sm font-black text-black transition hover:bg-[#4ade80] disabled:opacity-40"
+            >
+              Review & confirm
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </StepCard>
+      )}
+
+      {step === 2 && (
+        <StepCard title="Confirm & deploy" desc="Approve the asset, then create the auction in one flow.">
+          {/* 摘要 */}
+          <div className="space-y-2 rounded-xl bg-[#0f0f0f] p-5 text-sm">
+            <SummaryRow label="Asset" value={assetType === '0' ? `${amount || '—'} ${shorten(assetAddr)}` : assetType === '1' ? `#${tokenId || '—'} ${shorten(assetAddr)}` : `${amount || '—'}× #${tokenId || '—'} ${shorten(assetAddr)}`} />
+            <SummaryRow label="Start price" value={`${startPrice || '—'} USDC`} accent />
+            <SummaryRow label="Increment" value={`${incrementPct}% per bid`} />
+            <SummaryRow label="Reserve" value={reservePrice ? `${reservePrice} USDC` : 'none'} />
+            <SummaryRow label="Duration" value="120s (fixed)" />
+            <SummaryRow label="Bid fee" value="1% paid by bidders" />
+            <SummaryRow label="Settle fee" value="5% from each payout" />
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={handleApprove}
               disabled={!assetAddr.trim() || approveTx.isLoading}
-              className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-40"
+              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-40"
             >
-              {approveTx.isLoading ? 'Approving…' : '1. Approve asset'}
+              {approveTx.isLoading ? 'Approving…' : 'Approve asset'}
             </button>
             <button
               onClick={handleCreate}
               disabled={!canCreate || createTx.isLoading}
-              className="flex-1 rounded-lg bg-[#3ec470] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[#4ade80] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-[#3ec470] px-4 py-3 text-sm font-black text-black transition hover:bg-[#4ade80] disabled:opacity-40"
             >
-              {createTx.isLoading ? 'Creating…' : '2. Create auction'}
+              {createTx.isLoading ? 'Creating…' : 'Create auction'}
             </button>
           </div>
 
-          {!canCreate && (
-            <p className="text-xs text-white/40">
-              Fill start price (USDC), increment 1–50%, and amount{assetType === '1' ? '' : ''} to enable creation.
-            </p>
-          )}
-        </div>
+          <p className="mt-3 text-center text-xs text-white/35">
+            Your wallet can't bid on your own auction (enforced on-chain).
+          </p>
+
+          <div className="mt-4 flex justify-start">
+            <button onClick={() => setStep(1)} className="rounded-xl px-4 py-2 text-sm font-bold text-white/60 hover:text-white">
+              ← Back to pricing
+            </button>
+          </div>
+        </StepCard>
       )}
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-8 pt-28">
+      <Link
+        to="/nadbid"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#3ec470]"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        All auctions
+      </Link>
+      <h1 className="mb-1 flex items-center gap-3 text-3xl font-black text-white">
+        <PlusCircle className="h-8 w-8 text-[#3ec470]" />
+        Create auction
+      </h1>
+      <p className="mb-8 text-sm text-white/50">
+        List any on-chain asset (ERC-20 / ERC-721 / ERC-1155). Bidders pay in USDC — you receive 85% of the pool net of
+        fees.
+      </p>
+      {children}
     </div>
   );
 }
 
-const inputCls =
-  'w-full rounded-lg border border-white/10 bg-[#0f0f0f] px-3 py-2.5 text-sm text-white placeholder-white/25 outline-none transition focus:border-[#3ec470]/50';
+function StepCard({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-[#161616] p-6 md:p-8">
+      <h2 className="text-xl font-black text-white">{title}</h2>
+      <p className="mb-6 mt-1.5 text-sm text-white/45">{desc}</p>
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -310,13 +448,16 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+function SummaryRow({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-white/50">{label}</span>
+      <span className={cn('font-mono text-right', accent ? 'text-[#3ec470]' : 'text-white/85')}>{value}</span>
+    </div>
+  );
+}
+
 function shorten(a: string): string {
   if (a.length <= 12) return a;
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
-}
-
-// ABI 引用（复用 web3/contracts 的 nadbidAuctionAbi）
-import { nadbidAuctionAbi } from '../web3/contracts';
-function createAbi() {
-  return nadbidAuctionAbi;
 }

@@ -5,27 +5,42 @@ export type {
   TxStatus,
 } from './useWriteContractTx';
 
-export { useSignMessage } from './useSignMessage';
-export type {
-  UseSignMessageResult,
-  SignMessageArgs,
-  SignStatus,
-} from './useSignMessage';
-
 export { useReadContract } from './useReadContract';
 
 // ============================================================================
-// SP-1 合约 hooks（NadbidRegistry / NadbidFactory / KolPass / KolAuction）
+// NADBIDAuction 新协议 hooks
 // ============================================================================
 
-export { useKolPass } from './useKolPass';
-export type { CurveConfig, UseKolPassResult, KolPassTxOptions } from './useKolPass';
-
-export { useAuction } from './useAuction';
-export type { AuctionData, UseAuctionResult, AuctionTxOptions } from './useAuction';
-
-export { useRegistry } from './useRegistry';
-export type { KolData, UseRegistryResult, RegistryTxOptions } from './useRegistry';
-
-export { useFactory } from './useFactory';
-export type { CreateKolAuctionArgs, UseFactoryResult, FactoryTxOptions } from './useFactory';
+export {
+  useAuctionCount,
+  useAuctionMeta,
+  useBatchMeta,
+  useBatchUserState,
+  useUsdcBalance,
+  useUsdcAllowance,
+  usePlaceBid,
+  useFinalizeAuction,
+  useClaimRefund,
+  useClaimReward,
+  useClaimSeller,
+  useCreateAuction,
+  useApproveUsdc,
+  useConnectedAddress,
+  useAuctionList,
+  useNadbidAuctionContract,
+  useUsdcContract,
+  fmtUsdc,
+  nextPrice,
+  bidPay,
+  isAuctionEnded,
+  AuctionStatus,
+  AssetType,
+  STATUS_LABEL,
+  ASSET_LABEL,
+  USDC_DECIMALS,
+} from './useNadbidAuction';
+export type {
+  AuctionMeta,
+  BatchMeta,
+  AuctionListRow,
+} from './useNadbidAuction';

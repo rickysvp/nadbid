@@ -1,7 +1,6 @@
 import { http, createConfig } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 import type { Chain } from 'viem';
-import { contractAddresses, registryAbi, factoryAbi } from './contracts';
 
 /**
  * Monad 测试网链配置
@@ -60,15 +59,3 @@ export const wagmiConfig = createConfig({
 // 合约调用配置 — 供 wagmi useReadContract / useWriteContract 直接使用。
 // address 从 contractAddresses（环境变量）读取，未部署时为 undefined。
 // ============================================================================
-
-/** NadbidRegistry 合约调用配置 */
-export const registryConfig = {
-  address: contractAddresses.registry,
-  abi: registryAbi,
-} as const;
-
-/** NadbidFactory 合约调用配置 */
-export const factoryConfig = {
-  address: contractAddresses.factory,
-  abi: factoryAbi,
-} as const;

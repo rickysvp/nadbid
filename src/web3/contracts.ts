@@ -2,125 +2,17 @@ import type { Abi } from 'viem';
 
 /**
  * 合约地址配置 — 从环境变量读取。
- *   VITE_CONTRACT_REGISTRY / VITE_CONTRACT_FACTORY（旧 KOL 产品，维护中）
- *   VITE_NADBID_AUCTION=0x...   （NADBIDAuction 新协议主合约）
+ *   VITE_NADBID_AUCTION=0x...   （NADBIDAuction 协议主合约）
  *   VITE_USDC_ADDRESS=0x...     （结算稳定币，默认 Monad 测试网 USDC）
  */
 export const contractAddresses = {
-  /** NadbidRegistry 注册表合约（旧 KOL 产品） */
-  registry: import.meta.env.VITE_CONTRACT_REGISTRY as `0x${string}` | undefined,
-  /** NadbidFactory 工厂合约（旧 KOL 产品） */
-  factory: import.meta.env.VITE_CONTRACT_FACTORY as `0x${string}` | undefined,
-  /** NADBIDAuction 拍卖主合约（新协议：创建/出价/结算/退款/分红） */
+  /** NADBIDAuction 拍卖主合约（创建/出价/结算/退款/分红） */
   auction: import.meta.env.VITE_NADBID_AUCTION as `0x${string}` | undefined,
-  /** USDC 结算代币（新协议） */
+  /** USDC 结算代币（Monad 测试网 Circle 官方地址） */
   usdc: (import.meta.env.VITE_USDC_ADDRESS || '0x534b2f3A21130d7a60830c2Df862319e593943A3') as `0x${string}`,
 } as const;
 
 export type ContractKey = keyof typeof contractAddresses;
-
-// ============================================================================
-// 旧 KOL 产品 ABI（KolPass/KolAuction/Registry/Factory）— 保留供旧页面使用
-// ============================================================================
-
-export const registryAbi =
-[
-  {"type": "function","name": "registerKol","inputs": [{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"},{"name": "expiry","type": "uint256","internalType": "uint256"},{"name": "signature","type": "bytes","internalType": "bytes"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "updateKolProfile","inputs": [{"name": "bio","type": "string","internalType": "string"},{"name": "avatar","type": "string","internalType": "string"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "depositBond","inputs": [],"outputs": [],"stateMutability": "payable"},
-  {"type": "function","name": "requestBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "finalizeBondRedeem","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "isKolRegistered","inputs": [{"name": "wallet","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "getKol","inputs": [{"name": "wallet","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "tuple","internalType": "struct NadbidRegistry.Kol","components": [{"name": "wallet","type": "address","internalType": "address"},{"name": "twitterHandle","type": "string","internalType": "string"},{"name": "followers","type": "uint256","internalType": "uint256"},{"name": "bio","type": "string","internalType": "string"},{"name": "avatar","type": "string","internalType": "string"},{"name": "registered","type": "bool","internalType": "bool"},{"name": "bonded","type": "bool","internalType": "bool"},{"name": "bondAmount","type": "uint256","internalType": "uint256"},{"name": "bondTimestamp","type": "uint256","internalType": "uint256"},{"name": "bondRedeemRequestedAt","type": "uint256","internalType": "uint256"},{"name": "bondRedeemPending","type": "bool","internalType": "bool"},{"name": "banned","type": "bool","internalType": "bool"},{"name": "passContracts","type": "address[]","internalType": "address[]"},{"name": "auctionContracts","type": "address[]","internalType": "address[]"}]}],"stateMutability": "view"},
-  {"type": "function","name": "hasBond","inputs": [{"name": "wallet","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "isKolBanned","inputs": [{"name": "wallet","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "canCreate","inputs": [{"name": "kol","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "setFactory","inputs": [{"name": "_factory","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "factory","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "owner","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "arbitrator","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "setArbitrator","inputs": [{"name": "_arbitrator","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "kolList","inputs": [{"name": "","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "kolCount","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "BOND_AMOUNT","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "BOND_REDEEM_COOLDOWN","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "MIN_FOLLOWERS","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "addPassContract","inputs": [{"name": "kol","type": "address","internalType": "address"},{"name": "passContract","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "addAuctionContract","inputs": [{"name": "kol","type": "address","internalType": "address"},{"name": "auctionContract","type": "address","internalType": "address"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "event","name": "KolRegistered","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "twitterHandle","type": "string","indexed": false,"internalType": "string"},{"name": "followers","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "KolProfileUpdated","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "bio","type": "string","indexed": false,"internalType": "string"},{"name": "avatar","type": "string","indexed": false,"internalType": "string"}],"anonymous": false},
-  {"type": "event","name": "BondDeposited","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "BondRedeemRequested","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
-  {"type": "event","name": "BondRedeemed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "BondSlashed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "to","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
-  {"type": "event","name": "ArbitratorUpdated","inputs": [{"name": "arbitrator","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},
-  {"type": "event","name": "KolBanned","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "banned","type": "bool","indexed": false,"internalType": "bool"}],"anonymous": false},
-] as const satisfies Abi;
-
-export const factoryAbi =
-[
-  {"type": "function","name": "FIXED_BID_AMOUNT","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "createKolPass","inputs": [{"name": "mintPrice","type": "uint256","internalType": "uint256"},{"name": "maxPrice","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},
-  {"type": "function","name": "createKolAuction","inputs": [{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "duration","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},
-  {"type": "function","name": "createKolAuctionScheduled","inputs": [{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "duration","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "startTime","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "nonpayable"},
-  {"type": "function","name": "registry","inputs": [],"outputs": [{"name": "","type": "address","internalType": "contract NadbidRegistry"}],"stateMutability": "view"},
-  {"type": "function","name": "platformTreasury","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "event","name": "KolPassCreated","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "passContract","type": "address","indexed": false,"internalType": "address"},{"name": "mintPrice","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "maxPrice","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "KolAuctionCreated","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "auctionContract","type": "address","indexed": false,"internalType": "address"},{"name": "passContract","type": "address","indexed": false,"internalType": "address"},{"name": "fixedBidAmount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-] as const satisfies Abi;
-
-export const kolPassAbi =
-[
-  {"type": "function","name": "balanceOf","inputs": [{"name": "owner","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "tokenOfOwnerByIndex","inputs": [{"name": "owner","type": "address","internalType": "address"},{"name": "index","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "tokenByIndex","inputs": [{"name": "index","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "curvePrice","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "totalSupply","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "curvePriceAt","inputs": [{"name": "nextSupply","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "getCurveConfig","inputs": [],"outputs": [{"name": "","type": "tuple","internalType": "struct KolPass.CurveConfig","components": [{"name": "basePrice","type": "uint256","internalType": "uint256"},{"name": "maxPrice","type": "uint256","internalType": "uint256"},{"name": "baseSupply","type": "uint256","internalType": "uint256"},{"name": "exponent","type": "uint256","internalType": "uint256"}]}],"stateMutability": "view"},
-  {"type": "function","name": "basePrice","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "maxPrice","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "exponent","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "mint","inputs": [{"name": "quantity","type": "uint256","internalType": "uint256"},{"name": "maxCost","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "tokenIds","type": "uint256[]","internalType": "uint256[]"}],"stateMutability": "payable"},
-  {"type": "function","name": "burn","inputs": [{"name": "tokenIds","type": "uint256[]","internalType": "uint256[]"},{"name": "minRefund","type": "uint256","internalType": "uint256"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "kol","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "platformTreasury","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},
-  {"type": "function","name": "pendingKolFees","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "claimKolFees","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "event","name": "KolFeesClaimed","inputs": [{"name": "kol","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "Transfer","inputs": [{"name": "from","type": "address","indexed": true,"internalType": "address"},{"name": "to","type": "address","indexed": true,"internalType": "address"},{"name": "tokenId","type": "uint256","indexed": true,"internalType": "uint256"}],"anonymous": false},
-] as const satisfies Abi;
-
-export const kolAuctionAbi =
-[
-  {"type": "function","name": "getAuction","inputs": [],"outputs": [{"name": "","type": "tuple","internalType": "struct KolAuction.Auction","components": [{"name": "id","type": "uint256","internalType": "uint256"},{"name": "kol","type": "address","internalType": "address"},{"name": "passContract","type": "address","internalType": "address"},{"name": "fixedBidAmount","type": "uint256","internalType": "uint256"},{"name": "content","type": "string","internalType": "string"},{"name": "itemCategory","type": "uint8","internalType": "uint8"},{"name": "startTime","type": "uint256","internalType": "uint256"},{"name": "endTime","type": "uint256","internalType": "uint256"},{"name": "lastBidder","type": "address","internalType": "address"},{"name": "totalBids","type": "uint256","internalType": "uint256"},{"name": "totalVolume","type": "uint256","internalType": "uint256"},{"name": "status","type": "uint8","internalType": "enum KolAuction.AuctionStatus"},{"name": "settled","type": "bool","internalType": "bool"},{"name": "winner","type": "address","internalType": "address"},{"name": "winnerTotalSpent","type": "uint256","internalType": "uint256"},{"name": "fulfillmentDeadline","type": "uint256","internalType": "uint256"},{"name": "fulfillmentTime","type": "uint256","internalType": "uint256"},{"name": "autoConfirmDeadline","type": "uint256","internalType": "uint256"},{"name": "fulfillmentEvidenceHash","type": "bytes32","internalType": "bytes32"},{"name": "fulfillmentEvidenceUri","type": "string","internalType": "string"},{"name": "disputeEvidenceHash","type": "bytes32","internalType": "bytes32"},{"name": "disputeEvidenceUri","type": "string","internalType": "string"},{"name": "arbitrationNote","type": "bytes32","internalType": "bytes32"}]}],"stateMutability": "view"},
-  {"type": "function","name": "getCumulativeBid","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "getBidCount","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "placeBid","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "payable"},
-  {"type": "function","name": "settle","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "settled","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "submitFulfillment","inputs": [{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"},{"name": "evidenceUri","type": "string","internalType": "string"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "confirmFulfillment","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "autoConfirm","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "dispute","inputs": [{"name": "evidenceHash","type": "bytes32","internalType": "bytes32"},{"name": "evidenceUri","type": "string","internalType": "string"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "resolveDispute","inputs": [{"name": "kolWon","type": "bool","internalType": "bool"},{"name": "reasonHash","type": "bytes32","internalType": "bytes32"}],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "claimRefund","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "finalizeBreach","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "sweepRefundDust","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "claimKol","inputs": [],"outputs": [],"stateMutability": "nonpayable"},
-  {"type": "function","name": "refundable","inputs": [{"name": "bidder","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "kolBreached","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},
-  {"type": "function","name": "pendingKol","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "lastBidderCumulative","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "function","name": "lastBidderBidCount","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},
-  {"type": "event","name": "BidPlaced","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "bidSeq","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "bidder","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "AuctionSettled","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "lastBidder","type": "address","indexed": false,"internalType": "address"},{"name": "totalVolume","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "platformFee","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "guaranteePool","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "blockNumber","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "FulfillmentSubmitted","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "fulfillmentEvidenceHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "FulfillmentConfirmed","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "DisputeRaised","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "winner","type": "address","indexed": true,"internalType": "address"},{"name": "disputeEvidenceHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "DisputeResolved","inputs": [{"name": "auctionId","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "kolWon","type": "bool","indexed": false,"internalType": "bool"},{"name": "reasonHash","type": "bytes32","indexed": false,"internalType": "bytes32"},{"name": "timestamp","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-  {"type": "event","name": "RefundClaimed","inputs": [{"name": "bidder","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},
-] as const satisfies Abi;
 
 // ============================================================================
 // 新协议 NADBID ABI — 由 forge out 自动提取

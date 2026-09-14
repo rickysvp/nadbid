@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, UserPlus, Sparkles } from 'lucide-react';
+import { Menu, X, Sparkles, Plus } from 'lucide-react';
 import { ConnectButton } from '../components/wallet';
 import { NAV_ITEMS, ROUTES } from '../config/routes';
 import { cn } from '../utils/cn';
 
 /**
- * 顶部导航栏 — 优化版
- *
- * - fixed 定位：滚动 >24px 后切换为深色毛玻璃背景（无论当前页），保证内容不穿透
- * - 居中 pill 导航：激活项用品牌绿高亮（胶囊背景 + 绿色文字），hover 有过渡
- * - KOL 入驻入口：右侧独立「Become a KOL」绿色填充按钮，指向 /kol/onboarding
- * - 移动端（< lg）：汉堡菜单收纳导航项 + KOL 入驻入口
- * - 首页未滚动时保持原 DEMO 视觉（黑色文字），其他页为白色文字
+ * 顶部导航栏 — NADBID
+ * - fixed 定位：滚动 >24px 后切换为深色毛玻璃背景
+ * - 居中 pill 导航：激活项用品牌绿高亮
+ * - 右侧：Create 按钮 + ConnectButton
+ * - 移动端：汉堡菜单收纳导航项
  */
 export default function Navbar() {
   const location = useLocation();
@@ -21,7 +19,6 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 滚动监听：>24px 时切换为固定深色背景
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
@@ -29,13 +26,12 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // 路由变化时关闭移动端菜单
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
   const isHome = location.pathname === '/';
-  const solid = scrolled; // 滚动后统一深色背景
+  const solid = scrolled;
   const onHome = isHome && !solid;
 
   const go = (path: string) => {
@@ -115,13 +111,12 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 md:gap-3">
-          {/* KOL 入驻入口（桌面） */}
           <button
-            onClick={() => go(ROUTES.KOL_ONBOARDING)}
+            onClick={() => go(ROUTES.NADBID_CREATE)}
             className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-all hover:bg-[#4ade80] hover:shadow-[0_0_20px_rgba(62,196,112,0.4)] hover:-translate-y-0.5 whitespace-nowrap"
           >
-            <UserPlus className="w-4 h-4" />
-            Become a KOL
+            <Plus className="w-4 h-4" />
+            Create
           </button>
 
           <ConnectButton variant={onHome ? 'light' : 'dark'} />
@@ -170,13 +165,12 @@ export default function Navbar() {
                 );
               })}
 
-              {/* KOL 入驻入口（移动端） */}
               <button
-                onClick={() => go(ROUTES.KOL_ONBOARDING)}
+                onClick={() => go(ROUTES.NADBID_CREATE)}
                 className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-colors hover:bg-[#4ade80]"
               >
-                <UserPlus className="w-4 h-4" />
-                Become a KOL
+                <Plus className="w-4 h-4" />
+                Create Auction
               </button>
             </div>
           </motion.div>
