@@ -55,15 +55,19 @@ export default function HomePage() {
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-7xl px-6 md:px-10">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="nb-chip bg-[#ffe94a] px-3.5 py-1.5 text-xs text-[#111]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="nb-chip bg-[#ffe94a] px-3.5 py-1.5 text-xs font-black text-[#111]">
               <Zap className="mr-1 inline h-3.5 w-3.5" />
               ON-CHAIN AUCTIONS · MONAD TESTNET
             </div>
             {list && (
-              <span className="text-xs font-bold text-[#111]/50">
-                {liveCount > 0 ? `${liveCount} live now` : 'No live auctions'} ·{' '}
-                {list.length > 0 ? `${list.length} total` : 'be the first'}
+              <span
+                className={cn(
+                  'rounded-xl border-2 border-[#111] px-3 py-1 text-xs font-black shadow-[2px_2px_0_#111]',
+                  liveCount > 0 ? 'bg-[#3ec470]/15 text-[#117a3d]' : 'bg-[#fffdf7] text-[#111]/50',
+                )}
+              >
+                {liveCount > 0 ? `${liveCount} LIVE NOW` : 'NO LIVE AUCTIONS'} · {list.length} TOTAL
               </span>
             )}
           </div>
@@ -77,19 +81,30 @@ export default function HomePage() {
             {/* 右：进入入口 + 规则速记 */}
             <div className="lg:col-span-4 flex flex-col gap-5">
               <div className="nb-card p-6">
-                <div className="text-xs font-black uppercase tracking-[0.2em] text-[#117a3d]">How it works</div>
-                <ul className="mt-4 space-y-3 text-sm leading-relaxed text-[#111]/70">
-                  <li className="flex gap-2.5">
-                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec470] px-1.5 font-mono text-[10px] font-black">1</span>
-                    Bid in USDC at the next price level — your payment is retained on-chain.
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black uppercase tracking-[0.2em] text-[#117a3d]">How it works</div>
+                  <span className="rounded-md border-2 border-[#111]/25 bg-[#fffdf7] px-2 py-0.5 font-mono text-[10px] font-black text-[#111]/50">
+                    3 STEPS
+                  </span>
+                </div>
+                <ul className="mt-4 divide-y-2 divide-[#111]/10 text-sm leading-snug text-[#111]/70">
+                  <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec470] px-2 py-0.5 font-mono text-[11px] font-black">1</span>
+                    <span>
+                      <span className="font-black text-[#111]">Bid</span> USDC at the next price — payment retained on-chain.
+                    </span>
                   </li>
-                  <li className="flex gap-2.5">
-                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec470] px-1.5 font-mono text-[10px] font-black">2</span>
-                    Outbid later? You keep earning from 15% of each new bid. Same-block losers are refunded instantly.
+                  <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec4f0] px-2 py-0.5 font-mono text-[11px] font-black">2</span>
+                    <span>
+                      <span className="font-black text-[#111]">Outbid?</span> You still earn from 15% of every new bid.
+                    </span>
                   </li>
-                  <li className="flex gap-2.5">
-                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#3ec470] px-1.5 font-mono text-[10px] font-black">3</span>
-                    Last bid when the 120s timer runs out takes the asset. The seller receives 85% of the pool.
+                  <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="mt-0.5 shrink-0 rounded-md border-2 border-[#111] bg-[#ff6ba9] px-2 py-0.5 font-mono text-[11px] font-black">3</span>
+                    <span>
+                      <span className="font-black text-[#111]">Last bid</span> when the 120s clock ends wins. Seller keeps 85%.
+                    </span>
                   </li>
                 </ul>
               </div>
@@ -151,18 +166,21 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-md border-2 px-2 py-0.5 text-[10px] font-black',
-                        a.status === AuctionStatus.LIVE
-                          ? 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
-                          : a.status === AuctionStatus.SETTLED
-                            ? 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]'
-                            : 'border-[#111]/25 bg-[#111]/5 text-[#111]/50',
-                      )}
-                    >
-                      {st.text}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={cn(
+                          'rounded-md border-2 px-2 py-0.5 text-[10px] font-black',
+                          a.status === AuctionStatus.LIVE
+                            ? 'border-[#117a3d] bg-[#3ec470]/15 text-[#117a3d]'
+                            : a.status === AuctionStatus.SETTLED
+                              ? 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]'
+                              : 'border-[#111]/25 bg-[#111]/5 text-[#111]/50',
+                        )}
+                      >
+                        {st.text}
+                      </span>
+                      <span className="font-mono text-[10px] font-bold text-[#111]/40">Pool {fmtUsdc(a.totalPool)}</span>
+                    </div>
                   </Link>
                 );
               })}
@@ -220,27 +238,29 @@ function FeaturedAuctionCard({ auction: a, nowMs }: { auction: NonNullable<Retur
       </div>
 
       <div className="mt-7 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="nb-card-flat p-3.5">
+        <div className="nb-card-flat p-4">
           <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Current price</div>
-          <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(price)}</div>
+          <div className="mt-1.5 font-mono text-2xl font-black">{fmtUsdc(price)}</div>
           <div className="text-[10px] text-[#111]/40">USDC</div>
         </div>
-        <div className="nb-card-flat p-3.5">
+        <div className="nb-card-flat p-4">
           <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Total pool</div>
-          <div className="mt-1 font-mono text-xl font-black">{fmtUsdc(a.totalPool)}</div>
+          <div className="mt-1.5 font-mono text-2xl font-black">{fmtUsdc(a.totalPool)}</div>
           <div className="text-[10px] text-[#111]/40">USDC retained</div>
         </div>
-        <div className="nb-card-flat p-3.5">
+        <div className="nb-card-flat p-4">
           <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Next bid</div>
-          <div className="mt-1 font-mono text-xl font-black">
+          <div className="mt-1.5 font-mono text-2xl font-black">
             {fmtUsdc(a.lastPrice > 0n ? a.lastPrice + (a.lastPrice * a.incrementBps) / 10000n : a.startPrice)}
           </div>
-          <div className="text-[10px] text-[#111]/40">+{Number(a.incrementBps) / 100}%</div>
+          <div className="text-[10px] text-[#111]/40">+{Number(a.incrementBps) / 100}% per bid</div>
         </div>
-        <div className="nb-card-flat p-3.5">
+        <div className="nb-card-flat p-4">
           <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40">Seller</div>
-          <div className="mt-1 font-mono text-lg font-black truncate">{shortenAddress(a.seller)}</div>
-          <div className="text-[10px] text-[#111]/40">{a.reservePrice > 0n ? `Reserve ${fmtUsdc(a.reservePrice)}` : 'No reserve'}</div>
+          <div className="mt-1.5 font-mono text-xl font-black truncate">{shortenAddress(a.seller)}</div>
+          <div className="text-[10px] text-[#111]/40">
+            {a.reservePrice > 0n ? `Reserve ${fmtUsdc(a.reservePrice)} USDC` : 'No reserve'}
+          </div>
         </div>
       </div>
 

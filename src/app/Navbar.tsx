@@ -85,14 +85,12 @@ export default function Navbar() {
                 className={cn(
                   'relative px-3.5 py-2 rounded-full font-bold text-[13px] tracking-wide transition-all duration-200',
                   active
-                    ? cn('text-[#117a3d]', 'bg-[#3ec470]/15')
+                    ? 'bg-[#3ec470] text-[#111] shadow-[2px_2px_0_#111]'
                     : 'text-[#111]/50 hover:text-[#111] hover:bg-[#111]/5',
                 )}
               >
                 {item.label}
-                {active && (
-                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#3ec470]" />
-                )}
+                {active && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#111]" />}
               </button>
             );
           })}
@@ -136,7 +134,7 @@ export default function Navbar() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors',
                       active
-                        ? 'bg-[#3ec470]/15 text-[#117a3d]'
+                        ? 'bg-[#3ec470] text-[#111] shadow-[2px_2px_0_#111]'
                         : 'text-[#111]/60 hover:text-[#111] hover:bg-[#111]/5',
                     )}
                   >
