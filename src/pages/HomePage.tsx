@@ -40,7 +40,7 @@ export default function HomePage() {
   return (
     <div className="text-[#111]">
       {/* ============ HERO：主推拍卖 ============ */}
-      <section className="relative overflow-hidden pt-14 pb-10">
+      <section className="relative overflow-hidden pt-28 pb-10">
         <div className="absolute inset-0 pointer-events-none">
           <div
             className="absolute inset-0 opacity-[0.07]"
