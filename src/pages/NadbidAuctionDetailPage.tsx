@@ -69,6 +69,8 @@ export default function NadbidAuctionDetailPage() {
   const bidTx = usePlaceBid();
   const finalizeTx = useFinalizeAuction();
   const sellerTx = useClaimSeller();
+  const isSeller =
+    !!address && !!meta?.seller && address.toLowerCase() === meta.seller.toLowerCase();
 
   const ended = meta ? isAuctionEnded(meta, nowMs) : false;
   const secsLeft = meta ? Math.max(0, Math.ceil((Number(meta.deadline) * 1000 - nowMs) / 1000)) : 0;
@@ -252,7 +254,7 @@ export default function NadbidAuctionDetailPage() {
                     </button>
                   ) : (
                     <button
-                      disabled={bidTx.isLoading || ended}
+                      disabled={bidTx.isLoading || ended || isSeller}
                       onClick={() =>
                         bidTx.write({
                           address: useNadbidAuctionContract().address!,
@@ -271,7 +273,13 @@ export default function NadbidAuctionDetailPage() {
                           : 'bg-[#3ec470] hover:bg-[#4ade80]',
                       )}
                     >
-                      {bidTx.isLoading ? 'Placing bid…' : ended ? 'Auction ended' : `Bid ${fmtUsdc(payVal)} USDC`}
+                      {bidTx.isLoading
+                        ? 'Placing bid…'
+                        : ended
+                          ? 'Auction ended'
+                          : isSeller
+                            ? "You can't bid on your own auction"
+                            : `Bid ${fmtUsdc(payVal)} USDC`}
                     </button>
                   )}
 

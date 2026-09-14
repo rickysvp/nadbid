@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePublicClient, useReadContract } from 'wagmi';
 import { monadTestnet } from '../web3/config';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -106,6 +106,7 @@ const inputCls =
   'w-full rounded-xl border border-white/10 bg-[#0f0f0f] px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition focus:border-[#3ec470]/50';
 
 export default function NadbidCreateAuctionPage() {
+  const navigate = useNavigate();
   const address = useConnectedAddress();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -320,7 +321,8 @@ export default function NadbidCreateAuctionPage() {
       successMessage: 'Auction created',
     });
     if (hash) {
-      toast.success?.('Auction created on-chain.');
+      toast.success?.('Auction created on-chain — refreshing auctions…');
+      navigate('/nadbid');
     }
   };
 
