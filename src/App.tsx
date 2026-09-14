@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import AppLayout from './app/AppLayout';
 import { WalletGuard } from './components/wallet';
 import HomePage from './pages/HomePage';
+import ComingSoonPage from './pages/ComingSoonPage';
 import { ROUTES } from './config/routes';
 
 // NADBID 协议页面路由级懒加载
@@ -40,6 +41,51 @@ export default function App() {
                   <Route path={ROUTES.NADBID} element={<NadbidAuctionsPage />} />
                   <Route path={ROUTES.NADBID_DETAIL} element={<NadbidAuctionDetailPage />} />
                   <Route path={ROUTES.NADBID_CREATE} element={<NadbidCreateAuctionPage />} />
+                  <Route
+                    path={ROUTES.STAKING}
+                    element={
+                      <ComingSoonPage
+                        title="Staking"
+                        tagline="Stake NAD to unlock fee discounts, priority access to exclusive auctions and a share of protocol upside."
+                        features={[
+                          'Fee discount tiers for bidders & sellers',
+                          'Priority access to whitelisted auctions',
+                          'Protocol revenue share for stakers',
+                        ]}
+                        note="NAD token is not live yet. Staking will activate after the token launch."
+                      />
+                    }
+                  />
+                  <Route
+                    path={ROUTES.CLAIM}
+                    element={
+                      <ComingSoonPage
+                        title="Claim Center"
+                        tagline="Collect your auction dividends, bidder rewards and any refundable balances in one place."
+                        features={[
+                          'Bidder dividend payouts from 15% reward pool',
+                          'Refundable same-block losing bids',
+                          'One-click claim of all accrued earnings',
+                        ]}
+                        note="Claims for live auctions already work on the auction detail page — this hub aggregates them across all auctions."
+                      />
+                    }
+                  />
+                  <Route
+                    path={ROUTES.REFERRAL}
+                    element={
+                      <ComingSoonPage
+                        title="Referral"
+                        tagline="Earn a share of protocol fees by bringing bidders and sellers to NADBID."
+                        features={[
+                          'Share of bid fees from referred users',
+                          'On-chain, verifiable referral tracking',
+                          'Leaderboard for top referrers',
+                        ]}
+                        note="Referral program will launch after the token and fee structure are finalized."
+                      />
+                    }
+                  />
                   <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
                 </Route>
               </Routes>

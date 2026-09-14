@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, Sparkles, Plus } from 'lucide-react';
+import { Menu, X, Sparkles } from 'lucide-react';
 import { ConnectButton } from '../components/wallet';
-import { NAV_ITEMS, ROUTES } from '../config/routes';
+import { NAV_ITEMS } from '../config/routes';
 import { cn } from '../utils/cn';
 
 /**
  * 顶部导航栏 — NADBID
- * - fixed 定位：滚动 >24px 后切换为深色毛玻璃背景
- * - 居中 pill 导航：激活项用品牌绿高亮
- * - 右侧：Create 按钮 + ConnectButton
+ * - fixed 定位：滚动 >24px 后切换为浅色毛玻璃背景
+ * - 居中 pill 导航：Home / Staking / Claim / Referral
+ * - 右侧：ConnectButton
  * - 移动端：汉堡菜单收纳导航项
  */
 export default function Navbar() {
@@ -100,14 +100,6 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 md:gap-3">
-          <button
-            onClick={() => go(ROUTES.NADBID_CREATE)}
-            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-all hover:bg-[#4ade80] hover:-translate-y-0.5 whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            Create
-          </button>
-
           <ConnectButton variant={onHome ? 'light' : 'dark'} />
 
           {/* 移动端汉堡 */}
@@ -153,14 +145,6 @@ export default function Navbar() {
                   </button>
                 );
               })}
-
-              <button
-                onClick={() => go(ROUTES.NADBID_CREATE)}
-                className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#3ec470] text-black font-bold text-sm transition-colors hover:bg-[#4ade80]"
-              >
-                <Plus className="w-4 h-4" />
-                Create Auction
-              </button>
             </div>
           </motion.div>
         )}
