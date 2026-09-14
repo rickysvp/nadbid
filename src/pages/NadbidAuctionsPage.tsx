@@ -202,28 +202,29 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
         </span>
       </div>
 
-      {/* 资产 */}
-      <div className="flex items-center gap-3">
+      {/* 拍品主视觉 */}
+      <div className="-mx-5 -mt-5 mb-4">
         <AssetThumb
           assetType={a.assetType}
           assetAddr={a.assetAddr}
           tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
-          className="h-11 w-11"
+          variant="hero"
+          className="h-40 w-full rounded-none border-x-0 border-t-0 shadow-none md:h-44"
         />
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-black text-[#111]">
-              {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
-            </span>
-            {a.assetType === 1 && <span className="shrink-0 font-mono text-[11px] text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
-          </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
-              {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
-            </span>
-            <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
-          </div>
-        </div>
+      </div>
+
+      {/* 拍品名 */}
+      <div className="flex items-center gap-1.5">
+        <span className="truncate text-base font-black text-[#111]">
+          {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
+        </span>
+        {a.assetType === 1 && <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
+      </div>
+      <div className="mt-1 flex items-center gap-1.5">
+        <span className="nb-chip bg-[#3ec470]/15 px-1.5 py-0 text-[10px] text-[#111]">
+          {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
+        </span>
+        <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
       </div>
 
       {/* 主价 */}
