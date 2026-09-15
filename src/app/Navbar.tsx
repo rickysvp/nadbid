@@ -8,11 +8,10 @@ import { cn } from '../utils/cn';
 
 /**
  * 顶部导航栏 — NADBID
- * Editorial 编辑风三栏布局（参考 busy.land）：
- *   左：LOGO + 副标题小字（ON-CHAIN AUCTIONS · MONAD TESTNET）
- *   中：导航细字链接（hover 下划线，active 紫字）
- *   右：Connect Wallet
- * 顶部透明 → 滚动后半透明白毛玻璃 + 细下边框
+ * 经典 DApp 布局：左 LOGO，右导航 + Connect。
+ * - 首页顶部透明，滚动后纸白毛玻璃 + 细下边框
+ * - 导航项 hover 淡紫底，active 紫胶囊白字
+ * - 克制的留白，无粗黑边框
  */
 export default function Navbar() {
   const location = useLocation();
@@ -48,64 +47,48 @@ export default function Navbar() {
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         solid
-          ? 'bg-[#fffefd]/95 backdrop-blur-xl border-b border-[#111]/15'
+          ? 'bg-[#fffdf7]/95 backdrop-blur-xl border-b border-[#111]/10'
           : 'bg-transparent border-b border-transparent',
       )}
     >
-      <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center px-6 md:px-10 h-16 md:h-[72px] max-w-[1600px] mx-auto">
-        {/* 左：LOGO + 副标题 */}
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => go('/')}
-            aria-label="NADBID home"
-            className="logo-btn flex items-center cursor-pointer select-none shrink-0"
-          >
-            <img
-              src="/nadbid-logo.png?v=8"
-              alt="NADBID"
-              className="h-9 w-auto md:h-10 overflow-visible"
-              draggable={false}
-            />
-          </button>
-          <div className="hidden sm:block leading-none">
-            <div className="text-[10px] md:text-[11px] font-black tracking-[0.22em] text-[#111]/70">
-              ON-CHAIN AUCTIONS
-            </div>
-            <div className="mt-1 text-[8px] md:text-[9px] font-bold tracking-[0.18em] text-[#8b5cf6]/80">
-              MONAD TESTNET
-            </div>
-          </div>
-        </div>
+      <div className="w-full flex items-center justify-between px-5 md:px-8 h-16 md:h-[72px] max-w-[1600px] mx-auto">
+        {/* Logo */}
+        <button
+          onClick={() => go('/')}
+          aria-label="NADBID home"
+          className="logo-btn flex items-center cursor-pointer select-none"
+        >
+          <img
+            src="/nadbid-logo.png?v=8"
+            alt="NADBID"
+            className="h-9 w-auto md:h-10 overflow-visible"
+            draggable={false}
+          />
+        </button>
 
-        {/* 中：导航细字链接 */}
-        <div className="hidden lg:flex items-center gap-7">
-          {NAV_ITEMS.map((item) => {
-            const active = isActive(item.path);
-            return (
-              <button
-                key={item.path}
-                onClick={() => go(item.path)}
-                className={cn(
-                  'nav-link relative py-1 text-[12px] font-bold tracking-[0.14em] uppercase transition-colors duration-200 border-0 shadow-none bg-transparent rounded-none',
-                  active
-                    ? 'text-[#6d28d9]'
-                    : 'text-[#111]/45 hover:text-[#6d28d9]',
-                )}
-              >
-                {item.label}
-                <span
+        {/* 右侧：导航 + Connect */}
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {/* Desktop 导航 */}
+          <div className="hidden lg:flex items-center gap-1 mr-2">
+            {NAV_ITEMS.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => go(item.path)}
                   className={cn(
-                    'absolute left-0 -bottom-0.5 h-[2px] rounded-full bg-[#8b5cf6] transition-all duration-200',
-                    active ? 'w-full' : 'w-0',
+                    'px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
+                    active
+                      ? 'bg-[#8b5cf6] text-white'
+                      : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                   )}
-                />
-              </button>
-            );
-          })}
-        </div>
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* 右：Connect + 移动端汉堡 */}
-        <div className="flex items-center justify-end gap-2 md:gap-3">
           <ConnectButton variant={onHome ? 'light' : 'dark'} />
 
           {/* 移动端汉堡 */}
@@ -130,9 +113,9 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="lg:hidden overflow-hidden border-t border-[#111]/15 bg-[#fffefd]/97 backdrop-blur-xl"
+            className="lg:hidden overflow-hidden border-t border-[#111]/10 bg-[#fffdf7]/97 backdrop-blur-xl"
           >
-            <div className="px-6 py-4 flex flex-col gap-1">
+            <div className="px-5 py-3 flex flex-col gap-0.5">
               {NAV_ITEMS.map((item) => {
                 const active = isActive(item.path);
                 return (
@@ -140,10 +123,10 @@ export default function Navbar() {
                     key={item.path}
                     onClick={() => go(item.path)}
                     className={cn(
-                      'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold tracking-wide uppercase transition-colors border-0 shadow-none bg-transparent',
+                      'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold tracking-wide transition-colors border-0 shadow-none bg-transparent',
                       active
-                        ? 'text-[#6d28d9] bg-[#8b5cf6]/10'
-                        : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#111]/5',
+                        ? 'text-white bg-[#8b5cf6]'
+                        : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                     )}
                   >
                     {item.label}
