@@ -98,7 +98,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
           type="button"
           onClick={() => setModalOpen(true)}
           className={cn(
-            'flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap',
+            'flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap border-0',
             isDark
               ? 'bg-[#8b5cf6] text-white hover:bg-[#a78bfa]'
               : 'bg-[#111] text-[#117a3d] hover:bg-black',
@@ -120,7 +120,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
         className={cn(
-          'flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl border transition-all',
+          'flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl border shadow-none transition-all',
           isWrongNetwork
             ? 'bg-red-500/10 border-red-500/40 text-[#111] hover:bg-red-500/15'
             : isDark
