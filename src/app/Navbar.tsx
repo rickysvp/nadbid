@@ -66,29 +66,29 @@ export default function Navbar() {
           />
         </button>
 
-        {/* 右侧：导航 + Connect */}
-        <div className="flex items-center gap-1.5 md:gap-2">
-          {/* Desktop 导航 */}
-          <div className="hidden lg:flex items-center gap-1 mr-2">
-            {NAV_ITEMS.map((item) => {
-              const active = isActive(item.path);
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => go(item.path)}
-                  className={cn(
-                    'px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
-                    active
-                      ? 'bg-[#8b5cf6] text-white'
-                      : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
-                  )}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
+        {/* 居中导航 */}
+        <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => go(item.path)}
+                className={cn(
+                  'px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
+                  active
+                    ? 'bg-[#8b5cf6] text-white'
+                    : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
+                )}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
 
+        {/* 右侧：Connect */}
+        <div className="flex items-center gap-1.5 md:gap-2">
           <ConnectButton variant={onHome ? 'light' : 'dark'} />
 
           {/* 移动端汉堡 */}
