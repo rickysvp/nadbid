@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Gavel, Plus, Clock, Users, ShieldCheck } from 'lucide-react';
+import { Gavel, Plus, Clock, Users, ShieldCheck, Hourglass, History } from 'lucide-react';
 import {
   useNadbidAuctionContract,
   useAuctionList,
@@ -16,21 +16,17 @@ import { useAssetMeta } from '../web3/hooks/useAssetMeta';
 import { cn } from '../utils/cn';
 import { ROUTES, nadbidDetailPath } from '../config/routes';
 
-type Filter = 'all' | 'live' | 'settled' | 'cancelled';
-
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'live', label: 'Live' },
-  { key: 'settled', label: 'Settled' },
-  { key: 'cancelled', label: 'Cancelled' },
-];
-
-/** 拍卖列表 — NADBIDAuction 新协议 */
+/**
+ * 拍卖列表页 — 按权重分区展示
+ *   1. LIVE NOW  正在竞价（LIVE + 已有出价 + 未超时）—— 权重最高
+ *   2. UPCOMING  即将开始（LIVE + 等待首出价）      —— 次之
+ *   3. HISTORY   历史（已结束 / 已取消 / 超时待结算） —— 折叠式
+ * 各区内部按紧急度 / 时间倒序。
+ */
 export default function NadbidAuctionsPage() {
   const { isReady } = useNadbidAuctionContract();
   const { count, list, isLoading } = useAuctionList();
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 1000);
@@ -42,21 +38,29 @@ export default function NadbidAuctionsPage() {
     return [...list].sort((a, b) => Number(b.id) - Number(a.id));
   }, [list]);
 
+  /** 分区：正在 / 即将 / 历史 */
+  const groups = useMemo(() => {
+    if (!sorted.length) return { liveNow: [], upcoming: [], history: [] };
+    const ended = (a: AuctionListRow) =>
+      a.status === AuctionStatus.LIVE && nowMs >= Number(a.deadline) * 1000;
+    const liveNow = sorted
+      .filter((a) => a.status === AuctionStatus.LIVE && !ended(a) && a.batchCount > 0n)
+      .sort((a, b) => Number(a.deadline) - Number(b.deadline)); // 越紧急越靠前
+    const upcoming = sorted
+      .filter((a) => a.status === AuctionStatus.LIVE && !ended(a) && a.batchCount === 0n)
+      .sort((a, b) => Number(a.deadline) - Number(b.deadline));
+    const history = sorted.filter((a) => a.status !== AuctionStatus.LIVE || ended(a));
+    return { liveNow, upcoming, history };
+  }, [sorted, nowMs]);
+
   const stats = useMemo(() => {
     if (!list) return { total: 0, live: 0, pool: 0n };
     return {
       total: list.length,
-      live: list.filter((a) => a.status === AuctionStatus.LIVE).length,
+      live: groups.liveNow.length,
       pool: list.reduce((acc, a) => acc + (a.totalPool > 0n ? a.totalPool : a.lastPrice), 0n),
     };
-  }, [list]);
-
-  const visible = useMemo(() => {
-    if (filter === 'all') return sorted;
-    if (filter === 'live') return sorted.filter((a) => a.status === AuctionStatus.LIVE);
-    if (filter === 'settled') return sorted.filter((a) => a.status === AuctionStatus.SETTLED);
-    return sorted.filter((a) => a.status === AuctionStatus.CANCELLED);
-  }, [sorted, filter]);
+  }, [list, groups]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pt-28">
@@ -76,7 +80,6 @@ export default function NadbidAuctionsPage() {
           to={ROUTES.NADBID_CREATE}
           className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl border-2 border-[#111] bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] px-6 py-3 text-sm font-black text-white shadow-[4px_4px_0_#111] transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
         >
-          {/* 扫光 */}
           <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
           <span className="relative">Create Auction</span>
@@ -96,31 +99,10 @@ export default function NadbidAuctionsPage() {
         </div>
       ) : (
         <>
-          <div className="mb-8 grid grid-cols-3 gap-3 md:gap-4">
+          <div className="mb-10 grid grid-cols-3 gap-3 md:gap-4">
             <StatCard label="Total auctions" value={isLoading ? '…' : String(stats.total)} />
             <StatCard label="Live now" value={isLoading ? '…' : String(stats.live)} accent />
             <StatCard label="Pooled USDC" value={isLoading ? '…' : fmtUsdc(stats.pool)} />
-          </div>
-
-          {/* 筛选 Tabs */}
-          <div className="mb-6 flex flex-wrap items-center gap-2">
-            {FILTERS.map((f) => {
-              const active = filter === f.key;
-              return (
-                <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={cn(
-                    'rounded-xl border-2 px-4 py-1.5 text-sm font-black transition',
-                    active
-                      ? 'border-[#111] bg-[#ffe94a] text-[#111] shadow-[2px_2px_0_#111]'
-                      : 'border-transparent text-[#111]/40 hover:text-[#111] hover:bg-[#111]/5',
-                  )}
-                >
-                  {f.label}
-                </button>
-              );
-            })}
           </div>
 
           {isLoading ? (
@@ -142,19 +124,104 @@ export default function NadbidAuctionsPage() {
                 Create the first auction
               </Link>
             </div>
-          ) : visible.length === 0 ? (
-            <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-12 text-center text-sm text-[#111]/40">
-              No {filter} auctions.
-            </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {visible.map((a) => (
-                <AuctionCard key={a.id.toString()} a={a} nowMs={nowMs} />
-              ))}
+            <div className="flex flex-col gap-14">
+              {/* ===== 1. 正在竞价 ===== */}
+              <section>
+                <SectionTitle
+                  icon={<span className="h-2.5 w-2.5 rounded-full bg-[#117a3d] animate-pulse" />}
+                  title="Live now"
+                  count={groups.liveNow.length}
+                  desc="Bidding in progress — the clock resets on every bid."
+                />
+                {groups.liveNow.length === 0 ? (
+                  <EmptyBlock text="No auctions are live right now." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {groups.liveNow.map((a) => (
+                      <AuctionCard key={a.id.toString()} a={a} nowMs={nowMs} live />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* ===== 2. 即将开始 ===== */}
+              <section>
+                <SectionTitle
+                  icon={<Hourglass className="h-4 w-4 text-[#b45309]" />}
+                  title="Upcoming"
+                  count={groups.upcoming.length}
+                  desc="Listed on-chain, waiting for the first bid."
+                />
+                {groups.upcoming.length === 0 ? (
+                  <EmptyBlock text="No upcoming auctions." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {groups.upcoming.map((a) => (
+                      <AuctionCard key={a.id.toString()} a={a} nowMs={nowMs} upcoming />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* ===== 3. 历史 ===== */}
+              <section>
+                <SectionTitle
+                  icon={<History className="h-4 w-4 text-[#111]/40" />}
+                  title="History"
+                  count={groups.history.length}
+                  desc="Settled, cancelled or timed-out auctions."
+                />
+                {groups.history.length === 0 ? (
+                  <EmptyBlock text="No past auctions yet." />
+                ) : (
+                  <div className="flex flex-col gap-2.5">
+                    {groups.history.map((a) => (
+                      <HistoryRow key={a.id.toString()} a={a} nowMs={nowMs} />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 区块标题                                                            */
+/* ------------------------------------------------------------------ */
+function SectionTitle({
+  icon,
+  title,
+  count,
+  desc,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  desc: string;
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        {icon}
+        <h2 className="text-xl font-black tracking-tight text-[#111]">{title}</h2>
+        <span className="rounded-md border-2 border-[#111] bg-[#fffdf7] px-2 py-0.5 font-mono text-xs font-black text-[#111]">
+          {count}
+        </span>
+      </div>
+      <span className="text-xs text-[#111]/40">{desc}</span>
+    </div>
+  );
+}
+
+function EmptyBlock({ text }: { text: string }) {
+  return (
+    <div className="nb-card border border-dashed border-[#111]/20 bg-transparent p-8 text-center text-sm text-[#111]/35">
+      {text}
     </div>
   );
 }
@@ -175,10 +242,11 @@ function StatCard({ label, value, accent = false }: { label: string; value: stri
   );
 }
 
-function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
+/* ------------------------------------------------------------------ */
+/* 正在 / 即将 — 卡片                                                  */
+/* ------------------------------------------------------------------ */
+function AuctionCard({ a, nowMs, live, upcoming }: { a: AuctionListRow; nowMs: number; live?: boolean; upcoming?: boolean }) {
   const st = STATUS_LABEL[a.status];
-  const isLive = a.status === AuctionStatus.LIVE;
-  const ended = isLive && nowMs >= Number(a.deadline) * 1000;
   const secsLeft = Number(a.deadline) * 1000 - nowMs > 0 ? Math.ceil((Number(a.deadline) * 1000 - nowMs) / 1000) : 0;
   const price = a.lastPrice > 0n ? a.lastPrice : a.startPrice;
   const assetMeta = useAssetMeta(a.assetType, a.assetAddr, a.assetType === 1 ? a.assetTokenId : undefined);
@@ -186,28 +254,41 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
   return (
     <Link
       to={nadbidDetailPath(a.id)}
-      className="group relative overflow-hidden nb-card p-5 transition hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
+      className={cn(
+        'group relative overflow-hidden nb-card p-5 transition hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]',
+        live && 'border-2 border-[#117a3d]',
+        upcoming && 'border border-dashed border-[#b45309]/50',
+      )}
     >
       {/* 顶部：编号 + 状态徽章 */}
       <div className="mb-4 flex items-start justify-between gap-2">
         <span className="font-mono text-xs font-black text-[#111]/35">#{a.id.toString()}</span>
-        <span
-          className={cn(
-            'rounded-md border-2 px-2 py-0.5 text-[11px] font-black shrink-0',
-            isLive
-              ? ended
-                ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
-                : 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]'
-              : st.tone === 'gray'
+        {live && (
+          <span className="flex items-center gap-1.5 rounded-md border-2 border-[#117a3d] bg-[#117a3d]/10 px-2 py-0.5 text-[11px] font-black text-[#117a3d]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#117a3d] animate-pulse" />
+            Live
+          </span>
+        )}
+        {upcoming && (
+          <span className="rounded-md border-2 border-[#b45309] bg-[#b45309]/10 px-2 py-0.5 text-[11px] font-black text-[#b45309]">
+            Starting
+          </span>
+        )}
+        {!live && !upcoming && (
+          <span
+            className={cn(
+              'rounded-md border-2 px-2 py-0.5 text-[11px] font-black shrink-0',
+              st.tone === 'gray'
                 ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
                 : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
-          )}
-        >
-          {isLive ? (ended ? 'Ending' : 'Live') : st.text}
-        </span>
+            )}
+          >
+            {st.text}
+          </span>
+        )}
       </div>
 
-      {/* 左图右文：拍品 LOGO + 介绍 */}
+      {/* 左图右文 */}
       <div className="flex gap-4">
         <AssetThumb
           assetType={a.assetType}
@@ -221,7 +302,9 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
             <span className="truncate text-base font-black text-[#111]">
               {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
             </span>
-            {a.assetType === 1 && <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>}
+            {a.assetType === 1 && (
+              <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>
+            )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="nb-chip bg-[#8b5cf6]/15 px-1.5 py-0 text-[10px] text-white">
@@ -230,7 +313,6 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
             <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
           </div>
 
-          {/* 主价 */}
           <div className="mt-auto pt-2 text-3xl font-black tracking-tight text-[#111]">
             {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
           </div>
@@ -243,10 +325,10 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
           <Users className="h-3.5 w-3.5" />
           {a.batchCount.toString()} batches
         </span>
-        {isLive ? (
-          <span className={cn('flex items-center gap-1.5 font-mono font-black', ended ? 'text-[#b45309]' : 'text-[#117a3d]')}>
+        {live ? (
+          <span className="flex items-center gap-1.5 font-mono font-black text-[#117a3d]">
             <Clock className="h-3.5 w-3.5" />
-            {ended ? '0s' : `${secsLeft}s`}
+            {secsLeft}s
           </span>
         ) : (
           <span className="font-mono font-bold">Pool {fmtUsdc(a.totalPool)}</span>
@@ -259,6 +341,54 @@ function AuctionCard({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
           Reserve {fmtUsdc(a.reservePrice)} USDC
         </div>
       )}
+    </Link>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 历史 — 紧凑行                                                       */
+/* ------------------------------------------------------------------ */
+function HistoryRow({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
+  const st = STATUS_LABEL[a.status];
+  const ended = a.status === AuctionStatus.LIVE && nowMs >= Number(a.deadline) * 1000;
+  const price = a.lastPrice > 0n ? a.lastPrice : a.startPrice;
+  const assetMeta = useAssetMeta(a.assetType, a.assetAddr, a.assetType === 1 ? a.assetTokenId : undefined);
+  const statusText = ended ? 'Ending — finalize' : st.text;
+
+  return (
+    <Link
+      to={nadbidDetailPath(a.id)}
+      className="group flex items-center gap-4 rounded-xl border-2 border-[#111]/10 bg-[#fffdf7] px-4 py-3 transition hover:-translate-y-0.5 hover:border-[#111] hover:shadow-[4px_4px_0_#111]"
+    >
+      <span className="font-mono text-xs font-black text-[#111]/35">#{a.id.toString()}</span>
+      <AssetThumb
+        assetType={a.assetType}
+        assetAddr={a.assetAddr}
+        tokenId={a.assetType === 1 ? a.assetTokenId : undefined}
+        variant="hero"
+        className="h-11 w-11 shrink-0"
+      />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-sm font-black text-[#111]">
+          {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
+        </span>
+        <span className="hidden shrink-0 font-mono text-[10px] text-[#111]/40 sm:inline">
+          {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`} · {shortenAddress(a.assetAddr)}
+        </span>
+      </div>
+      <span className="shrink-0 text-sm font-black text-[#111]">{fmtUsdc(price)} <span className="text-[10px] font-normal text-[#111]/40">USDC</span></span>
+      <span
+        className={cn(
+          'shrink-0 rounded-md border-2 px-2 py-0.5 text-[11px] font-black',
+          ended
+            ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
+            : st.tone === 'gray'
+              ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
+              : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
+        )}
+      >
+        {statusText}
+      </span>
     </Link>
   );
 }
