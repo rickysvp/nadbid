@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Users,
   TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatUnits } from 'viem';
@@ -532,6 +533,12 @@ function BatchRow({
           <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-400">resolving…</span>
         )}
 
+        {batch.resolved && selected && address === undefined && (
+          <span className="flex items-center gap-1.5 rounded-lg bg-[#8b5cf6]/10 px-2.5 py-1 text-xs font-bold text-[#6d28d9]">
+            <Wallet className="h-3 w-3" />
+            Connect wallet to claim
+          </span>
+        )}
         {canRefund && (
           <button
             onClick={() =>
