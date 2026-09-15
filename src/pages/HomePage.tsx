@@ -124,13 +124,18 @@ export default function HomePage() {
 
               <Link
                 to={ROUTES.NADBID_CREATE}
-                className="nb-card-flat group flex items-center justify-between border-2 border-[#111] bg-[#ffe94a] p-5 transition hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#111]"
+                className="nb-card-flat group relative flex items-center justify-between overflow-hidden border-2 border-[#111] bg-gradient-to-br from-[#ffe94a] to-[#ffd400] p-5 transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#111]"
               >
-                <div>
+                {/* 扫光 */}
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+                <div className="relative">
                   <div className="text-sm font-black">List an asset</div>
                   <div className="mt-0.5 text-xs text-[#111]/60">ERC-20 · ERC-721 · ERC-1155</div>
                 </div>
-                <Plus className="h-5 w-5 transition-transform group-hover:rotate-90" />
+                <Plus className="relative h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
+                <span className="absolute -top-2 -right-2 rounded-md border-2 border-[#111] bg-[#8b5cf6] px-1.5 py-0.5 text-[10px] font-black text-white shadow-[2px_2px_0_#111]">
+                  START
+                </span>
               </Link>
             </div>
           </div>

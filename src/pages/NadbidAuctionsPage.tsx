@@ -74,10 +74,15 @@ export default function NadbidAuctionsPage() {
         </div>
         <Link
           to={ROUTES.NADBID_CREATE}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#a78bfa] hover:shadow-[0_0_24px_rgba(139,92,246,0.35)]"
+          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl border-2 border-[#111] bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] px-6 py-3 text-sm font-black text-white shadow-[4px_4px_0_#111] transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
         >
-          <Plus className="h-4 w-4" />
-          Create Auction
+          {/* 扫光 */}
+          <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+          <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+          <span className="relative">Create Auction</span>
+          <span className="absolute -top-2 -right-2 rounded-md border-2 border-[#111] bg-[#ffe94a] px-1.5 py-0.5 text-[10px] font-black text-[#111] shadow-[2px_2px_0_#111]">
+            NEW
+          </span>
         </Link>
       </div>
 
