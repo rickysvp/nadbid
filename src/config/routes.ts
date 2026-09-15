@@ -22,6 +22,7 @@ export function nadbidDetailPath(id: string | bigint): string {
 /** 导航项配置（Navbar 使用） */
 export const NAV_ITEMS = [
   { label: 'Home', path: ROUTES.HOME },
+  { label: 'Auctions', path: ROUTES.NADBID },
   { label: 'Staking', path: ROUTES.STAKING },
   { label: 'Claim', path: ROUTES.CLAIM },
   { label: 'Referral', path: ROUTES.REFERRAL },
