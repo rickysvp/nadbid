@@ -2,6 +2,8 @@
 // Express app 构造（本地与 Vercel serverless 共用）
 import 'dotenv/config';
 import express from 'express';
+import { IndexStore } from './store.js';
+import { overviewForApi } from './analytics.js';
 
 
 // 允许跨域的来源白名单（生产用 X_FRONTEND_URL，本地开发允许 localhost）
@@ -48,6 +50,41 @@ export function createApp() {
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  // ============================================================================
+  // 链上行为分析 API（基于本地索引 JSON；未同步时返回 empty 状态）
+  // ============================================================================
+  app.get('/api/analytics/overview', (_req, res) => {
+    const store = new IndexStore();
+    const data = store.dataRef;
+    const hasData = data.sync.lastSyncAt.length > 0 && Object.keys(data.auctions).length > 0;
+    res.json({
+      synced: hasData,
+      lastSyncAt: data.sync.lastSyncAt,
+      lastBlock: data.sync.lastBlock,
+      overview: hasData ? overviewForApi(data) : null,
+    });
+  });
+
+  app.get('/api/analytics/auctions', (_req, res) => {
+    const store = new IndexStore();
+    const auctions = Object.values(store.dataRef.auctions)
+      .sort((a, b) => b.auctionId - a.auctionId)
+      .slice(0, 50)
+      .map((a) => ({
+        id: a.auctionId,
+        status: a.status,
+        seller: a.seller,
+        assetType: a.assetType,
+        assetAddr: a.assetAddr,
+        startPrice: a.startPrice,
+        reservePrice: a.reservePrice,
+        winner: a.winner ?? null,
+        finalPrice: a.finalPrice ?? null,
+        pool: a.pool ?? null,
+      }));
+    res.json({ auctions });
   });
 
   return app;

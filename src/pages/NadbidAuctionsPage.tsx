@@ -15,6 +15,7 @@ import { AssetThumb } from '../components/ui/AssetThumb';
 import { useAssetMeta } from '../web3/hooks/useAssetMeta';
 import { cn } from '../utils/cn';
 import { ROUTES, nadbidDetailPath } from '../config/routes';
+import ProtocolAnalytics from '../components/analytics/ProtocolAnalytics';
 
 /**
  * 拍卖列表页 — 按权重分区展示
@@ -99,7 +100,9 @@ export default function NadbidAuctionsPage() {
         </div>
       ) : (
         <>
-          <div className="mb-10 grid grid-cols-3 gap-3 md:gap-4">
+          <ProtocolAnalytics />
+
+          <div className="mb-10 mt-4 grid grid-cols-3 gap-3 md:gap-4">
             <StatCard label="Total auctions" value={isLoading ? '…' : String(stats.total)} />
             <StatCard label="Live now" value={isLoading ? '…' : String(stats.live)} accent />
             <StatCard label="Pooled USDC" value={isLoading ? '…' : fmtUsdc(stats.pool)} />
