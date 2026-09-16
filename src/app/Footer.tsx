@@ -71,17 +71,20 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-xs tracking-wider uppercase text-[#111]/50 mb-6">Legal</h4>
             <ul className="space-y-4 text-[#111]/60 text-sm">
-              <li className="flex items-center gap-2">
-                <span className="text-[#111]/40 cursor-not-allowed">Terms of Service</span>
-                <span className="text-[9px] bg-[#111]/10 text-[#111]/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
+              <li>
+                <Link to={ROUTES.LEGAL_TERMS} className="hover:text-[#111] transition-colors">
+                  Terms of Service
+                </Link>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="text-[#111]/40 cursor-not-allowed">Privacy Policy</span>
-                <span className="text-[9px] bg-[#111]/10 text-[#111]/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
+              <li>
+                <Link to={ROUTES.LEGAL_PRIVACY} className="hover:text-[#111] transition-colors">
+                  Privacy Policy
+                </Link>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="text-[#111]/40 cursor-not-allowed">Risk Disclaimer</span>
-                <span className="text-[9px] bg-[#111]/10 text-[#111]/50 px-1.5 py-0.5 rounded font-bold">SOON</span>
+              <li>
+                <Link to={ROUTES.LEGAL_RISK} className="hover:text-[#111] transition-colors">
+                  Risk Disclaimer
+                </Link>
               </li>
             </ul>
           </div>

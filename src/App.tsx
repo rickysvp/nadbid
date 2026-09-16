@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { WagmiProvider } from './web3/WagmiProvider';
 import { WalletStateSyncer } from './web3/WalletStateSyncer';
@@ -7,6 +7,10 @@ import AppLayout from './app/AppLayout';
 import { WalletGuard } from './components/wallet';
 import HomePage from './pages/HomePage';
 import ComingSoonPage from './pages/ComingSoonPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import RiskDisclaimerPage from './pages/RiskDisclaimerPage';
+import NotFoundPage from './pages/NotFoundPage';
 import { ROUTES } from './config/routes';
 
 // NADBID 协议页面路由级懒加载
@@ -86,7 +90,10 @@ export default function App() {
                       />
                     }
                   />
-                  <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+                  <Route path={ROUTES.LEGAL_TERMS} element={<TermsOfServicePage />} />
+                  <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
+                  <Route path={ROUTES.LEGAL_RISK} element={<RiskDisclaimerPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Routes>
             </Suspense>

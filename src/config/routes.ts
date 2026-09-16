@@ -12,6 +12,10 @@ export const ROUTES = {
   STAKING: '/staking',
   CLAIM: '/claim',
   REFERRAL: '/referral',
+  /** 法律与帮助 */
+  LEGAL_TERMS: '/legal/terms',
+  LEGAL_PRIVACY: '/legal/privacy',
+  LEGAL_RISK: '/legal/risk',
 } as const;
 
 /** 生成新协议拍卖详情页路径 */
