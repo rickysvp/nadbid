@@ -11,6 +11,7 @@ coverage/
 # 临时文件
 *.txt
 !README.txt
+!public/robots.txt
 temp_*.tsx
 test_*.tsx
 fix_*.cjs
