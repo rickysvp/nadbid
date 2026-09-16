@@ -392,40 +392,49 @@ export function useAuctionList() {
     }
     setLoading(true);
     (async () => {
-      const rows = await Promise.all(
-        Array.from({ length: count }, (_, i) =>
-          publicClient
-            .readContract({
-              address: auctionAddr!,
-              abi: nadbidAuctionAbi,
-              functionName: 'auctions',
-              // 合约 auctionId 从 1 开始
-              args: [BigInt(i + 1)],
-            })
-            .then((d) => {
-              const v = d as readonly unknown[];
-              return {
-                id: BigInt(i + 1),
-                status: Number(v[0]) as number,
-                seller: v[1] as `0x${string}`,
-                assetType: Number(v[2]) as number,
-                assetAddr: v[3] as `0x${string}`,
-                assetTokenId: v[4] as bigint,
-                assetAmount: v[5] as bigint,
-                startPrice: v[6] as bigint,
-                incrementBps: v[7] as bigint,
-                reservePrice: v[8] as bigint,
-                lastPrice: v[9] as bigint,
-                deadline: v[10] as bigint,
-                batchCount: v[14] as bigint,
-                totalPool: v[15] as bigint,
-                finalPrice: v[21] as bigint,
-                winner: v[22] as `0x${string}`,
-              } as AuctionListRow;
-            })
-            .catch(() => null),
-        ),
-      );
+      // 分块读取：每块并发 20 个，块间串行，避免拍卖数量大时一次性
+      // 发出大量 RPC 请求（限流/超时/响应过大）。功能不变，返回全量。
+      const CHUNK = 20;
+      const rows: (AuctionListRow | null)[] = [];
+      for (let start = 0; start < count; start += CHUNK) {
+        const end = Math.min(start + CHUNK, count);
+        const chunk = await Promise.all(
+          Array.from({ length: end - start }, (_, i) =>
+            publicClient
+              .readContract({
+                address: auctionAddr!,
+                abi: nadbidAuctionAbi,
+                functionName: 'auctions',
+                // 合约 auctionId 从 1 开始
+                args: [BigInt(start + i + 1)],
+              })
+              .then((d) => {
+                const v = d as readonly unknown[];
+                return {
+                  id: BigInt(start + i + 1),
+                  status: Number(v[0]) as number,
+                  seller: v[1] as `0x${string}`,
+                  assetType: Number(v[2]) as number,
+                  assetAddr: v[3] as `0x${string}`,
+                  assetTokenId: v[4] as bigint,
+                  assetAmount: v[5] as bigint,
+                  startPrice: v[6] as bigint,
+                  incrementBps: v[7] as bigint,
+                  reservePrice: v[8] as bigint,
+                  lastPrice: v[9] as bigint,
+                  deadline: v[10] as bigint,
+                  batchCount: v[14] as bigint,
+                  totalPool: v[15] as bigint,
+                  finalPrice: v[21] as bigint,
+                  winner: v[22] as `0x${string}`,
+                } as AuctionListRow;
+              })
+              .catch(() => null),
+          ),
+        );
+        rows.push(...chunk);
+        if (cancelled) return;
+      }
       if (!cancelled) {
         setList(rows.filter((r): r is AuctionListRow => r !== null));
         setLoading(false);

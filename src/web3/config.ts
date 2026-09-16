@@ -1,4 +1,4 @@
-import { http, createConfig } from 'wagmi';
+import { http, fallback, createConfig } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 import type { AddEthereumChainParameter, Chain, EIP1193Provider } from 'viem';
 
@@ -12,13 +12,21 @@ import type { AddEthereumChainParameter, Chain, EIP1193Provider } from 'viem';
 const monadRpcUrl =
   import.meta.env.VITE_MONAD_RPC_URL?.trim() || 'https://testnet-rpc.monad.xyz';
 
+/**
+ * RPC 列表（依次 fallback）：环境变量优先，其次官方节点，最后公共节点。
+ * viem http() 支持数组，按顺序重试，避免单节点故障导致全站不可用。
+ */
+const monadRpcUrls = [monadRpcUrl, 'https://testnet-rpc.monad.xyz', 'https://monad-testnet.drpc.org'].filter(
+  (u, i, arr) => arr.indexOf(u) === i,
+);
+
 export const monadTestnet = {
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: {
-    default: { http: [monadRpcUrl] },
-    public: { http: [monadRpcUrl] },
+    default: { http: monadRpcUrls },
+    public: { http: monadRpcUrls },
   },
   blockExplorers: {
     default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
@@ -35,7 +43,7 @@ export const monadChainParams: AddEthereumChainParameter = {
   chainId: `0x${(10143).toString(16)}`,
   chainName: 'Monad Testnet',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-  rpcUrls: [monadRpcUrl],
+  rpcUrls: monadRpcUrls,
   blockExplorerUrls: ['https://testnet.monadexplorer.com'],
 };
 
@@ -83,7 +91,12 @@ export const wagmiConfig = createConfig({
     }),
   ],
   transports: {
-    [monadTestnet.id]: http(),
+    // fallback transport：依次尝试环境变量 RPC → 官方节点 → 公共节点，
+    // viem 会按健康度排序并自动 failover，避免单节点故障导致全站不可用。
+    [monadTestnet.id]: fallback([
+      http(monadRpcUrls[0]),
+      ...monadRpcUrls.slice(1).map((u) => http(u)),
+    ]),
   },
 });
 
