@@ -75,13 +75,23 @@ export default function Navbar() {
                 key={item.path}
                 onClick={() => go(item.path)}
                 className={cn(
-                  'px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
+                  'flex items-center px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
                   active
                     ? 'bg-[#8b5cf6] text-white'
                     : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                 )}
               >
                 {item.label}
+                {item.soon && (
+                  <span
+                    className={cn(
+                      'ml-1.5 rounded px-1 py-0.5 text-[8px] font-black leading-none',
+                      active ? 'bg-white/20 text-white' : 'bg-[#ff4d4f] text-[#fffdf7]',
+                    )}
+                  >
+                    SOON
+                  </span>
+                )}
               </button>
             );
           })}
@@ -129,7 +139,19 @@ export default function Navbar() {
                         : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
                     )}
                   >
-                    {item.label}
+                    <span className="flex items-center">
+                      {item.label}
+                      {item.soon && (
+                        <span
+                          className={cn(
+                            'ml-1.5 rounded px-1 py-0.5 text-[8px] font-black leading-none',
+                            active ? 'bg-white/20 text-white' : 'bg-[#ff4d4f] text-[#fffdf7]',
+                          )}
+                        >
+                          SOON
+                        </span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
