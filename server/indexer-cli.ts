@@ -6,6 +6,7 @@
 //   npx tsx server/indexer-cli.ts --logs     # 尝试从链上拉历史事件日志（RPC 受限时可能失败）
 import { IndexStore } from './store.js';
 import { scanAuctions, syncIndexer, watchEvents } from './indexer.js';
+import { kvEnabled, kvSave } from './kvStore.js';
 
 const args = process.argv.slice(2);
 const doLogs = args.includes('--logs');
@@ -37,6 +38,10 @@ async function main() {
 
   if (watchSeconds > 0) {
     console.log(`[indexer] watch mode: event listener + scan every ${watchSeconds}s (Ctrl+C to stop)`);
+    if (kvEnabled()) {
+      console.log('[indexer] KV persistence enabled — bids/claims will be saved to KV');
+      store.afterSave = () => kvSave(store.dataRef);
+    }
     const stop = watchEvents(store);
     const timer = setInterval(() => {
       scanOnce(store).catch((e) => console.error('[indexer] scan error:', e));

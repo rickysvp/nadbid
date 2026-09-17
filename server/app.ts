@@ -5,6 +5,7 @@ import express from 'express';
 import { IndexStore } from './store.js';
 import { overviewForApi } from './analytics.js';
 import { getSyncedStore, forceSync, getCacheStatus, DEFAULT_TTL_MS } from './syncCache.js';
+import { kvEnabled } from './kvStore.js';
 
 
 // 允许跨域的来源白名单（生产用 X_FRONTEND_URL，本地开发允许 localhost）
@@ -117,6 +118,7 @@ export function createApp() {
       ...getCacheStatus(),
       ttlMs: DEFAULT_TTL_MS,
       vercel: Boolean(process.env.VERCEL),
+      kvEnabled: kvEnabled(),
     });
   });
 

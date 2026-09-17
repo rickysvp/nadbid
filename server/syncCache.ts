@@ -5,6 +5,7 @@
 // 可选：若配置了 KV_REST_API_URL（Vercel KV），可扩展为持久层；当前版本用内存 + /tmp JSON 兜底。
 import { IndexStore, type IndexData } from './store.js';
 import { scanAuctions } from './indexer.js';
+import { kvEnabled, kvLoad, kvSave } from './kvStore.js';
 
 /** 缓存默认 TTL：5 分钟（与 Vercel Cron 同步频率一致） */
 export const DEFAULT_TTL_MS = 5 * 60 * 1000;
@@ -29,6 +30,18 @@ export async function getSyncedStore(maxAgeMs: number = DEFAULT_TTL_MS): Promise
     return cache.store;
   }
 
+  // 缓存为空时，先尝试从 KV 恢复（实例回收后无需重新扫链）
+  if (!cache && kvEnabled()) {
+    const kvData = await kvLoad();
+    if (kvData && Object.keys(kvData.auctions).length > 0) {
+      const store = new IndexStore(process.env.VERCEL ? '/tmp/nadbid-index.json' : undefined);
+      store.importData(kvData);
+      cache = { store, syncedAt: Date.now() };
+      console.log(`[syncCache] restored from KV: ${Object.keys(kvData.auctions).length} auctions`);
+      return store;
+    }
+  }
+
   // single-flight：并发请求只触发一次同步
   if (!inflight) {
     inflight = (async () => {
@@ -39,6 +52,8 @@ export async function getSyncedStore(maxAgeMs: number = DEFAULT_TTL_MS): Promise
         );
         const updated = await scanAuctions(store);
         cache = { store, syncedAt: Date.now() };
+        // 异步写入 KV（不阻塞）
+        kvSave(store.dataRef);
         if (updated > 0) {
           console.log(`[syncCache] synced ${updated} auctions at ${new Date().toISOString()}`);
         }

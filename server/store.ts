@@ -74,6 +74,8 @@ export function defaultIndexPath(): string {
 export class IndexStore {
   private path: string;
   private data: IndexData;
+  /** 每次 save() 后调用的钩子（用于 KV 持久化等副作用） */
+  afterSave?: () => void;
 
   constructor(path = defaultIndexPath()) {
     this.path = path;
@@ -102,6 +104,7 @@ export class IndexStore {
     const tmp = `${this.path}.tmp`;
     writeFileSync(tmp, JSON.stringify(this.data), 'utf-8');
     renameSync(tmp, this.path);
+    if (this.afterSave) this.afterSave();
   }
 
   get dataRef(): IndexData {
@@ -128,5 +131,15 @@ export class IndexStore {
 
   addClaims(claims: StoredClaim[]) {
     this.data.claims.push(...claims);
+  }
+
+  /** 从外部数据（如 KV 恢复）完整导入，覆盖当前内存状态 */
+  importData(data: IndexData) {
+    this.data = {
+      sync: { ...DEFAULTS.sync, ...data.sync },
+      auctions: data.auctions ?? {},
+      bids: data.bids ?? [],
+      claims: data.claims ?? [],
+    };
   }
 }
