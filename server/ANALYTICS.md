@@ -63,29 +63,38 @@ Vercel Cron 调用时会自动带 `authorization: Bearer <CRON_SECRET>` 头。
 
 未设置 CRON_SECRET 时，生产环境的 `/api/analytics/sync` 端点会拒绝未授权调用（但 overview/auctions 端点的自动同步仍正常工作——Cron 只是预热，不设置也能用，只是冷启动稍慢）。
 
-### 3. 绑定 Vercel KV（强烈推荐，持久化）
+### 3. 绑定 Upstash Redis（强烈推荐，持久化）
 
-不绑定 KV 也能用（内存缓存 + 自动重建），但**实例回收后数据丢失、出价明细无法积累**。绑定 KV 后：
+> **注意**：Vercel KV 已于 2024 年 12 月停用，新项目需通过 Vercel Marketplace 安装 **Upstash Redis**（Vercel KV 底层就是 Upstash，效果完全一样）。
+
+不绑定 KV 也能用（内存缓存 + 自动重建），但**实例回收后数据丢失、出价明细无法积累**。绑定 Upstash 后：
 - 拍卖级数据永久保存（7 天 TTL，每次同步刷新）
 - 实例回收后从 KV 秒级恢复，无需重新扫链
 - 本地常驻索引器写入的出价明细，线上也能读到
 
 **绑定步骤**：
-1. Vercel 项目 → **Storage** → **Create Database** → 选 **KV**
-2. 命名（如 `nadbid-index`），选区域（接近你的函数区域）
-3. 点击 **Connect** → 选当前项目 → 自动注入 `KV_REST_API_URL` / `KV_REST_API_TOKEN` / `KV_REST_API_READ_ONLY_TOKEN` 环境变量
-4. 重新部署
+1. Vercel 项目 → 顶部 **Marketplace**（不是 Storage）
+2. 搜索 **Upstash** → 点击 **Upstash Redis** → **Add Integration**
+3. 授权后选择 **Create Database**（或选已有）
+   - 命名：`nadbid-index`
+   - 类型：Regional（选离你 Vercel 函数最近的区域，如 `us-east-1`）
+   - 免费档：10,000 commands/天，256MB 存储（够用）
+4. 连接到当前项目 → 自动注入环境变量：
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+   - `UPSTASH_REDIS_REST_READ_ONLY_TOKEN`
+5. 重新部署
 
-代码会自动检测 `KV_REST_API_URL` 环境变量，有则启用 KV，无则静默降级为内存缓存。
+代码会自动检测 `UPSTASH_REDIS_REST_URL`（或旧的 `KV_REST_API_URL`）环境变量，有则启用 KV，无则静默降级为内存缓存。
 
 ### 4. 出价明细持久化（本地常驻索引器）
 
 Monad 公共 RPC 历史日志不可用，serverless 无法拉取历史 BidPlaced 事件。**出价明细需要本地或 VPS 常驻进程实时监听**：
 
 ```bash
-# 本地常驻（需要设置 KV 环境变量，写入线上 KV）
-KV_REST_API_URL=https://xxx.kv.vercel-storage.com \
-KV_REST_API_TOKEN=xxx \
+# 本地常驻（需要设置 Upstash 环境变量，写入线上 KV）
+UPSTASH_REDIS_REST_URL=https://xxx.upstash.io \
+UPSTASH_REDIS_REST_TOKEN=xxx \
 npx tsx server/indexer-cli.ts --watch 60
 ```
 
