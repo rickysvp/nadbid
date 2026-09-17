@@ -8,5 +8,11 @@
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/[^.]*", "dest": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/analytics/sync",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }

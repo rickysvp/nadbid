@@ -4,6 +4,7 @@ import 'dotenv/config';
 import express from 'express';
 import { IndexStore } from './store.js';
 import { overviewForApi } from './analytics.js';
+import { getSyncedStore, forceSync, getCacheStatus, DEFAULT_TTL_MS } from './syncCache.js';
 
 
 // 允许跨域的来源白名单（生产用 X_FRONTEND_URL，本地开发允许 localhost）
@@ -53,10 +54,10 @@ export function createApp() {
   });
 
   // ============================================================================
-  // 链上行为分析 API（基于本地索引 JSON；未同步时返回 empty 状态）
+  // 链上行为分析 API（内存缓存 + TTL 自动同步；Vercel Cron 定期触发 forceSync）
   // ============================================================================
-  app.get('/api/analytics/overview', (_req, res) => {
-    const store = new IndexStore();
+  app.get('/api/analytics/overview', async (_req, res) => {
+    const store = await getSyncedStore();
     const data = store.dataRef;
     const hasData = data.sync.lastSyncAt.length > 0 && Object.keys(data.auctions).length > 0;
     res.json({
@@ -67,8 +68,8 @@ export function createApp() {
     });
   });
 
-  app.get('/api/analytics/auctions', (_req, res) => {
-    const store = new IndexStore();
+  app.get('/api/analytics/auctions', async (_req, res) => {
+    const store = await getSyncedStore();
     const auctions = Object.values(store.dataRef.auctions)
       .sort((a, b) => b.auctionId - a.auctionId)
       .slice(0, 50)
@@ -85,6 +86,38 @@ export function createApp() {
         pool: a.pool ?? null,
       }));
     res.json({ auctions });
+  });
+
+  /**
+   * Cron 触发的强制同步端点。
+   * Vercel Cron 调用时带 authorization: Bearer <CRON_SECRET>。
+   * 本地开发无 CRON_SECRET 时允许调用（仅 localhost）。
+   */
+  app.post('/api/analytics/sync', async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    const isLocal = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    if (cronSecret && !isLocal) {
+      const auth = req.headers.authorization;
+      if (!auth || auth !== `Bearer ${cronSecret}`) {
+        res.status(401).json({ error: 'unauthorized' });
+        return;
+      }
+    }
+    try {
+      const result = await forceSync();
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: (e as Error).message.slice(0, 200) });
+    }
+  });
+
+  /** 同步状态（缓存年龄、拍卖数）—— 调试与监控用 */
+  app.get('/api/analytics/sync-status', (_req, res) => {
+    res.json({
+      ...getCacheStatus(),
+      ttlMs: DEFAULT_TTL_MS,
+      vercel: Boolean(process.env.VERCEL),
+    });
   });
 
   return app;
