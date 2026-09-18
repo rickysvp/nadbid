@@ -1,0 +1,30 @@
+{
+  "query": "NADBID 链上拍卖 DApp 首页 UI 重构。暗场风格，首屏直接展示正在进行的拍卖大卡，左侧拍品图右侧拍卖信息。专业交易终端风格，配色用冰青色 #00d4ff。产品核心是：用 USDC 出价，出价不退款，后续出价的一部分奖励前序出价者，最后出价者赢得资产。Monad 测试网。",
+  "signature": {
+    "ground": null,
+    "typeVoice": "serif-editorial",
+    "imageWorld": "render3d",
+    "layoutLogic": "full-bleed-stack",
+    "colorStrategy": null,
+    "motionVoice": "parallax"
+  },
+  "why": {
+    "ground": "平手：dark / paper 各命中 1 个线索 —— 由你按内容定",
+    "typeVoice": "语义命中 1 个线索",
+    "imageWorld": "语义命中 1 个线索",
+    "layoutLogic": "语义命中 1 个线索",
+    "colorStrategy": "query 没给这一维的信号 —— 由你按内容定",
+    "motionVoice": "语义命中 1 个线索"
+  },
+  "open": [
+    "ground",
+    "colorStrategy"
+  ],
+  "divergence": {
+    "vsRecent": [
+      0
+    ],
+    "min": 0,
+    "require": 3
+  }
+}

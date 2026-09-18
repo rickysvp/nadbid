@@ -1,0 +1,29 @@
+{
+  "query": "重新设计 nadbid 链上拍卖平台整体 UI，当前页面非常难看不精致不美观。项目是 Monad 测试网上的 Web3 拍卖 DApp，USDC 结算，核心功能：首页 HERO 展示最近拍卖、拍卖列表页（正在/即将/历史）、拍卖详情页（出价+倒计时）、创建拍卖页。品牌 LOGO 是紫黑渐变 nadbid 艺术字。风格要精致美观符合 Web3 产品审美，参考 busy.land 等现代 Web3 DApp 的设计语言。",
+  "signature": {
+    "ground": "paper",
+    "typeVoice": "serif-editorial",
+    "imageWorld": "render3d",
+    "layoutLogic": null,
+    "colorStrategy": null,
+    "motionVoice": null
+  },
+  "why": {
+    "ground": "语义命中 1 个线索",
+    "typeVoice": "语义命中 2 个线索",
+    "imageWorld": "语义命中 1 个线索",
+    "layoutLogic": "平手：axial / full-bleed-stack / grid 各命中 1 个线索 —— 由你按内容定",
+    "colorStrategy": "query 没给这一维的信号 —— 由你按内容定",
+    "motionVoice": "平手：parallax / slow-push 各命中 1 个线索 —— 由你按内容定"
+  },
+  "open": [
+    "layoutLogic",
+    "colorStrategy",
+    "motionVoice"
+  ],
+  "divergence": {
+    "vsRecent": [],
+    "min": null,
+    "require": 3
+  }
+}

@@ -105,7 +105,7 @@ const IS_APPROVED_FOR_ALL_ABI = [
 const STEPS = ['Asset', 'Pricing', 'Confirm'] as const;
 
 const inputCls =
-  'w-full rounded-xl border-2 border-[#111] bg-[#fffdf7] px-4 py-3 text-sm text-[#111] placeholder-[#111]/30 outline-none shadow-[2px_2px_0_rgba(17,17,17,0.25)] transition focus:border-[#117a3d] focus:shadow-[2px_2px_0_#1a7f37]';
+  'w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-[#111]/30 outline-none shadow-[2px_2px_0_rgba(17,17,17,0.25)] transition focus:border-[#117a3d] focus:shadow-[2px_2px_0_#1a7f37]';
 
 export default function NadbidCreateAuctionPage() {
   const navigate = useNavigate();
@@ -331,7 +331,7 @@ export default function NadbidCreateAuctionPage() {
   if (!isReady) {
     return (
       <Shell>
-        <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-12 text-center text-sm text-[#111]/40">
+        <div className="nb-card border border-white/10/15 bg-white/5 p-12 text-center text-sm text-white/40">
           Contract not deployed. Set <span className="font-mono text-[#117a3d]">VITE_NADBID_AUCTION</span> first.
         </div>
       </Shell>
@@ -342,11 +342,11 @@ export default function NadbidCreateAuctionPage() {
     return (
       <Shell>
         <div className="nb-card p-8 md:p-10 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#111] bg-[#ffe94a] shadow-[3px_3px_0_#111]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-white/10 bg-[#ffe94a] shadow-[3px_3px_0_#111]">
             <Wallet className="h-6 w-6" />
           </div>
-          <h2 className="mt-5 text-2xl font-black text-[#111]">Connect your wallet to create an auction</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#111]/55">
+          <h2 className="mt-5 text-2xl font-bold text-white">Connect your wallet to create an auction</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/55">
             You&apos;ll need a Monad testnet wallet to deposit the asset, approve it and lock the auction parameters
             on-chain.
           </p>
@@ -357,11 +357,11 @@ export default function NadbidCreateAuctionPage() {
           <div className="mx-auto mt-8 grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <div key={step} className="nb-card-flat p-4 text-left">
-                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-[#111] bg-[#8b5cf6] font-mono text-xs font-black text-white">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-white/10 bg-[#8b5cf6] font-mono text-xs font-bold text-white">
                   {i + 1}
                 </div>
-                <div className="mt-2.5 text-sm font-black text-[#111]">{step}</div>
-                <div className="mt-0.5 text-[11px] leading-snug text-[#111]/45">
+                <div className="mt-2.5 text-sm font-bold text-white">{step}</div>
+                <div className="mt-0.5 text-[11px] leading-snug text-white/45">
                   {i === 0 ? 'Pick asset type & address' : i === 1 ? 'Start price, increment, reserve' : 'Approve & publish'}
                 </div>
               </div>
@@ -386,7 +386,7 @@ export default function NadbidCreateAuctionPage() {
                   ? 'bg-[#8b5cf6] text-white'
                   : i < step
                     ? 'bg-[#8b5cf6]/10 text-[#117a3d]'
-                    : 'bg-[#111]/5 text-[#111]/40',
+                    : 'bg-white/5 text-white/40',
               )}
             >
               {i < step ? <Check className="h-3 w-3" /> : <span className="font-mono">{i + 1}</span>}
@@ -401,7 +401,7 @@ export default function NadbidCreateAuctionPage() {
         <StepCard title="What are you auctioning?" desc="List any on-chain asset. It is escrowed at creation and delivered to the winner automatically.">
           {/* 资产类型 */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-[#111]/70">Asset type</label>
+            <label className="mb-2 block text-sm font-semibold text-white/70">Asset type</label>
             <div className="grid grid-cols-3 gap-2">
               {(
                 [
@@ -417,7 +417,7 @@ export default function NadbidCreateAuctionPage() {
                     'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition',
                     assetType === t.v
                       ? 'border-[#1a7f37]/50 bg-[#8b5cf6]/10 text-[#117a3d]'
-                      : 'border-[#111]/15 bg-[#fffdf7] text-[#111]/60 hover:border-[#111]/25',
+                      : 'border-white/10/15 bg-white/5 text-white/60 hover:border-white/15',
                   )}
                 >
                   {t.icon}
@@ -440,7 +440,7 @@ export default function NadbidCreateAuctionPage() {
               </p>
             )}
             {assetAddrValid && assetProbe === 'checking' && (
-              <p className="mt-1.5 text-xs text-[#111]/40">Probing on-chain…</p>
+              <p className="mt-1.5 text-xs text-white/40">Probing on-chain…</p>
             )}
             {assetAddrValid && assetProbe === 'noCode' && (
               <p className="mt-1.5 text-xs text-red-400">
@@ -473,7 +473,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               disabled={!assetValid}
               onClick={() => setStep(1)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               Continue
               <ArrowRight className="h-4 w-4" />
@@ -507,22 +507,22 @@ export default function NadbidCreateAuctionPage() {
 
             {/* 固定时长（只读） */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[#111]/70">Auction duration</label>
-              <div className="flex items-center gap-3 rounded-xl border border-[#111]/15 bg-[#fffdf7] px-4 py-3">
+              <label className="mb-1.5 block text-sm font-semibold text-white/70">Auction duration</label>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10/15 bg-white/5 px-4 py-3">
                 <Clock className="h-4 w-4 text-[#117a3d]" />
-                <span className="font-mono text-sm font-black text-[#111]">120 seconds</span>
-                <span className="text-xs text-[#111]/40">fixed · resets on each bid</span>
+                <span className="font-mono text-sm font-bold text-white">120 seconds</span>
+                <span className="text-xs text-white/40">fixed · resets on each bid</span>
               </div>
             </div>
           </div>
 
           {/* 费用说明 */}
           <div className="mt-5 rounded-xl border border-[#1a7f37]/15 bg-[#8b5cf6]/[0.04] p-4 text-sm">
-            <div className="mb-2 text-xs font-black uppercase tracking-wider text-[#117a3d]">Payout structure</div>
-            <div className="grid grid-cols-2 gap-2.5 text-[#111]/70">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#117a3d]">Payout structure</div>
+            <div className="grid grid-cols-2 gap-2.5 text-white/70">
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 shrink-0 text-[#117a3d]" />
-                You receive <b className="text-[#111]">85% of the pool</b> (net of 5% settle fee)
+                You receive <b className="text-white">85% of the pool</b> (net of 5% settle fee)
               </div>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 shrink-0 text-[#117a3d]" />
@@ -540,13 +540,13 @@ export default function NadbidCreateAuctionPage() {
           </div>
 
           <div className="mt-6 flex justify-between">
-            <button onClick={() => setStep(0)} className="rounded-xl border border-[#111]/15 px-5 py-3 text-sm font-bold text-[#111]/70 hover:text-[#111]">
+            <button onClick={() => setStep(0)} className="rounded-xl border border-white/10/15 px-5 py-3 text-sm font-bold text-white/70 hover:text-white">
               Back
             </button>
             <button
               disabled={!pricingValid}
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               Review & confirm
               <ArrowRight className="h-4 w-4" />
@@ -558,7 +558,7 @@ export default function NadbidCreateAuctionPage() {
       {step === 2 && (
         <StepCard title="Confirm & deploy" desc="Approve the asset, then create the auction in one flow.">
           {/* 摘要 */}
-          <div className="space-y-2 rounded-xl bg-[#fffdf7] p-5 text-sm">
+          <div className="space-y-2 rounded-xl bg-white/5 p-5 text-sm">
             <SummaryRow label="Asset" value={assetType === '0' ? `${amount || '—'} ${shorten(assetAddr)}` : assetType === '1' ? `#${tokenId || '—'} ${shorten(assetAddr)}` : `${amount || '—'}× #${tokenId || '—'} ${shorten(assetAddr)}`} />
             <SummaryRow label="Start price" value={`${startPrice || '—'} USDC`} accent />
             <SummaryRow label="Increment" value={`${incrementPct}% per bid`} />
@@ -572,14 +572,14 @@ export default function NadbidCreateAuctionPage() {
             <button
               onClick={handleApprove}
               disabled={!assetAddr.trim() || approveTx.isLoading}
-              className="flex-1 rounded-xl border border-[#111]/25 bg-[#111]/5 px-4 py-3 text-sm font-bold text-[#111] transition hover:bg-[#111]/10 disabled:opacity-40"
+              className="flex-1 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-[#111]/10 disabled:opacity-40"
             >
               {approveTx.isLoading ? 'Approving…' : 'Approve asset'}
             </button>
             <button
               onClick={handleCreate}
               disabled={!canCreate || createTx.isLoading}
-              className="flex-1 rounded-xl bg-[#8b5cf6] px-4 py-3 text-sm font-black text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-[#8b5cf6] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
             >
               {createTx.isLoading
                 ? 'Creating…'
@@ -589,12 +589,12 @@ export default function NadbidCreateAuctionPage() {
             </button>
           </div>
 
-          <p className="mt-3 text-center text-xs text-[#111]/40">
+          <p className="mt-3 text-center text-xs text-white/40">
             Your wallet can't bid on your own auction (enforced on-chain).
           </p>
 
           <div className="mt-4 flex justify-start">
-            <button onClick={() => setStep(1)} className="rounded-xl px-4 py-2 text-sm font-bold text-[#111]/60 hover:text-[#111]">
+            <button onClick={() => setStep(1)} className="rounded-xl px-4 py-2 text-sm font-bold text-white/60 hover:text-white">
               ← Back to pricing
             </button>
           </div>
@@ -609,16 +609,16 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="mx-auto max-w-2xl px-4 py-8 pt-28">
       <Link
         to="/nadbid"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#111]/50 transition hover:text-[#117a3d]"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#117a3d]"
       >
         <ArrowLeft className="h-4 w-4" />
         All auctions
       </Link>
-      <h1 className="mb-1 flex items-center gap-3 text-3xl font-black text-[#111]">
+      <h1 className="mb-1 flex items-center gap-3 text-3xl font-bold text-white">
         <PlusCircle className="h-8 w-8 text-[#117a3d]" />
         Create auction
       </h1>
-      <p className="mb-8 text-sm text-[#111]/50">
+      <p className="mb-8 text-sm text-white/50">
         List any on-chain asset (ERC-20 / ERC-721 / ERC-1155). Bidders pay in USDC — you receive 85% of the pool net of
         fees.
       </p>
@@ -629,9 +629,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function StepCard({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
   return (
-    <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-6 md:p-8">
-      <h2 className="text-xl font-black text-[#111]">{title}</h2>
-      <p className="mb-6 mt-1.5 text-sm text-[#111]/45">{desc}</p>
+    <div className="nb-card border border-white/10/15 bg-white/5 p-6 md:p-8">
+      <h2 className="text-xl font-bold text-white">{title}</h2>
+      <p className="mb-6 mt-1.5 text-sm text-white/45">{desc}</p>
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -640,9 +640,9 @@ function StepCard({ title, desc, children }: { title: string; desc: string; chil
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold text-[#111]/70">{label}</label>
+      <label className="mb-1.5 block text-sm font-semibold text-white/70">{label}</label>
       {children}
-      {hint && <p className="mt-1 text-xs text-[#111]/40">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-white/40">{hint}</p>}
     </div>
   );
 }
@@ -650,8 +650,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function SummaryRow({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex justify-between gap-4">
-      <span className="text-[#111]/50">{label}</span>
-      <span className={cn('font-mono text-right', accent ? 'text-[#117a3d]' : 'text-[#111]/85')}>{value}</span>
+      <span className="text-white/50">{label}</span>
+      <span className={cn('font-mono text-right', accent ? 'text-[#117a3d]' : 'text-white/85')}>{value}</span>
     </div>
   );
 }

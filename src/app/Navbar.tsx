@@ -7,11 +7,10 @@ import { NAV_ITEMS } from '../config/routes';
 import { cn } from '../utils/cn';
 
 /**
- * 顶部导航栏 — NADBID
+ * 顶部导航栏 — NEON VEGAS
  * 经典 DApp 布局：左 LOGO，右导航 + Connect。
- * - 首页顶部透明，滚动后纸白毛玻璃 + 细下边框
- * - 导航项 hover 淡紫底，active 紫胶囊白字
- * - 克制的留白，无粗黑边框
+ * - 首页顶部透明，滚动后暖黑毛玻璃 + 细下边框
+ * - 导航项 hover 金色淡底，active 金色胶囊黑字
  */
 export default function Navbar() {
   const location = useLocation();
@@ -30,10 +29,6 @@ export default function Navbar() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const isHome = location.pathname === '/';
-  const solid = scrolled;
-  const onHome = isHome && !solid;
-
   const go = (path: string) => {
     setMobileOpen(false);
     navigate(path);
@@ -46,8 +41,8 @@ export default function Navbar() {
     <nav
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-        solid
-          ? 'bg-[#fffdf7]/95 backdrop-blur-xl border-b border-[#111]/10'
+        scrolled
+          ? 'bg-[#0d0b09]/80 backdrop-blur-xl border-b border-white/[0.06]'
           : 'bg-transparent border-b border-transparent',
       )}
     >
@@ -75,18 +70,18 @@ export default function Navbar() {
                 key={item.path}
                 onClick={() => go(item.path)}
                 className={cn(
-                  'flex items-center px-3.5 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-200 border-0 shadow-none bg-transparent',
+                  'flex items-center px-4 py-2 rounded-full text-sm font-medium tracking-wide transition-all duration-200 border-0 shadow-none bg-transparent',
                   active
-                    ? 'bg-[#8b5cf6] text-white'
-                    : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
+                    ? 'bg-[#8b5cf6] text-[#0f0a1a] font-semibold'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.06]',
                 )}
               >
                 {item.label}
                 {item.soon && (
                   <span
                     className={cn(
-                      'ml-1.5 rounded px-1 py-0.5 text-[8px] font-black leading-none',
-                      active ? 'bg-white/20 text-white' : 'bg-[#ff4d4f] text-[#fffdf7]',
+                      'ml-1.5 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none',
+                      active ? 'bg-black/20 text-[#0d0b09]' : 'bg-[#f97316]/20 text-[#fb923c]',
                     )}
                   >
                     SOON
@@ -99,13 +94,13 @@ export default function Navbar() {
 
         {/* 右侧：Connect */}
         <div className="flex items-center gap-1.5 md:gap-2">
-          <ConnectButton variant={onHome ? 'light' : 'dark'} />
+          <ConnectButton variant="dark" />
 
           {/* 移动端汉堡 */}
           <button
             className={cn(
-              'lg:hidden flex items-center justify-center w-10 h-10 rounded-lg border shadow-none transition-colors',
-              'border-[#111]/15 text-[#111] hover:bg-[#111]/5',
+              'lg:hidden flex items-center justify-center w-10 h-10 rounded-xl border transition-colors',
+              'border-white/10 text-white/70 hover:bg-white/[0.06]',
             )}
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle menu"
@@ -123,9 +118,9 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="lg:hidden overflow-hidden border-t border-[#111]/10 bg-[#fffdf7]/97 backdrop-blur-xl"
+            className="lg:hidden overflow-hidden border-t border-white/[0.06] bg-[#0d0b09]/95 backdrop-blur-xl"
           >
-            <div className="px-5 py-3 flex flex-col gap-0.5">
+            <div className="px-5 py-3 flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
                 const active = isActive(item.path);
                 return (
@@ -133,10 +128,10 @@ export default function Navbar() {
                     key={item.path}
                     onClick={() => go(item.path)}
                     className={cn(
-                      'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-bold tracking-wide transition-colors border-0 shadow-none bg-transparent',
+                      'flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition-colors border-0 shadow-none bg-transparent',
                       active
-                        ? 'text-white bg-[#8b5cf6]'
-                        : 'text-[#111]/60 hover:text-[#6d28d9] hover:bg-[#8b5cf6]/10',
+                        ? 'text-[#8b5cf6] bg-[#8b5cf6]/10'
+                        : 'text-white/50 hover:text-white hover:bg-white/[0.06]',
                     )}
                   >
                     <span className="flex items-center">
@@ -144,8 +139,8 @@ export default function Navbar() {
                       {item.soon && (
                         <span
                           className={cn(
-                            'ml-1.5 rounded px-1 py-0.5 text-[8px] font-black leading-none',
-                            active ? 'bg-white/20 text-white' : 'bg-[#ff4d4f] text-[#fffdf7]',
+                            'ml-1.5 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none',
+                            active ? 'bg-[#f59e0b]/30 text-[#f59e0b]' : 'bg-[#f97316]/20 text-[#fb923c]',
                           )}
                         >
                           SOON

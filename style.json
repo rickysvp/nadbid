@@ -1,0 +1,31 @@
+{
+  "query": "NADBID 链上拍卖 DApp 首页 UI 重构，暗场风格，冰青色主色，专业交易终端",
+  "signature": {
+    "ground": "dark",
+    "typeVoice": "sans-cool",
+    "imageWorld": "graphic-abstract",
+    "layoutLogic": "grid",
+    "colorStrategy": "tri-role",
+    "motionVoice": "slow-push"
+  },
+  "why": {
+    "ground": "你指定的",
+    "typeVoice": "你指定的",
+    "imageWorld": "你指定的",
+    "layoutLogic": "你指定的",
+    "colorStrategy": "你指定的",
+    "motionVoice": "你指定的"
+  },
+  "open": [],
+  "divergence": {
+    "vsRecent": [
+      3,
+      4,
+      0,
+      0,
+      0
+    ],
+    "min": 0,
+    "require": 3
+  }
+}

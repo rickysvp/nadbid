@@ -68,34 +68,34 @@ export default function NadbidAuctionsPage() {
       {/* Header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-3 text-3xl font-black text-[#111]">
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-white">
             <Gavel className="h-8 w-8 text-[#117a3d]" />
             NADBID Auctions
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#111]/50">
+          <p className="mt-2 max-w-2xl text-sm text-white/50">
             Bid with USDC — retained bids are non-refundable, but every later bid pays dividends to earlier bidders.
             Last bid wins the asset.
           </p>
         </div>
         <Link
           to={ROUTES.NADBID_CREATE}
-          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl border-2 border-[#111] bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] px-6 py-3 text-sm font-black text-white shadow-[4px_4px_0_#111] transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
+          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl border-2 border-white/10 bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] px-6 py-3 text-sm font-bold text-white shadow-[4px_4px_0_#111] transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0_#111]"
         >
           <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
           <span className="relative">Create Auction</span>
-          <span className="absolute -top-2 -right-2 rounded-md border-2 border-[#111] bg-[#ffe94a] px-1.5 py-0.5 text-[10px] font-black text-[#111] shadow-[2px_2px_0_#111]">
+          <span className="absolute -top-2 -right-2 rounded-md border-2 border-white/10 bg-[#ffe94a] px-1.5 py-0.5 text-[10px] font-bold text-white ">
             NEW
           </span>
         </Link>
       </div>
 
       {!isReady ? (
-        <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-10 text-center">
-          <p className="text-sm text-[#111]/50">
+        <div className="nb-card border border-white/10/15 bg-white/5 p-10 text-center">
+          <p className="text-sm text-white/50">
             Contract not deployed yet. Set{' '}
-            <code className="rounded bg-[#111]/60 px-1.5 py-0.5 font-mono text-[#117a3d]">VITE_NADBID_AUCTION</code> in{' '}
-            <code className="rounded bg-[#111]/60 px-1.5 py-0.5 font-mono text-[#111]/70">.env</code> after deployment.
+            <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[#117a3d]">VITE_NADBID_AUCTION</code> in{' '}
+            <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/70">.env</code> after deployment.
           </p>
         </div>
       ) : (
@@ -111,17 +111,17 @@ export default function NadbidAuctionsPage() {
           {isLoading ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-56 animate-pulse nb-card border border-[#111]/15 bg-[#fffdf7]" />
+                <div key={i} className="h-56 animate-pulse nb-card border border-white/10/15 bg-white/5" />
               ))}
             </div>
           ) : count === 0 ? (
-            <div className="nb-card border border-[#111]/15 bg-[#fffdf7] p-16 text-center">
-              <Gavel className="mx-auto mb-4 h-10 w-10 text-[#111]/15" />
-              <p className="text-sm font-bold text-[#111]/60">No auctions yet</p>
-              <p className="mt-1 text-sm text-[#111]/40">Be the first to list an asset on-chain.</p>
+            <div className="nb-card border border-white/10/15 bg-white/5 p-16 text-center">
+              <Gavel className="mx-auto mb-4 h-10 w-10 text-white/15" />
+              <p className="text-sm font-bold text-white/60">No auctions yet</p>
+              <p className="mt-1 text-sm text-white/40">Be the first to list an asset on-chain.</p>
               <Link
                 to={ROUTES.NADBID_CREATE}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-5 py-2.5 text-sm font-black text-white hover:bg-[#a78bfa]"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#a78bfa]"
               >
                 <Plus className="h-4 w-4" />
                 Create the first auction
@@ -170,7 +170,7 @@ export default function NadbidAuctionsPage() {
               {/* ===== 3. 历史 ===== */}
               <section>
                 <SectionTitle
-                  icon={<History className="h-4 w-4 text-[#111]/40" />}
+                  icon={<History className="h-4 w-4 text-white/40" />}
                   title="History"
                   count={groups.history.length}
                   desc="Settled, cancelled or timed-out auctions."
@@ -211,19 +211,19 @@ function SectionTitle({
     <div className="mb-5 flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2.5">
         {icon}
-        <h2 className="text-xl font-black tracking-tight text-[#111]">{title}</h2>
-        <span className="rounded-md border-2 border-[#111] bg-[#fffdf7] px-2 py-0.5 font-mono text-xs font-black text-[#111]">
+        <h2 className="text-xl font-bold tracking-tight text-white">{title}</h2>
+        <span className="rounded-md border-2 border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs font-bold text-white">
           {count}
         </span>
       </div>
-      <span className="text-xs text-[#111]/40">{desc}</span>
+      <span className="text-xs text-white/40">{desc}</span>
     </div>
   );
 }
 
 function EmptyBlock({ text }: { text: string }) {
   return (
-    <div className="nb-card border border-dashed border-[#111]/20 bg-transparent p-8 text-center text-sm text-[#111]/35">
+    <div className="nb-card border border-dashed border-white/10 bg-transparent p-8 text-center text-sm text-white/35">
       {text}
     </div>
   );
@@ -232,11 +232,11 @@ function EmptyBlock({ text }: { text: string }) {
 function StatCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="nb-card-flat p-4 md:p-5">
-      <div className="text-[10px] font-black uppercase tracking-wider text-[#111]/40 md:text-xs">{label}</div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 md:text-xs">{label}</div>
       <div
         className={cn(
-          'mt-1.5 font-mono text-2xl md:text-3xl font-black truncate',
-          accent ? 'text-[#117a3d]' : 'text-[#111]',
+          'mt-1.5 font-mono text-2xl md:text-3xl font-bold truncate',
+          accent ? 'text-[#117a3d]' : 'text-white',
         )}
       >
         {value}
@@ -265,24 +265,24 @@ function AuctionCard({ a, nowMs, live, upcoming }: { a: AuctionListRow; nowMs: n
     >
       {/* 顶部：编号 + 状态徽章 */}
       <div className="mb-4 flex items-start justify-between gap-2">
-        <span className="font-mono text-xs font-black text-[#111]/35">#{a.id.toString()}</span>
+        <span className="font-mono text-xs font-bold text-white/35">#{a.id.toString()}</span>
         {live && (
-          <span className="flex items-center gap-1.5 rounded-md border-2 border-[#117a3d] bg-[#117a3d]/10 px-2 py-0.5 text-[11px] font-black text-[#117a3d]">
+          <span className="flex items-center gap-1.5 rounded-md border-2 border-[#117a3d] bg-[#117a3d]/10 px-2 py-0.5 text-[11px] font-bold text-[#117a3d]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#117a3d] animate-pulse" />
             Live
           </span>
         )}
         {upcoming && (
-          <span className="rounded-md border-2 border-[#b45309] bg-[#b45309]/10 px-2 py-0.5 text-[11px] font-black text-[#b45309]">
+          <span className="rounded-md border-2 border-[#b45309] bg-[#b45309]/10 px-2 py-0.5 text-[11px] font-bold text-[#b45309]">
             Starting
           </span>
         )}
         {!live && !upcoming && (
           <span
             className={cn(
-              'rounded-md border-2 px-2 py-0.5 text-[11px] font-black shrink-0',
+              'rounded-md border-2 px-2 py-0.5 text-[11px] font-bold shrink-0',
               st.tone === 'gray'
-                ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
+                ? 'border-white/15 bg-white/5 text-white/50'
                 : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
             )}
           >
@@ -302,34 +302,34 @@ function AuctionCard({ a, nowMs, live, upcoming }: { a: AuctionListRow; nowMs: n
         />
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-base font-black text-[#111]">
+            <span className="truncate text-base font-bold text-white">
               {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
             </span>
             {a.assetType === 1 && (
-              <span className="shrink-0 font-mono text-xs font-black text-[#117a3d]">#{a.assetTokenId.toString()}</span>
+              <span className="shrink-0 font-mono text-xs font-bold text-[#117a3d]">#{a.assetTokenId.toString()}</span>
             )}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="nb-chip bg-[#8b5cf6]/15 px-1.5 py-0 text-[10px] text-white">
               {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`}
             </span>
-            <span className="font-mono text-[10px] text-[#111]/50">{shortenAddress(a.assetAddr)}</span>
+            <span className="font-mono text-[10px] text-white/50">{shortenAddress(a.assetAddr)}</span>
           </div>
 
-          <div className="mt-auto pt-2 text-3xl font-black tracking-tight text-[#111]">
-            {fmtUsdc(price)} <span className="text-sm font-normal text-[#111]/40">USDC</span>
+          <div className="mt-auto pt-2 text-3xl font-bold tracking-tight text-white">
+            {fmtUsdc(price)} <span className="text-sm font-normal text-white/40">USDC</span>
           </div>
         </div>
       </div>
 
       {/* 底部 meta */}
-      <div className="mt-5 flex items-center justify-between border-t-2 border-[#111]/10 pt-3 text-xs text-[#111]/45">
+      <div className="mt-5 flex items-center justify-between border-t-2 border-white/10/10 pt-3 text-xs text-white/45">
         <span className="flex items-center gap-1.5 font-bold">
           <Users className="h-3.5 w-3.5" />
           {a.batchCount.toString()} batches
         </span>
         {live ? (
-          <span className="flex items-center gap-1.5 font-mono font-black text-[#117a3d]">
+          <span className="flex items-center gap-1.5 font-mono font-bold text-[#117a3d]">
             <Clock className="h-3.5 w-3.5" />
             {secsLeft}s
           </span>
@@ -339,7 +339,7 @@ function AuctionCard({ a, nowMs, live, upcoming }: { a: AuctionListRow; nowMs: n
       </div>
 
       {a.reservePrice > 0n && (
-        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-[#111]/40">
+        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-white/40">
           <ShieldCheck className="h-3 w-3" />
           Reserve {fmtUsdc(a.reservePrice)} USDC
         </div>
@@ -361,9 +361,9 @@ function HistoryRow({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
   return (
     <Link
       to={nadbidDetailPath(a.id)}
-      className="group flex items-center gap-4 rounded-xl border-2 border-[#111]/10 bg-[#fffdf7] px-4 py-3 transition hover:-translate-y-0.5 hover:border-[#111] hover:shadow-[4px_4px_0_#111]"
+      className="group flex items-center gap-4 rounded-xl border-2 border-white/10/10 bg-white/5 px-4 py-3 transition hover:-translate-y-0.5 hover:border-white/10 hover:shadow-[4px_4px_0_#111]"
     >
-      <span className="font-mono text-xs font-black text-[#111]/35">#{a.id.toString()}</span>
+      <span className="font-mono text-xs font-bold text-white/35">#{a.id.toString()}</span>
       <AssetThumb
         assetType={a.assetType}
         assetAddr={a.assetAddr}
@@ -372,21 +372,21 @@ function HistoryRow({ a, nowMs }: { a: AuctionListRow; nowMs: number }) {
         className="h-11 w-11 shrink-0"
       />
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="truncate text-sm font-black text-[#111]">
+        <span className="truncate text-sm font-bold text-white">
           {assetMeta.data?.name ?? (assetMeta.isLoading ? '…' : 'Unnamed asset')}
         </span>
-        <span className="hidden shrink-0 font-mono text-[10px] text-[#111]/40 sm:inline">
+        <span className="hidden shrink-0 font-mono text-[10px] text-white/40 sm:inline">
           {ASSET_LABEL[a.assetType] ?? `Type ${a.assetType}`} · {shortenAddress(a.assetAddr)}
         </span>
       </div>
-      <span className="shrink-0 text-sm font-black text-[#111]">{fmtUsdc(price)} <span className="text-[10px] font-normal text-[#111]/40">USDC</span></span>
+      <span className="shrink-0 text-sm font-bold text-white">{fmtUsdc(price)} <span className="text-[10px] font-normal text-white/40">USDC</span></span>
       <span
         className={cn(
-          'shrink-0 rounded-md border-2 px-2 py-0.5 text-[11px] font-black',
+          'shrink-0 rounded-md border-2 px-2 py-0.5 text-[11px] font-bold',
           ended
             ? 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]'
             : st.tone === 'gray'
-              ? 'border-[#111]/25 bg-[#111]/5 text-[#111]/50'
+              ? 'border-white/15 bg-white/5 text-white/50'
               : 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
         )}
       >
