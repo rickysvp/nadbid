@@ -18,15 +18,15 @@ import {
   useBatchMeta,
   useBatchUserState,
   useUsdcBalance,
-  useUsdcAllowance,
+  useMonAllowance,
   usePlaceBid,
   useFinalizeAuction,
   useClaimRefund,
   useClaimReward,
   useClaimSeller,
-  useApproveUsdc,
+  useApproveMon,
   useNadbidAuctionContract,
-  fmtUsdc,
+  fmtMon,
   nextPrice,
   bidPay,
   isAuctionEnded,
@@ -35,7 +35,7 @@ import {
   AuctionStatus,
   type AuctionMeta,
 } from '../web3/hooks/useNadbidAuction';
-import { contractAddresses, nadbidAuctionAbi, usdcAbi } from '../web3/contracts';
+import { contractAddresses, nadbidAuctionAbi, monAbi } from '../web3/contracts';
 import { shortenAddress } from '../utils/format';
 import { cn } from '../utils/cn';
 import { CircularProgress } from '../components/ui/CircularProgress';
@@ -67,8 +67,8 @@ export default function NadbidAuctionDetailPage() {
 
   const bal = useUsdcBalance(address);
   const assetMeta = useAssetMeta(meta?.assetType, meta?.assetAddr, meta?.assetTokenId, !!meta);
-  const allowance = useUsdcAllowance(address, useNadbidAuctionContract().address);
-  const approveTx = useApproveUsdc();
+  const allowance = useMonAllowance(address, useNadbidAuctionContract().address);
+  const approveTx = useApproveMon();
   const bidTx = usePlaceBid();
   const finalizeTx = useFinalizeAuction();
   const sellerTx = useClaimSeller();
@@ -98,7 +98,7 @@ export default function NadbidAuctionDetailPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 pt-28">
       <Link
         to="/nadbid"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#117a3d]"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#ccff00]"
       >
         <ArrowLeft className="h-4 w-4" />
         All auctions
@@ -116,7 +116,7 @@ export default function NadbidAuctionDetailPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="font-mono text-3xl md:text-4xl font-bold tracking-tighter">
-                    Auction <span className="text-[#117a3d]">#{idParam}</span>
+                    Auction <span className="text-[#ccff00]">#{idParam}</span>
                   </h1>
                   <StatusBadge status={meta.status} />
                 </div>
@@ -132,13 +132,13 @@ export default function NadbidAuctionDetailPage() {
                       <span className="truncate text-lg font-bold leading-tight text-white">
                         {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading asset…' : 'Unnamed asset')}
                         {meta.assetType === 1 && (
-                          <span className="text-[#117a3d]"> #{meta.assetTokenId.toString()}</span>
+                          <span className="text-[#ccff00]"> #{meta.assetTokenId.toString()}</span>
                         )}
                         {meta.assetType !== 1 && meta.assetAmount > 0n && (
-                          <span className="text-white/50"> × {fmtUsdc(meta.assetAmount)}</span>
+                          <span className="text-white/50"> × {fmtMon(meta.assetAmount)}</span>
                         )}
                       </span>
-                      <span className="nb-chip bg-[#8b5cf6]/15 px-2.5 py-0.5 text-xs text-white">
+                      <span className="nb-chip bg-[#9333ea]/15 px-2.5 py-0.5 text-xs text-white">
                         {ASSET_LABEL[meta.assetType] ?? `Type ${meta.assetType}`}
                       </span>
                     </div>
@@ -155,7 +155,7 @@ export default function NadbidAuctionDetailPage() {
                 <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
                   {meta.reservePrice > 0n && (
                     <span className="nb-chip bg-[#f5a623]/15 px-2.5 py-0.5 text-xs text-[#b45309]">
-                      Reserve {fmtUsdc(meta.reservePrice)} USDC
+                      Reserve {fmtMon(meta.reservePrice)} MON
                     </span>
                   )}
                   {meta.incrementBps > 0n && (
@@ -173,7 +173,7 @@ export default function NadbidAuctionDetailPage() {
                       ? 'border-[#f5a623] bg-[#f5a623]/10 shadow-[4px_4px_0_#f5a623]'
                       : danger
                         ? 'border-[#ff4d4f] bg-[#ff4d4f]/5 shadow-[4px_4px_0_#ff4d4f]'
-                        : 'border-white/10 bg-white/5 shadow-[4px_4px_0_#111]',
+                        : 'border-white/10 bg-white/5 shadow-lg',
                   )}
                 >
                   <CircularProgress
@@ -200,9 +200,9 @@ export default function NadbidAuctionDetailPage() {
 
             {/* 数据四列 */}
             <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatBox label="Current price" value={fmtUsdc(curPrice)} sub="USDC" />
-              <StatBox label="Total pool" value={fmtUsdc(meta.totalPool)} sub="USDC retained" accent />
-              <StatBox label="Next bid" value={fmtUsdc(nextPriceVal)} sub={`+${Number(meta.incrementBps) / 100}%`} />
+              <StatBox label="Current price" value={fmtMon(curPrice)} sub="MON" />
+              <StatBox label="Total pool" value={fmtMon(meta.totalPool)} sub="MON retained" accent />
+              <StatBox label="Next bid" value={fmtMon(nextPriceVal)} sub={`+${Number(meta.incrementBps) / 100}%`} />
               <StatBox label="Batches" value={meta.batchCount.toString()} sub="price levels" />
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function NadbidAuctionDetailPage() {
             <div className="space-y-6 lg:col-span-2">
               <div className="nb-card p-6">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-white/70">
-                  <Users className="h-4 w-4 text-[#117a3d]" />
+                  <Users className="h-4 w-4 text-[#ccff00]" />
                   Bid history{' '}
                   {batchIds.length < Number(meta.batchCount) && (
                     <span className="text-xs font-normal text-white/40">(latest {batchIds.length})</span>
@@ -241,27 +241,27 @@ export default function NadbidAuctionDetailPage() {
                 >
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="flex items-center gap-2 text-sm font-bold text-white/70">
-                      <HandCoins className="h-4 w-4 text-[#117a3d]" />
+                      <HandCoins className="h-4 w-4 text-[#ccff00]" />
                       Place bid
                     </h2>
                     <div className="text-right">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Your USDC</div>
-                      <div className="font-mono text-lg font-bold leading-tight text-white">{fmtUsdc(bal?.data as bigint | undefined)}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Your MON</div>
+                      <div className="font-mono text-lg font-bold leading-tight text-white">{fmtMon(bal?.data as bigint | undefined)}</div>
                     </div>
                   </div>
 
                   <div className="mb-4 space-y-1.5 text-sm">
                     <div className="flex justify-between">
                       <span className="text-white/50">Next price</span>
-                      <span className="font-mono font-bold text-white">{fmtUsdc(nextPriceVal)}</span>
+                      <span className="font-mono font-bold text-white">{fmtMon(nextPriceVal)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-white/50">Bid fee (1%)</span>
-                      <span className="font-mono text-white/80">{fmtUsdc(nextPriceVal > 0n ? nextPriceVal / 100n : 0n)}</span>
+                      <span className="font-mono text-white/80">{fmtMon(nextPriceVal > 0n ? nextPriceVal / 100n : 0n)}</span>
                     </div>
                     <div className="flex justify-between border-t border-white/10/15 pt-1.5">
                       <span className="text-white/50">You pay</span>
-                      <span className="font-mono font-bold text-[#117a3d]">{fmtUsdc(payVal)}</span>
+                      <span className="font-mono font-bold text-[#ccff00]">{fmtMon(payVal)}</span>
                     </div>
                   </div>
 
@@ -274,18 +274,18 @@ export default function NadbidAuctionDetailPage() {
                       disabled={approveTx.isLoading}
                       onClick={() =>
                         approveTx.write({
-                          address: contractAddresses.usdc,
-                          abi: usdcAbi,
+                          address: contractAddresses.mon,
+                          abi: monAbi,
                           functionName: 'approve',
                           args: [useNadbidAuctionContract().address, payVal],
                           gas: 150_000n,
                           onSuccess: invalidateAll,
-                          successMessage: 'USDC approved',
+                          successMessage: 'MON approved',
                         })
                       }
-                      className="w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
+                      className="w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3.5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:translate-y-0 disabled:shadow-md"
                     >
-                      {approveTx.isLoading ? 'Approving…' : `Approve ${fmtUsdc(payVal)} USDC`}
+                      {approveTx.isLoading ? 'Approving…' : `Approve ${fmtMon(payVal)} MON`}
                     </button>
                   ) : (
                     <button
@@ -305,7 +305,7 @@ export default function NadbidAuctionDetailPage() {
                         'w-full rounded-xl border-2 border-white/10 px-4 py-3.5 text-sm font-bold text-white transition disabled:opacity-40 disabled:translate-y-0',
                         danger && !ended
                           ? 'animate-pulse bg-[#ff4d4f] shadow-[3px_3px_0_#ff4d4f] hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#ff4d4f]'
-                          : 'bg-[#8b5cf6] shadow-[3px_3px_0_#111] hover:-translate-y-0.5 hover:bg-[#a78bfa] hover:shadow-[5px_5px_0_#111]',
+                          : 'bg-[#9333ea] shadow-md hover:-translate-y-0.5 hover:bg-[#a855f7] hover:shadow-lg',
                       )}
                     >
                       {bidTx.isLoading
@@ -314,12 +314,12 @@ export default function NadbidAuctionDetailPage() {
                           ? 'Auction ended'
                           : isSeller
                             ? "You can't bid on your own auction"
-                            : `Bid ${fmtUsdc(payVal)} USDC`}
+                            : `Bid ${fmtMon(payVal)} MON`}
                     </button>
                   )}
 
                   <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-white/40">
-                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#117a3d]/60" />
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#ccff00]/60" />
                     Retained bids are non-refundable. If outbid later, you keep earning dividends from 15% of each new
                     bid. Same-block losers get their full payment refunded instantly.
                   </p>
@@ -340,7 +340,7 @@ export default function NadbidAuctionDetailPage() {
                       successMessage: 'Auction finalized',
                     })
                   }
-                  className="w-full rounded-xl border-2 border-white/10 bg-[#ffe94a] px-4 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#111] disabled:opacity-40 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
+                  className="w-full rounded-xl border-2 border-white/10 bg-[#9333ea] px-4 py-3.5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-40 disabled:translate-y-0 disabled:shadow-md"
                 >
                   {finalizeTx.isLoading ? 'Finalizing…' : ended ? 'Finalize / Settle auction' : `Finalize after countdown (${secsLeft}s)`}
                 </button>
@@ -360,7 +360,7 @@ export default function NadbidAuctionDetailPage() {
                       successMessage: 'Seller earnings claimed',
                     })
                   }
-                  className="w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3.5 text-sm font-bold text-white shadow-[3px_3px_0_#111] transition hover:-translate-y-0.5 hover:bg-[#8b5cf6]/15 hover:shadow-[5px_5px_0_#111] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#111]"
+                  className="w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3.5 text-sm font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-[#9333ea]/15 hover:shadow-lg disabled:opacity-50 disabled:translate-y-0 disabled:shadow-md"
                 >
                   {sellerTx.isLoading ? 'Claiming…' : 'Claim seller earnings'}
                 </button>
@@ -379,7 +379,7 @@ function StatBox({ label, value, sub, accent = false }: { label: string; value: 
   return (
     <div className="nb-card-flat p-4">
       <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 md:text-xs">{label}</div>
-      <div className={cn('mt-1.5 font-mono text-2xl md:text-3xl font-bold truncate', accent ? 'text-[#117a3d]' : 'text-white')}>
+      <div className={cn('mt-1.5 font-mono text-2xl md:text-3xl font-bold truncate', accent ? 'text-[#ccff00]' : 'text-white')}>
         {value}
       </div>
       {sub && <div className="mt-0.5 text-[11px] text-white/40">{sub}</div>}
@@ -393,7 +393,7 @@ function StatusBadge({ status }: { status: number }) {
     <span
       className={cn(
         'rounded-md border-2 px-2.5 py-0.5 text-xs font-bold',
-        st.tone === 'green' && 'border-[#117a3d] bg-[#8b5cf6]/15 text-[#117a3d]',
+        st.tone === 'green' && 'border-[#ccff00] bg-[#9333ea]/15 text-[#ccff00]',
         st.tone === 'blue' && 'border-[#3ec4f0] bg-[#3ec4f0]/10 text-[#0e7490]',
         st.tone === 'amber' && 'border-[#f5a623] bg-[#f5a623]/15 text-[#b45309]',
         st.tone === 'red' && 'border-[#ff4d4f] bg-[#ff4d4f]/10 text-[#ff4d4f]',
@@ -414,34 +414,34 @@ function ResultPanel({ meta }: { meta: AuctionMeta }) {
   return (
     <div className="nb-card border border-white/10/15 bg-white/5 p-5 text-sm">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white/70">
-        <Trophy className="h-4 w-4 text-[#117a3d]" />
+        <Trophy className="h-4 w-4 text-[#ccff00]" />
         Result
       </h2>
       {meta.status === AuctionStatus.SETTLED ? (
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-white">{shortenAddress(meta.winner)}</span>
-            <span className="rounded bg-[#8b5cf6]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#117a3d]">WINNER</span>
+            <span className="rounded bg-[#9333ea]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#ccff00]">WINNER</span>
           </div>
           <div className="flex justify-between text-white/50">
             <span>Final price</span>
-            <span className="font-mono text-white">{fmtUsdc(meta.finalPrice)}</span>
+            <span className="font-mono text-white">{fmtMon(meta.finalPrice)}</span>
           </div>
           <div className="flex justify-between text-white/50">
             <span>Pool</span>
-            <span className="font-mono text-white">{fmtUsdc(pool)}</span>
+            <span className="font-mono text-white">{fmtMon(pool)}</span>
           </div>
           <div className="flex justify-between text-white/50">
             <span>Seller share (net 80.75%)</span>
-            <span className="font-mono text-[#117a3d]">{fmtUsdc(sellerNet)}</span>
+            <span className="font-mono text-[#ccff00]">{fmtMon(sellerNet)}</span>
           </div>
           <div className="flex justify-between text-white/50">
             <span>Bidder dividend pool (15%)</span>
-            <span className="font-mono text-white">{fmtUsdc(rewardPool)}</span>
+            <span className="font-mono text-white">{fmtMon(rewardPool)}</span>
           </div>
           <div className="flex justify-between text-white/50">
             <span>Protocol fee (5%)</span>
-            <span className="font-mono text-white">{fmtUsdc(platformFee)}</span>
+            <span className="font-mono text-white">{fmtMon(platformFee)}</span>
           </div>
         </div>
       ) : (
@@ -490,7 +490,7 @@ function BatchRow({
     <div
       className={cn(
         'flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 transition',
-        mine ? 'border-[#1a7f37]/30 bg-[#8b5cf6]/[0.05]' : 'border-white/10/15 bg-white/5',
+        mine ? 'border-[#ccff00]/30 bg-[#9333ea]/[0.05]' : 'border-white/10/15 bg-white/5',
       )}
     >
       <div className="flex items-center gap-3.5 min-w-0">
@@ -500,7 +500,7 @@ function BatchRow({
         </div>
         <div className="min-w-0">
           <div className="font-mono text-sm font-bold text-white">
-            {fmtUsdc(batch.price)} <span className="text-xs font-normal text-white/40">USDC</span>
+            {fmtMon(batch.price)} <span className="text-xs font-normal text-white/40">MON</span>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-white/40">
             <span>{batch.candidateCount.toString()} candidate{batch.candidateCount > 1n ? 's' : ''}</span>
@@ -520,7 +520,7 @@ function BatchRow({
             <span
               className={cn(
                 'flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold',
-                isWinner ? 'bg-[#8b5cf6]/15 text-[#117a3d]' : 'bg-white/5 text-white/50',
+                isWinner ? 'bg-[#9333ea]/15 text-[#ccff00]' : 'bg-white/5 text-white/50',
               )}
             >
               <Trophy className="h-3 w-3" />
@@ -534,7 +534,7 @@ function BatchRow({
         )}
 
         {batch.resolved && selected && address === undefined && (
-          <span className="flex items-center gap-1.5 rounded-lg bg-[#8b5cf6]/10 px-2.5 py-1 text-xs font-bold text-[#6d28d9]">
+          <span className="flex items-center gap-1.5 rounded-lg bg-[#9333ea]/10 px-2.5 py-1 text-xs font-bold text-[#6d28d9]">
             <Wallet className="h-3 w-3" />
             Connect wallet to claim
           </span>
@@ -572,7 +572,7 @@ function BatchRow({
               })
             }
             disabled={rewardTx.isLoading}
-            className="rounded-lg bg-[#8b5cf6]/15 px-3 py-1.5 text-xs font-bold text-[#117a3d] transition hover:bg-[#8b5cf6]/25 disabled:opacity-40"
+            className="rounded-lg bg-[#9333ea]/15 px-3 py-1.5 text-xs font-bold text-[#ccff00] transition hover:bg-[#9333ea]/25 disabled:opacity-40"
           >
             {rewardTx.isLoading ? '…' : 'Claim dividends'}
           </button>

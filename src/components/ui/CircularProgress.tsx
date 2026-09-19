@@ -85,7 +85,7 @@ export function CircularProgress({
                 : { scale: 1, color: '#111111' }
             }
             transition={danger ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
-            className={cn('font-mono text-xl font-black', danger ? 'text-[#ff4d4f]' : 'text-[#111]')}
+            className={cn('font-mono text-xl font-black', danger ? 'text-[#ff4d4f]' : 'text-white')}
           >
             {label}
           </motion.span>
@@ -94,7 +94,7 @@ export function CircularProgress({
           <span
             className={cn(
               'text-[9px] font-bold uppercase tracking-wider mt-1',
-              danger ? 'text-[#ff4d4f]' : 'text-[#111]/40',
+              danger ? 'text-[#ff4d4f]' : 'text-white/40',
             )}
           >
             {sublabel}

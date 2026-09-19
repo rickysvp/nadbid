@@ -18,7 +18,7 @@ export function Table({ className, children, ...props }: HTMLAttributes<HTMLTabl
 
 export function TableHeader({ className, children, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={cn('border-b-2 border-[#111] bg-[#fbf7ee]', className)} {...props}>
+    <thead className={cn('border-b-2 border-white/10 bg-white/5', className)} {...props}>
       {children}
     </thead>
   );
@@ -28,7 +28,7 @@ export function TableHead({ className, children, ...props }: ThHTMLAttributes<HT
   return (
     <th
       className={cn(
-        'py-4 px-6 text-[#111]/40 text-[9px] font-bold uppercase tracking-[0.15em]',
+        'py-4 px-6 text-white/40 text-[9px] font-bold uppercase tracking-[0.15em]',
         className,
       )}
       {...props}
@@ -64,7 +64,7 @@ export function TableCell({ className, children, ...props }: TdHTMLAttributes<HT
 export function TableEmpty({ colSpan, message }: { colSpan: number; message: string }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-12 text-center text-[#111]/30 text-sm font-medium">
+      <td colSpan={colSpan} className="py-12 text-center text-white/30 text-sm font-medium">
         {message}
       </td>
     </tr>

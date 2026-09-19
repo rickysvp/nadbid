@@ -26,7 +26,7 @@ export default function TermsOfServicePage() {
         {
           heading: '3. Auction Mechanics & Non-Refundable Bids',
           body: [
-            'Auctions listed on the Platform allow users to place bids in USDC at the next required price level. Bids that are retained (selected by the protocol as the valid bid for that price level) are final and non-refundable, and become part of the auction pool.',
+            'Auctions listed on the Platform allow users to place bids in MON at the next required price level. Bids that are retained (selected by the protocol as the valid bid for that price level) are final and non-refundable, and become part of the auction pool.',
             'If multiple users bid at the same price level in the same block, the protocol retains one bid at random and refunds the others in full. Random selection is performed on-chain and cannot be influenced by transaction ordering.',
             'The last retained bidder when the countdown expires wins the asset. Sellers set start price, increment, reserve price, and duration. The platform charges a protocol fee (5% of the pool) and a bid fee (1% per bid).',
             'A portion of each new retained bid (15% of the pool) is distributed to earlier bidders as dividends, subject to protocol caps. Dividend entitlements are not guaranteed income and depend entirely on subsequent bidding activity.',

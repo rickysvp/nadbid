@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 
 const TYPE_TILE: Record<number, string> = {
   0: 'bg-[#3ec4f0]/20',
-  1: 'bg-[#8b5cf6]/20',
+  1: 'bg-[#9333ea]/20',
   2: 'bg-[#ff6ba9]/20',
 };
 
@@ -45,7 +45,7 @@ export function AssetThumb({
     return (
       <div
         className={cn(
-          'relative flex items-center justify-center overflow-hidden rounded-xl border-2 border-[#111] bg-[#fffdf7] shadow-[4px_4px_0_#111]',
+          'relative flex items-center justify-center overflow-hidden rounded-xl border-2 border-white/10 bg-white/5 shadow-lg',
           className ?? 'h-56 w-full',
         )}
       >
@@ -68,12 +68,12 @@ export function AssetThumb({
                   'repeating-linear-gradient(45deg, rgba(17,17,17,0.25) 0px, rgba(17,17,17,0.25) 2px, transparent 2px, transparent 14px)',
               }}
             />
-            <span className="relative font-mono text-5xl font-black text-[#111]/30 md:text-6xl">{fallback}</span>
-            <span className="absolute bottom-2 left-2 rounded-md border-2 border-[#111] bg-[#ffe94a] px-2 py-0.5 font-mono text-[10px] font-black text-[#111]">
+            <span className="relative font-mono text-5xl font-black text-white/30 md:text-6xl">{fallback}</span>
+            <span className="absolute bottom-2 left-2 rounded-md border-2 border-white/10 bg-[#9333ea] px-2 py-0.5 font-mono text-[10px] font-black text-white">
               {TYPE_LABEL[assetType] ?? 'ASSET'}
             </span>
             {data?.symbol && (
-              <span className="absolute bottom-2 right-2 rounded-md border-2 border-[#111] bg-[#fffdf7] px-2 py-0.5 font-mono text-[10px] font-black text-[#111]/60">
+              <span className="absolute bottom-2 right-2 rounded-md border-2 border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-black text-white/60">
                 {data.symbol}
               </span>
             )}
@@ -86,7 +86,7 @@ export function AssetThumb({
   return (
     <div
       className={cn(
-        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[#111] bg-[#fffdf7] shadow-[3px_3px_0_#111]',
+        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/10 bg-white/5 shadow-md',
         className ?? 'h-12 w-12',
       )}
     >
@@ -96,7 +96,7 @@ export function AssetThumb({
         <img src={data!.imageUrl} alt={data?.name ?? 'auction asset'} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className={cn('flex h-full w-full items-center justify-center', TYPE_TILE[assetType] ?? 'bg-[#111]/5')}>
-          <span className="font-mono text-sm font-black text-[#111]/45">{fallback}</span>
+          <span className="font-mono text-sm font-black text-white/45">{fallback}</span>
         </div>
       )}
       {!hasImage && !isLoading && (

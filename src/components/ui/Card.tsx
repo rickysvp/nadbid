@@ -54,7 +54,7 @@ export function CardHeader({
 }) {
   return (
     <div className={cn('flex items-center justify-between mb-6', className)}>
-      <h3 className="text-lg font-bold text-[#111] tracking-wide">{title}</h3>
+      <h3 className="text-lg font-bold text-white tracking-wide">{title}</h3>
       {action}
     </div>
   );

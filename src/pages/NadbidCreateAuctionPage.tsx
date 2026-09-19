@@ -105,7 +105,7 @@ const IS_APPROVED_FOR_ALL_ABI = [
 const STEPS = ['Asset', 'Pricing', 'Confirm'] as const;
 
 const inputCls =
-  'w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-[#111]/30 outline-none shadow-[2px_2px_0_rgba(17,17,17,0.25)] transition focus:border-[#117a3d] focus:shadow-[2px_2px_0_#1a7f37]';
+  'w-full rounded-xl border-2 border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-[#111]/30 outline-none shadow-md';
 
 export default function NadbidCreateAuctionPage() {
   const navigate = useNavigate();
@@ -332,7 +332,7 @@ export default function NadbidCreateAuctionPage() {
     return (
       <Shell>
         <div className="nb-card border border-white/10/15 bg-white/5 p-12 text-center text-sm text-white/40">
-          Contract not deployed. Set <span className="font-mono text-[#117a3d]">VITE_NADBID_AUCTION</span> first.
+          Contract not deployed. Set <span className="font-mono text-[#ccff00]">VITE_NADBID_AUCTION</span> first.
         </div>
       </Shell>
     );
@@ -342,7 +342,7 @@ export default function NadbidCreateAuctionPage() {
     return (
       <Shell>
         <div className="nb-card p-8 md:p-10 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-white/10 bg-[#ffe94a] shadow-[3px_3px_0_#111]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-white/10 bg-[#9333ea] shadow-md">
             <Wallet className="h-6 w-6" />
           </div>
           <h2 className="mt-5 text-2xl font-bold text-white">Connect your wallet to create an auction</h2>
@@ -357,7 +357,7 @@ export default function NadbidCreateAuctionPage() {
           <div className="mx-auto mt-8 grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-3">
             {STEPS.map((step, i) => (
               <div key={step} className="nb-card-flat p-4 text-left">
-                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-white/10 bg-[#8b5cf6] font-mono text-xs font-bold text-white">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-md border-2 border-white/10 bg-[#9333ea] font-mono text-xs font-bold text-white">
                   {i + 1}
                 </div>
                 <div className="mt-2.5 text-sm font-bold text-white">{step}</div>
@@ -383,9 +383,9 @@ export default function NadbidCreateAuctionPage() {
               className={cn(
                 'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold transition',
                 i === step
-                  ? 'bg-[#8b5cf6] text-white'
+                  ? 'bg-[#9333ea] text-white'
                   : i < step
-                    ? 'bg-[#8b5cf6]/10 text-[#117a3d]'
+                    ? 'bg-[#9333ea]/10 text-[#ccff00]'
                     : 'bg-white/5 text-white/40',
               )}
             >
@@ -416,7 +416,7 @@ export default function NadbidCreateAuctionPage() {
                   className={cn(
                     'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition',
                     assetType === t.v
-                      ? 'border-[#1a7f37]/50 bg-[#8b5cf6]/10 text-[#117a3d]'
+                      ? 'border-[#ccff00]/50 bg-[#9333ea]/10 text-[#ccff00]'
                       : 'border-white/10/15 bg-white/5 text-white/60 hover:border-white/15',
                   )}
                 >
@@ -453,7 +453,7 @@ export default function NadbidCreateAuctionPage() {
               </p>
             )}
             {assetAddrValid && assetProbe === 'ok' && (
-              <p className="mt-1.5 text-xs text-[#117a3d]">Contract verified on-chain ✓</p>
+              <p className="mt-1.5 text-xs text-[#ccff00]">Contract verified on-chain ✓</p>
             )}
           </Field>
 
@@ -473,7 +473,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               disabled={!assetValid}
               onClick={() => setStep(1)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#9333ea] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a855f7] disabled:opacity-40"
             >
               Continue
               <ArrowRight className="h-4 w-4" />
@@ -485,7 +485,7 @@ export default function NadbidCreateAuctionPage() {
       {step === 1 && (
         <StepCard title="Set the price ladder" desc="Fixed 120s countdown per bid — the timer resets every time someone bids.">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Start price (USDC)" hint="起拍价，第一笔出价即此价">
+            <Field label="Start price (MON)" hint="起拍价，第一笔出价即此价">
               <input value={startPrice} onChange={(e) => setStartPrice(e.target.value)} placeholder="10" className={inputCls} />
             </Field>
 
@@ -501,7 +501,7 @@ export default function NadbidCreateAuctionPage() {
               />
             </Field>
 
-            <Field label="Reserve price (USDC, optional)" hint="未达保留价 → 流拍全额退款，资产退回">
+            <Field label="Reserve price (MON, optional)" hint="未达保留价 → 流拍全额退款，资产退回">
               <input value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="0" className={inputCls} />
             </Field>
 
@@ -509,7 +509,7 @@ export default function NadbidCreateAuctionPage() {
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-white/70">Auction duration</label>
               <div className="flex items-center gap-3 rounded-xl border border-white/10/15 bg-white/5 px-4 py-3">
-                <Clock className="h-4 w-4 text-[#117a3d]" />
+                <Clock className="h-4 w-4 text-[#ccff00]" />
                 <span className="font-mono text-sm font-bold text-white">120 seconds</span>
                 <span className="text-xs text-white/40">fixed · resets on each bid</span>
               </div>
@@ -517,23 +517,23 @@ export default function NadbidCreateAuctionPage() {
           </div>
 
           {/* 费用说明 */}
-          <div className="mt-5 rounded-xl border border-[#1a7f37]/15 bg-[#8b5cf6]/[0.04] p-4 text-sm">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#117a3d]">Payout structure</div>
+          <div className="mt-5 rounded-xl border border-[#ccff00]/15 bg-[#9333ea]/[0.04] p-4 text-sm">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#ccff00]">Payout structure</div>
             <div className="grid grid-cols-2 gap-2.5 text-white/70">
               <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 shrink-0 text-[#117a3d]" />
+                <Trophy className="h-4 w-4 shrink-0 text-[#ccff00]" />
                 You receive <b className="text-white">85% of the pool</b> (net of 5% settle fee)
               </div>
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 shrink-0 text-[#117a3d]" />
+                <TrendingUp className="h-4 w-4 shrink-0 text-[#ccff00]" />
                 15% of pool → earlier bidders as dividends
               </div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-[#117a3d]" />
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#ccff00]" />
                 Bidders pay a 1% fee on each bid
               </div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-[#117a3d]" />
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#ccff00]" />
                 Reserve not met → all bids refunded
               </div>
             </div>
@@ -546,7 +546,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               disabled={!pricingValid}
               onClick={() => setStep(2)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#8b5cf6] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#9333ea] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#a855f7] disabled:opacity-40"
             >
               Review & confirm
               <ArrowRight className="h-4 w-4" />
@@ -560,9 +560,9 @@ export default function NadbidCreateAuctionPage() {
           {/* 摘要 */}
           <div className="space-y-2 rounded-xl bg-white/5 p-5 text-sm">
             <SummaryRow label="Asset" value={assetType === '0' ? `${amount || '—'} ${shorten(assetAddr)}` : assetType === '1' ? `#${tokenId || '—'} ${shorten(assetAddr)}` : `${amount || '—'}× #${tokenId || '—'} ${shorten(assetAddr)}`} />
-            <SummaryRow label="Start price" value={`${startPrice || '—'} USDC`} accent />
+            <SummaryRow label="Start price" value={`${startPrice || '—'} MON`} accent />
             <SummaryRow label="Increment" value={`${incrementPct}% per bid`} />
-            <SummaryRow label="Reserve" value={reservePrice ? `${reservePrice} USDC` : 'none'} />
+            <SummaryRow label="Reserve" value={reservePrice ? `${reservePrice} MON` : 'none'} />
             <SummaryRow label="Duration" value="120s (fixed)" />
             <SummaryRow label="Bid fee" value="1% paid by bidders" />
             <SummaryRow label="Settle fee" value="5% from each payout" />
@@ -579,7 +579,7 @@ export default function NadbidCreateAuctionPage() {
             <button
               onClick={handleCreate}
               disabled={!canCreate || createTx.isLoading}
-              className="flex-1 rounded-xl bg-[#8b5cf6] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#a78bfa] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-[#9333ea] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#a855f7] disabled:opacity-40"
             >
               {createTx.isLoading
                 ? 'Creating…'
@@ -609,17 +609,17 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="mx-auto max-w-2xl px-4 py-8 pt-28">
       <Link
         to="/nadbid"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#117a3d]"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-[#ccff00]"
       >
         <ArrowLeft className="h-4 w-4" />
         All auctions
       </Link>
       <h1 className="mb-1 flex items-center gap-3 text-3xl font-bold text-white">
-        <PlusCircle className="h-8 w-8 text-[#117a3d]" />
+        <PlusCircle className="h-8 w-8 text-[#ccff00]" />
         Create auction
       </h1>
       <p className="mb-8 text-sm text-white/50">
-        List any on-chain asset (ERC-20 / ERC-721 / ERC-1155). Bidders pay in USDC — you receive 85% of the pool net of
+        List any on-chain asset (ERC-20 / ERC-721 / ERC-1155). Bidders pay in MON — you receive 85% of the pool net of
         fees.
       </p>
       {children}
@@ -651,7 +651,7 @@ function SummaryRow({ label, value, accent = false }: { label: string; value: st
   return (
     <div className="flex justify-between gap-4">
       <span className="text-white/50">{label}</span>
-      <span className={cn('font-mono text-right', accent ? 'text-[#117a3d]' : 'text-white/85')}>{value}</span>
+      <span className={cn('font-mono text-right', accent ? 'text-[#ccff00]' : 'text-white/85')}>{value}</span>
     </div>
   );
 }

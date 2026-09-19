@@ -15,7 +15,7 @@ export const COLORS = {
   primaryDim: 'rgba(62, 196, 112, 0.1)',
   primaryBorder: 'rgba(62, 196, 112, 0.3)',
   danger: '#ef4444',
-  warning: '#fbbf24',
+  warning: '#ccff00',
   text: '#ffffff',
   textSecondary: 'rgba(255, 255, 255, 0.6)',
   textMuted: 'rgba(255, 255, 255, 0.4)',
@@ -47,8 +47,8 @@ export const TYPOGRAPHY = {
 // 阴影
 export const SHADOWS = {
   card: 'shadow-lg',
-  primaryGlow: 'shadow-[0_0_15px_rgba(139,92,246,0.15)]',
-  primaryGlowHover: 'shadow-[0_0_25px_rgba(139,92,246,0.2)]',
+  primaryGlow: 'shadow-[0_0_15px_rgba(147,51,234,0.15)]',
+  primaryGlowHover: 'shadow-[0_0_25px_rgba(147,51,234,0.2)]',
 } as const;
 
 // 动画时长

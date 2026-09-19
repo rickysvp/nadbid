@@ -4,9 +4,9 @@
  */
 export function GeometricBackground() {
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#0d0b09]">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#0f0a1a]">
       {/* 顶部金色光效 */}
-      <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-[#f59e0b]/8 blur-[180px]" />
+      <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-[#9333ea]/8 blur-[180px]" />
       <div className="absolute top-1/4 right-0 h-[400px] w-[400px] rounded-full bg-[#b45309]/6 blur-[160px]" />
       <div className="absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-[#10b981]/5 blur-[140px]" />
 

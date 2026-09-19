@@ -92,7 +92,7 @@ export function ConnectButton({ variant = 'dark' }: ConnectButtonProps) {
           className={cn(
             'flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap border-0',
             isDark
-              ? 'bg-gradient-to-r from-[#8b5cf6] to-[#a78bfa] text-[#0d0b09] hover:from-[#a78bfa] hover:to-[#a5f3fc] shadow-[0_4px_20px_rgba(0,212,255,0.3)]'
+              ? 'bg-gradient-to-r from-[#9333ea] to-[#a855f7] text-[#0f0a1a] hover:from-[#a855f7] hover:to-[#a5f3fc] shadow-[0_4px_20px_rgba(0,212,255,0.3)]'
               : 'bg-white/10 text-white hover:bg-white/20',
           )}
         >

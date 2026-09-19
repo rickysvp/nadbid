@@ -60,30 +60,30 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden bg-gradient-to-br from-[#161616] via-[#0f0f0f] to-[#0a0a0a] border border-[#111]/15 rounded-3xl p-8 mb-8"
+      className="relative overflow-hidden bg-gradient-to-br from-[#1a1228] via-[#0f0a1a] to-[#0f0a1a] border border-white/15 rounded-3xl p-8 mb-8"
     >
       {/* 装饰光晕 */}
-      <div className="absolute top-0 right-0 w-72 h-72 bg-[#8b5cf6]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-72 h-72 bg-[#9333ea]/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="relative z-10">
         {/* 顶部：头像 + 地址 + 操作按钮 */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 nb-card bg-gradient-to-br from-[#3ec470] to-[#2a9d54] flex items-center justify-center shadow-[0_0_30px_rgba(62,196,112,0.3)]">
-              <Wallet className="w-8 h-8 text-[#111]" />
+              <Wallet className="w-8 h-8 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-black text-[#111] font-mono">
+                <h1 className="text-2xl font-black text-white font-mono">
                   {shortenAddress(address ?? '')}
                 </h1>
                 <Badge variant="stake_active">CONNECTED</Badge>
               </div>
-              <div className="text-[12px] text-[#111]/40 font-mono break-all max-w-[320px]">
+              <div className="text-[12px] text-white/40 font-mono break-all max-w-[320px]">
                 {address}
               </div>
               {connectorName && (
-                <div className="text-[10px] text-[#117a3d]/70 font-mono mt-1 uppercase tracking-wider">
+                <div className="text-[10px] text-[#ccff00]/70 font-mono mt-1 uppercase tracking-wider">
                   via {connectorName}
                 </div>
               )}
@@ -95,10 +95,10 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
             <button
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#111]/5 border border-[#111]/15 text-[#111]/80 hover:bg-[#111]/10 hover:text-[#111] transition-all text-[13px] font-bold"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#111]/5 border border-white/15 text-white/80 hover:bg-[#111]/10 hover:text-white transition-all text-[13px] font-bold"
             >
               {copied ? (
-                <Check className="w-3.5 h-3.5 text-[#117a3d]" />
+                <Check className="w-3.5 h-3.5 text-[#ccff00]" />
               ) : (
                 <Copy className="w-3.5 h-3.5" />
               )}
@@ -107,7 +107,7 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
             <button
               type="button"
               onClick={handleExplorer}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#111]/5 border border-[#111]/15 text-[#111]/80 hover:bg-[#111]/10 hover:text-[#111] transition-all text-[13px] font-bold"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#111]/5 border border-white/15 text-white/80 hover:bg-[#111]/10 hover:text-white transition-all text-[13px] font-bold"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               Explorer
@@ -124,21 +124,21 @@ export function AccountCard({ onNetworkSwitched }: AccountCardProps) {
         </div>
 
         {/* 余额 + 网络 双栏 */}
-        <div className="mt-8 pt-8 border-t border-[#111]/15 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="mt-8 pt-8 border-t border-white/15 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* MON 余额 */}
           <div>
-            <div className="text-[10px] text-[#111]/40 font-bold uppercase tracking-[0.15em] mb-2">
+            <div className="text-[10px] text-white/40 font-bold uppercase tracking-[0.15em] mb-2">
               Wallet Balance
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="font-mono text-5xl font-black text-[#111] tracking-tight">
+              <span className="font-mono text-5xl font-black text-white tracking-tight">
                 {balanceStale ? '—' : balanceMon.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xl text-[#111]/50 font-mono">$MON</span>
+              <span className="text-xl text-white/50 font-mono">$MON</span>
               {balanceStale && (
                 <span className="text-[10px] text-yellow-500 font-bold">RPC unavailable — balance stale</span>
               )}
-              <div className="flex items-center gap-1 bg-[#1a2f22] text-[#117a3d] text-[11px] font-bold px-2 py-1 rounded border border-[#1a7f37]/30">
+              <div className="flex items-center gap-1 bg-[#1a2f22] text-[#ccff00] text-[11px] font-bold px-2 py-1 rounded border border-[#ccff00]/30">
                 <TrendingUp className="w-3 h-3" /> +2.4%
               </div>
             </div>

@@ -7,8 +7,8 @@ const toastConfig: Record<ToastType, { icon: typeof CheckCircle; bg: string; bor
   success: {
     icon: CheckCircle,
     bg: 'bg-[#111111]',
-    border: 'border-[#1a7f37]/30',
-    text: 'text-[#117a3d]',
+    border: 'border-[#ccff00]/30',
+    text: 'text-[#ccff00]',
   },
   error: {
     icon: XCircle,
@@ -57,12 +57,12 @@ export default function Toaster() {
             )}
           >
             <Icon className={cn('w-5 h-5 shrink-0 mt-0.5', config.text)} />
-            <p className="flex-1 text-sm text-[#111]/90 font-medium leading-relaxed">
+            <p className="flex-1 text-sm text-white/90 font-medium leading-relaxed">
               {toast.message}
             </p>
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 text-[#111]/40 hover:text-[#111]/60 transition-colors"
+              className="shrink-0 text-white/40 hover:text-white/60 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

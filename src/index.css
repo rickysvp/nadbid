@@ -12,17 +12,17 @@
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 
-  /* ===== PURPLE PULSE 色板 ===== */
-  /* 主色 — 亮紫色（LOGO 主色、Meme 风、Web3 感） */
-  --color-gold: #8b5cf6;
-  --color-gold-bright: #a78bfa;
-  --color-gold-deep: #7c3aed;
-  --color-gold-glow: rgba(139, 92, 246, 0.35);
+  /* ===== NADBID 品牌色板（严格匹配 LOGO） ===== */
+  /* 主色 — 饱和亮紫（LOGO 描边色） */
+  --color-gold: #9333ea;
+  --color-gold-bright: #a855f7;
+  --color-gold-deep: #7e22ce;
+  --color-gold-glow: rgba(147, 51, 234, 0.4);
 
-  /* 收益色 — 荧光绿（LOGO 点缀、利润、增长） */
-  --color-profit: #a3e635;
-  --color-profit-bright: #bef264;
-  --color-profit-deep: #65a30d;
+  /* 收益色 — 亮黄绿（LOGO "bid" 字母色） */
+  --color-profit: #ccff00;
+  --color-profit-bright: #d9ff33;
+  --color-profit-deep: #a3cc00;
 
   /* 紧迫色 — 橙红（FOMO、倒计时、警告） */
   --color-fomo: #f97316;
@@ -44,14 +44,14 @@
 
   /* 边框色 */
   --color-border: rgba(255, 255, 255, 0.07);
-  --color-border-hover: rgba(139, 92, 246, 0.3);
+  --color-border-hover: rgba(147, 51, 234, 0.3);
   --color-border-strong: rgba(255, 255, 255, 0.12);
 
   /* 阴影 */
   --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.3);
   --shadow-card-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-gold: 0 0 30px rgba(139, 92, 246, 0.15);
-  --shadow-gold-lg: 0 0 50px rgba(139, 92, 246, 0.25);
+  --shadow-gold: 0 0 30px rgba(147, 51, 234, 0.15);
+  --shadow-gold-lg: 0 0 50px rgba(147, 51, 234, 0.25);
 }
 
 /* ============================================
@@ -59,10 +59,10 @@
    ============================================ */
 
 .nb-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.015) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .nb-card-hover {
@@ -70,16 +70,16 @@
 }
 .nb-card-hover:hover {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.025) 100%);
-  border-color: rgba(139, 92, 246, 0.25);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 24px rgba(139, 92, 246, 0.08);
+  border-color: rgba(147, 51, 234, 0.25);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 24px rgba(147, 51, 234, 0.08);
 }
 
 .nb-sticker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: rgba(147, 51, 234, 0.12);
+  border: 1px solid rgba(147, 51, 234, 0.3);
   border-radius: 6px;
   color: #c4b5fd;
   font-weight: 600;
@@ -93,10 +93,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(163, 230, 53, 0.1);
-  border: 1px solid rgba(163, 230, 53, 0.25);
+  background: rgba(204, 255, 0, 0.1);
+  border: 1px solid rgba(204, 255, 0, 0.25);
   border-radius: 6px;
-  color: #bef264;
+  color: #d9ff33;
   font-weight: 600;
   font-size: 11px;
   padding: 3px 10px;
@@ -158,15 +158,15 @@ button:disabled {
 
 /* 紫色主按钮 */
 .btn-gold {
-  background: #8b5cf6;
+  background: #9333ea;
   color: #fff;
   border: none;
   font-weight: 700;
-  box-shadow: 0 2px 16px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 2px 16px rgba(147, 51, 234, 0.3);
 }
 .btn-gold:hover:not(:disabled) {
-  background: #a78bfa;
-  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4);
+  background: #a855f7;
+  box-shadow: 0 4px 24px rgba(147, 51, 234, 0.4);
   transform: translateY(-1px);
 }
 
@@ -185,10 +185,10 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid #8b5cf6;
+  outline: 2px solid #9333ea;
   outline-offset: 0;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
-  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.15);
+  border-color: #9333ea;
 }
 input::placeholder,
 textarea::placeholder {
@@ -201,39 +201,39 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid #8b5cf6;
+  outline: 2px solid #9333ea;
   outline-offset: 2px;
 }
 
 /* ============================================
    紫色品牌工具类
    ============================================ */
-.bg-gold { background-color: #8b5cf6; }
-.text-gold { color: #8b5cf6; }
-.text-gold-bright { color: #a78bfa; }
-.border-gold { border-color: #8b5cf6; }
-.bg-gold\/10 { background-color: rgba(139, 92, 246, 0.1); }
-.bg-gold\/15 { background-color: rgba(139, 92, 246, 0.15); }
-.bg-gold\/20 { background-color: rgba(139, 92, 246, 0.2); }
-.bg-gold\/30 { background-color: rgba(139, 92, 246, 0.3); }
-.border-gold\/20 { border-color: rgba(139, 92, 246, 0.2); }
-.border-gold\/30 { border-color: rgba(139, 92, 246, 0.3); }
-.border-gold\/50 { border-color: rgba(139, 92, 246, 0.5); }
-.text-gold\/60 { color: rgba(139, 92, 246, 0.6); }
-.text-gold\/70 { color: rgba(139, 92, 246, 0.7); }
-.text-gold\/80 { color: rgba(139, 92, 246, 0.8); }
+.bg-gold { background-color: #9333ea; }
+.text-gold { color: #9333ea; }
+.text-gold-bright { color: #a855f7; }
+.border-gold { border-color: #9333ea; }
+.bg-gold\/10 { background-color: rgba(147, 51, 234, 0.1); }
+.bg-gold\/15 { background-color: rgba(147, 51, 234, 0.15); }
+.bg-gold\/20 { background-color: rgba(147, 51, 234, 0.2); }
+.bg-gold\/30 { background-color: rgba(147, 51, 234, 0.3); }
+.border-gold\/20 { border-color: rgba(147, 51, 234, 0.2); }
+.border-gold\/30 { border-color: rgba(147, 51, 234, 0.3); }
+.border-gold\/50 { border-color: rgba(147, 51, 234, 0.5); }
+.text-gold\/60 { color: rgba(147, 51, 234, 0.6); }
+.text-gold\/70 { color: rgba(147, 51, 234, 0.7); }
+.text-gold\/80 { color: rgba(147, 51, 234, 0.8); }
 
 /* 荧光绿工具类 */
-.bg-profit { background-color: #a3e635; }
-.text-profit { color: #a3e635; }
-.text-profit-bright { color: #bef264; }
-.border-profit { border-color: #a3e635; }
-.bg-profit\/10 { background-color: rgba(163, 230, 53, 0.1); }
-.bg-profit\/20 { background-color: rgba(163, 230, 53, 0.2); }
-.border-profit\/20 { border-color: rgba(163, 230, 53, 0.2); }
-.border-profit\/30 { border-color: rgba(163, 230, 53, 0.3); }
-.text-profit\/70 { color: rgba(163, 230, 53, 0.7); }
-.text-profit\/80 { color: rgba(163, 230, 53, 0.8); }
+.bg-profit { background-color: #ccff00; }
+.text-profit { color: #ccff00; }
+.text-profit-bright { color: #d9ff33; }
+.border-profit { border-color: #ccff00; }
+.bg-profit\/10 { background-color: rgba(204, 255, 0, 0.1); }
+.bg-profit\/20 { background-color: rgba(204, 255, 0, 0.2); }
+.border-profit\/20 { border-color: rgba(204, 255, 0, 0.2); }
+.border-profit\/30 { border-color: rgba(204, 255, 0, 0.3); }
+.text-profit\/70 { color: rgba(204, 255, 0, 0.7); }
+.text-profit\/80 { color: rgba(204, 255, 0, 0.8); }
 
 /* FOMO 橙色工具类 */
 .text-fomo { color: #f97316; }
@@ -252,11 +252,17 @@ body {
   margin: 0;
   padding: 0;
   background: #0f0a1a;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(147, 51, 234, 0.08), transparent),
+    linear-gradient(rgba(147, 51, 234, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 51, 234, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
   color: #f5f3ff;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  min-height: 100vh;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -268,13 +274,13 @@ h1, h2, h3, h4, h5, h6 {
 /* 滚动条 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.35); }
+::-webkit-scrollbar-thumb { background: rgba(147, 51, 234, 0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(147, 51, 234, 0.35); }
 ::-webkit-scrollbar-corner { background: transparent; }
 
 /* 选中文本 */
 ::selection {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(147, 51, 234, 0.3);
   color: #f5f3ff;
 }
 
@@ -292,8 +298,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 16px rgba(139, 92, 246, 0.3); }
-  50% { box-shadow: 0 0 32px rgba(139, 92, 246, 0.5); }
+  0%, 100% { box-shadow: 0 0 16px rgba(147, 51, 234, 0.3); }
+  50% { box-shadow: 0 0 32px rgba(147, 51, 234, 0.5); }
 }
 
 .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both; }
@@ -315,7 +321,7 @@ h1, h2, h3, h4, h5, h6 {
 .animate-marquee { animation: marquee 30s linear infinite; }
 
 /* 紫色文字发光 */
-.glow-gold { text-shadow: 0 0 32px rgba(139, 92, 246, 0.4); }
+.glow-gold { text-shadow: 0 0 32px rgba(147, 51, 234, 0.4); }
 
 /* Range input */
 input[type="range"] {
@@ -334,14 +340,14 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  background: #8b5cf6;
+  background: #9333ea;
   border-radius: 50%;
   margin-top: -6px;
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
   transition: box-shadow 0.2s ease;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 20px rgba(147, 51, 234, 0.7);
 }
 input[type="range"]::-moz-range-track {
   height: 4px;
@@ -351,8 +357,8 @@ input[type="range"]::-moz-range-track {
 input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: #8b5cf6;
+  background: #9333ea;
   border-radius: 50%;
   border: none;
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
 }

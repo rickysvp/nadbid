@@ -9,15 +9,16 @@ import {ERC1155Holder} from "openzeppelin-contracts/contracts/token/ERC1155/util
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
-/// @title NADBIDAuction — 低价捡漏拍卖协议（MVP v0.1）
+/// @title NADBIDAuction — 低价捡漏拍卖协议（MVP v0.2）
 /// @notice 产品规则（已拍板）：
 ///   - 出价不退还；被保留的有效出价全额进资金池
 ///   - 同区块同价多人出价 → 随机保留一笔，其余可领取全额退款（含手续费）
 ///   - 单区块单价格等级；价格 = ceil(prevPrice × (1 + incrementBps/10000))
 ///   - 120 秒倒计时，每次有效出价重置；无新有效出价即结束
-///   - 资金池：85% 拍卖人 / 15% 奖励池（分红指数，结算时各方收益扣 5% 平台费）
-///   - 出价手续费 1%（额外收）；流拍全额退款（含手续费）
-///   - 分红：B 模式全员持续分红；100x 总收益硬顶（安全阀）
+///   - 资金池：60% 拍卖人 / 33% 奖励池（阶梯分红），结算时扣 7% 池子手续费
+///   - 出价手续费 3%（额外收）；流拍全额退款（含手续费）
+///   - 分红：阶梯分红（前30%批次拿40%奖励池，中间30%拿35%，后40%拿25%）
+///   - 30x 分红硬顶（安全阀）
 ///   - 发起人禁止参与自己拍卖；可设保留价，未达标流拍
 /// @dev 账本不变量（任意时刻）：
 ///   balance = sellerPending + rewardPending + refundPending + platformCollected
@@ -25,16 +26,22 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
     using SafeERC20 for IERC20;
 
-    // ---------------- 产品常量（已拍板） ----------------
+    // ---------------- 产品常量（v0.2 已拍板） ----------------
     uint256 public constant DURATION = 120 seconds;          // 出价倒计时
-    uint256 public constant BID_FEE_BPS = 100;               // 出价手续费 1%
-    uint256 public constant SETTLE_FEE_BPS = 500;            // 结算费 5%（各方收益扣 5%）
-    uint256 public constant SELLER_SHARE_BPS = 8500;         // 池子 85% → 拍卖人
-    uint256 public constant REWARD_SHARE_BPS = 1500;         // 池子 15% → 奖励池
-    uint256 public constant MIN_INCREMENT_BPS = 100;         // 增幅下限 1%
-    uint256 public constant MAX_INCREMENT_BPS = 5000;        // 增幅上限 50%
-    uint256 public constant MAX_BATCHES = 500;               // 单场最大价格批次
-    uint256 public constant MAX_REWARD_MULTIPLIER = 100;     // 100x 硬顶
+    uint256 public constant BID_FEE_BPS = 300;               // 出价手续费 3%
+    uint256 public constant SETTLE_FEE_BPS = 700;           // 池子手续费 7%
+    uint256 public constant SELLER_SHARE_BPS = 6000;         // 净池 60% → 拍卖人
+    uint256 public constant REWARD_SHARE_BPS = 3300;         // 净池 33% → 奖励池
+    uint256 public constant MIN_INCREMENT_BPS = 100;        // 增幅下限 1%
+    uint256 public constant MAX_INCREMENT_BPS = 5000;       // 增幅上限 50%
+    uint256 public constant MAX_BATCHES = 500;              // 单场最大价格批次
+    uint256 public constant MAX_REWARD_MULTIPLIER = 30;     // 30x 分红硬顶
+
+    // 阶梯分红档位权重
+    uint256 public constant EARLY_RATIO = 3000;              // 前 30% 批次
+    uint256 public constant EARLY_WEIGHT = 4000;             // 拿奖励池 40%
+    uint256 public constant MID_RATIO = 3000;               // 中间 30% 批次
+    uint256 public constant MID_WEIGHT = 3500;              // 拿奖励池 35%
 
     // ---------------- 类型 ----------------
     enum AssetType { ERC20, ERC721, ERC1155 }
@@ -57,12 +64,16 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         uint256 batchStartId;       // 首个批次 ID（用于 recoverExcess 遍历）
         uint256 batchCount;         // 已创建批次
         // 账本
-        uint256 totalPool;          // 被保留出价本金累计（份额 S）
+        uint256 totalPool;          // 被保留出价本金累计
         uint256 candidatesPool;     // 所有候选支付（price+fee）累计
         uint256 retainedFees;       // 被保留出价的 fee 累计（平台收入）
         uint256 refunded;           // 已退款累计
-        uint256 rpu;                // 分红指数（1e18）
-        uint256 rpuFinal;           // 结算时冻结
+        // 阶梯分红
+        uint256 retainedCount;      // 已被保留的批次总数
+        uint256 earlyTotalPrice;    // Early 档批次价格之和
+        uint256 midTotalPrice;      // Mid 档批次价格之和
+        uint256 lateTotalPrice;    // Late 档批次价格之和
+        uint256 rewardPoolFinal;    // 结算时冻结的奖励池总额
         uint256 finalPrice;
         address winner;
     }
@@ -72,7 +83,7 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         uint256 blockNumber;
         uint256 candidateCount;
         address selectedBidder;
-        uint256 snapshotRpu;
+        uint256 retainedIndex;     // 第几个被保留的（从 1 开始，0 = 未保留）
         bool resolved;
     }
 
@@ -161,8 +172,11 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
             candidatesPool: 0,
             retainedFees: 0,
             refunded: 0,
-            rpu: 0,
-            rpuFinal: 0,
+            retainedCount: 0,
+            earlyTotalPrice: 0,
+            midTotalPrice: 0,
+            lateTotalPrice: 0,
+            rewardPoolFinal: 0,
             finalPrice: 0,
             winner: address(0)
         });
@@ -224,7 +238,7 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
                 blockNumber: block.number,
                 candidateCount: 1,
                 selectedBidder: address(0),
-                snapshotRpu: 0,
+                retainedIndex: 0,
                 resolved: false
             });
             isCandidate[batchId][msg.sender] = true;
@@ -257,7 +271,6 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         }
 
         // 正常结算
-        a.rpuFinal = a.rpu;
         a.finalPrice = a.lastPrice;
         address winner = batches[a.lastBatchId].selectedBidder;
         require(winner != address(0), "NO_WINNER");
@@ -265,19 +278,45 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         _transferAsset(a, winner);
 
         uint256 pool = a.totalPool;
-        // 各方收益各扣 5% 结算费：seller = 85%×95% = 80.75%；reward = 15%×95% = 14.25%
-        uint256 sellerAmount = pool * SELLER_SHARE_BPS * (10000 - SETTLE_FEE_BPS) / 10000 / 10000;
-        uint256 rewardAmount = pool * REWARD_SHARE_BPS * (10000 - SETTLE_FEE_BPS) / 10000 / 10000;
-        // 平台 = 保留 fee + 5% 池子；用余额倒推，天然闭合
+
+        // 计算各档总价格：遍历所有已保留批次，按 retainedIndex 分档
+        uint256 earlyEnd = a.retainedCount * EARLY_RATIO / 10000;
+        uint256 midEnd = earlyEnd + (a.retainedCount * MID_RATIO / 10000);
+        uint256 earlyTotal;
+        uint256 midTotal;
+        uint256 lateTotal;
+        for (uint256 i = a.batchStartId; i <= a.lastBatchId; i++) {
+            BidBatch storage b = batches[i];
+            if (!b.resolved) continue;
+            if (b.retainedIndex == 0) continue;
+            if (b.retainedIndex <= earlyEnd) {
+                earlyTotal += b.price;
+            } else if (b.retainedIndex <= midEnd) {
+                midTotal += b.price;
+            } else {
+                lateTotal += b.price;
+            }
+        }
+        a.earlyTotalPrice = earlyTotal;
+        a.midTotalPrice = midTotal;
+        a.lateTotalPrice = lateTotal;
+
+        // 先扣 7% 池子手续费，再分卖家 60% / 奖励池 33%
+        uint256 netPool = pool * (10000 - SETTLE_FEE_BPS) / 10000;
+        uint256 sellerAmount = netPool * SELLER_SHARE_BPS / 10000;
+        uint256 rewardPoolTotal = netPool * REWARD_SHARE_BPS / 10000;
+        a.rewardPoolFinal = rewardPoolTotal;
+
+        // 平台收入 = 出价手续费 + 池子手续费 + 残差（用余额倒推闭合）
         uint256 refundPending = a.candidatesPool - pool - a.retainedFees - a.refunded;
         uint256 platformAmount = IERC20(bidToken).balanceOf(address(this))
-            - sellerAmount - rewardAmount - refundPending;
+            - sellerAmount - rewardPoolTotal - refundPending;
 
         a.status = AuctionStatus.SETTLED;
         if (platformAmount > 0) {
             IERC20(bidToken).safeTransfer(treasury, platformAmount);
         }
-        emit AuctionFinalized(auctionId, winner, a.finalPrice, pool, sellerAmount, rewardAmount, platformAmount);
+        emit AuctionFinalized(auctionId, winner, a.finalPrice, pool, sellerAmount, rewardPoolTotal, platformAmount);
     }
 
     // ---------------- 领取 ----------------
@@ -304,7 +343,7 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         emit RefundClaimed(auctionId, batchId, msg.sender, pay);
     }
 
-    /// @notice 被保留出价者的分红领取（按批次，多个批次可多次领取）
+    /// @notice 被保留出价者的分红领取（按阶梯分红计算）
     function claimReward(uint256 auctionId, uint256 batchId) external nonReentrant {
         Auction storage a = auctions[auctionId];
         BidBatch storage b = batches[batchId];
@@ -328,8 +367,8 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         require(msg.sender == a.seller, "NOT_SELLER");
         require(!sellerAmtFinalized[auctionId], "CLAIMED");
 
-        uint256 pool = a.totalPool;
-        uint256 sellerAmount = pool * SELLER_SHARE_BPS * (10000 - SETTLE_FEE_BPS) / 10000 / 10000;
+        uint256 netPool = a.totalPool * (10000 - SETTLE_FEE_BPS) / 10000;
+        uint256 sellerAmount = netPool * SELLER_SHARE_BPS / 10000;
         sellerAmtFinalized[auctionId] = true;
         if (sellerAmount > 0) {
             IERC20(bidToken).safeTransfer(msg.sender, sellerAmount);
@@ -337,14 +376,14 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         emit SellerClaimed(auctionId, msg.sender, sellerAmount);
     }
 
-    /// @notice owner 回收奖励池残余（结构性残余 0.1425×首笔 + 硬顶截断 + 整除 dust）。
+    /// @notice owner 回收奖励池残余（硬顶截断 + 整除 dust）
     /// 遍历批次精确计算"应发奖励"总额，只回收超出部分，不影响任何人的领取。
     function recoverExcess(uint256 auctionId) external onlyOwner nonReentrant {
         Auction storage a = auctions[auctionId];
         require(a.status == AuctionStatus.SETTLED, "NOT_SETTLED");
-        uint256 pool = a.totalPool;
-        uint256 sellerAmount = pool * SELLER_SHARE_BPS * (10000 - SETTLE_FEE_BPS) / 10000 / 10000;
-        uint256 refundPending = a.candidatesPool - pool - a.retainedFees - a.refunded;
+        uint256 netPool = a.totalPool * (10000 - SETTLE_FEE_BPS) / 10000;
+        uint256 sellerAmount = netPool * SELLER_SHARE_BPS / 10000;
+        uint256 refundPending = a.candidatesPool - a.totalPool - a.retainedFees - a.refunded;
         uint256 sellerPending = sellerAmtFinalized[auctionId] ? 0 : sellerAmount;
 
         uint256 unclaimedRewards;
@@ -352,7 +391,7 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
             BidBatch storage b = batches[i];
             if (!b.resolved) continue;
             if (b.selectedBidder == address(0)) continue;
-            if (rewardClaimed[i][b.selectedBidder]) continue; // 已领取的扣除，只计算未领
+            if (rewardClaimed[i][b.selectedBidder]) continue;
             unclaimedRewards += _dividend(a, b);
         }
 
@@ -421,14 +460,43 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         return (a.lastPrice * (10000 + a.incrementBps) + 9999) / 10000;
     }
 
+    /// @notice 计算阶梯分红：根据 retainedIndex 判断档位，按该档价格占比分配
     function _dividend(Auction storage a, BidBatch storage b) internal view returns (uint256) {
-        uint256 d = b.price * (a.rpuFinal - b.snapshotRpu) / 1e18;
-        d = d * (10000 - SETTLE_FEE_BPS) / 10000;           // 收益扣 5%
-        uint256 cap = b.price * MAX_REWARD_MULTIPLIER;       // 100x 硬顶
-        return d > cap ? cap : d;
+        if (a.rewardPoolFinal == 0 || a.retainedCount == 0) return 0;
+
+        // 判断该批次属于哪一档
+        uint256 idx = b.retainedIndex;  // 从 1 开始
+        uint256 earlyEnd = a.retainedCount * EARLY_RATIO / 10000;  // 前 30%
+        uint256 midEnd = earlyEnd + (a.retainedCount * MID_RATIO / 10000);  // 中间 30%
+
+        uint256 tierTotalPrice;
+        uint256 tierWeight;
+
+        if (idx <= earlyEnd) {
+            // Early 档
+            tierWeight = EARLY_WEIGHT;
+            tierTotalPrice = a.earlyTotalPrice;
+        } else if (idx <= midEnd) {
+            // Mid 档
+            tierWeight = MID_WEIGHT;
+            tierTotalPrice = a.midTotalPrice;
+        } else {
+            // Late 档（剩下的 25%）
+            tierWeight = 2500;
+            tierTotalPrice = a.lateTotalPrice;
+        }
+
+        if (tierTotalPrice == 0) return 0;
+
+        // 该批次分红 = 奖励池总额 × 该档权重 × (批次价格 / 该档总价格)
+        uint256 dividend = a.rewardPoolFinal * tierWeight / 10000 * b.price / tierTotalPrice;
+
+        // 30x 硬顶
+        uint256 cap = b.price * MAX_REWARD_MULTIPLIER;
+        return dividend > cap ? cap : dividend;
     }
 
-    /// @notice 解决批次：随机保留一笔，更新池子与分红指数
+    /// @notice 解决批次：随机保留一笔，记录 retainedIndex
     function _resolveBatch(uint256 auctionId, Auction storage a, uint256 batchId, uint256 randomness) internal {
         BidBatch storage b = batches[batchId];
         if (b.resolved) return;
@@ -437,14 +505,18 @@ contract NADBIDAuction is Ownable, ReentrancyGuard, ERC1155Holder {
         b.selectedBidder = candidates[idx];
         b.resolved = true;
 
-        // 分红指数：先基于旧池子记账，再入池；snapshot 记录更新后的 rpu
-        uint256 prevPool = a.totalPool;
-        if (prevPool > 0) {
-            a.rpu += (b.price * REWARD_SHARE_BPS / 10000) * 1e18 / prevPool;
-        }
+        // 记录这是第几个被保留的
+        a.retainedCount++;
+        b.retainedIndex = a.retainedCount;
+
+        // 累加到对应档位的总价格（在 finalize 时统一分档，这里先全部记到 early，后面 finalize 再分）
+        // 简化：先全部加到 early，finalize 时再按 retainedCount 重新分
+        // 不对，这样太麻烦。直接在 resolve 时就知道是第几个，但不知道总数。
+        // 方案：全部先加到 totalPool，在 finalize 时再按比例计算各档总额
+        // 那我们需要一个临时变量，finalize 时遍历所有批次来分档
+        
         a.totalPool += b.price;
         a.retainedFees += b.price * BID_FEE_BPS / 10000;
-        b.snapshotRpu = a.rpu;
         emit BatchResolved(auctionId, batchId, b.selectedBidder, b.candidateCount);
     }
 

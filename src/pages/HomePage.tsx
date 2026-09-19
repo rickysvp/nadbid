@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Gavel, Plus, TrendingUp, Trophy, BarChart3, Users } from 'lucide-react';
 import { ROUTES, nadbidDetailPath } from '../config/routes';
-import { useAuctionList, fmtUsdc, STATUS_LABEL, ASSET_LABEL, AuctionStatus } from '../web3/hooks/useNadbidAuction';
+import { useAuctionList, fmtMon, STATUS_LABEL, ASSET_LABEL, AuctionStatus } from '../web3/hooks/useNadbidAuction';
 import { shortenAddress } from '../utils/format';
 import { cn } from '../utils/cn';
 import { CircularProgress } from '../components/ui/CircularProgress';
@@ -44,7 +44,7 @@ export default function HomePage() {
       <section className="relative min-h-[calc(100vh-80px)] flex items-center">
         {/* 背景微光 — 冰青色径向光晕 */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-[#8b5cf6]/[0.04] blur-[120px]" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-[#9333ea]/[0.04] blur-[120px]" />
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-7xl px-6 md:px-10 py-12">
@@ -52,8 +52,8 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-6 animate-fade-in-up">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#a78bfa] opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#a78bfa]" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#a855f7] opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#a855f7]" />
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#c4b5fd]">
                 {liveCount > 0 ? `${liveCount} LIVE` : 'NO ACTIVE AUCTIONS'}
@@ -130,7 +130,7 @@ function FeaturedAuctionHero({
                 isLive
                   ? ended
                     ? "bg-[#f97316]/20 text-[#fb923c] border border-[#f97316]/30"
-                    : "bg-[#8b5cf6]/20 text-[#a78bfa] border border-[#8b5cf6]/30"
+                    : "bg-[#9333ea]/20 text-[#a855f7] border border-[#9333ea]/30"
                   : "bg-white/10 text-white/50 border border-white/10",
               )}
             >
@@ -160,7 +160,7 @@ function FeaturedAuctionHero({
           {/* 拍品名称 */}
           <h1 className="text-2xl md:text-3xl font-bold text-white font-display leading-tight mb-3">
             {assetMeta.data?.name ?? (assetMeta.isLoading ? 'Loading…' : 'Unnamed asset')}
-            {a.assetType === 1 && <span className="text-[#8b5cf6]"> #{a.assetTokenId.toString()}</span>}
+            {a.assetType === 1 && <span className="text-[#9333ea]"> #{a.assetTokenId.toString()}</span>}
           </h1>
 
           {/* 卖家 + 保留价 */}
@@ -170,7 +170,7 @@ function FeaturedAuctionHero({
             {a.reservePrice > 0n && (
               <>
                 <span className="text-white/15">·</span>
-                <span className="text-[#f97316]">Reserve {fmtUsdc(a.reservePrice)}</span>
+                <span className="text-[#f97316]">Reserve {fmtMon(a.reservePrice)}</span>
               </>
             )}
           </div>
@@ -180,24 +180,24 @@ function FeaturedAuctionHero({
             {/* 当前出价 — 最大最醒目 */}
             <div className="rounded-lg bg-white/[0.025] border border-white/[0.06] p-4">
               <div className="text-[9px] font-medium uppercase tracking-[0.1em] text-white/35 mb-1.5">Current Bid</div>
-              <div className="font-mono text-2xl md:text-3xl font-bold text-white leading-none">
-                {fmtUsdc(price)}
+              <div className="font-mono text-2xl md:text-3xl font-bold text-[#9333ea] leading-none">
+                {fmtMon(price)}
               </div>
-              <div className="text-[9px] text-white/25 mt-1.5">USDC</div>
+              <div className="text-[9px] text-white/25 mt-1.5">MON</div>
             </div>
             {/* 资金池 */}
             <div className="rounded-lg bg-white/[0.025] border border-white/[0.06] p-4">
               <div className="text-[9px] font-medium uppercase tracking-[0.1em] text-white/35 mb-1.5">Pool</div>
-              <div className="font-mono text-2xl md:text-3xl font-bold text-[#8b5cf6] leading-none">
-                {fmtUsdc(a.totalPool)}
+              <div className="font-mono text-2xl md:text-3xl font-bold text-[#ccff00] leading-none">
+                {fmtMon(a.totalPool)}
               </div>
-              <div className="text-[9px] text-white/25 mt-1.5">USDC retained</div>
+              <div className="text-[9px] text-white/25 mt-1.5">MON retained</div>
             </div>
             {/* 下一出价 */}
             <div className="rounded-lg bg-white/[0.025] border border-white/[0.06] p-4">
               <div className="text-[9px] font-medium uppercase tracking-[0.1em] text-white/35 mb-1.5">Next Bid</div>
-              <div className="font-mono text-2xl md:text-3xl font-bold text-[#fbbf24] leading-none">
-                {fmtUsdc(a.lastPrice > 0n ? a.lastPrice + (a.lastPrice * a.incrementBps) / 10000n : a.startPrice)}
+              <div className="font-mono text-2xl md:text-3xl font-bold text-[#9333ea] leading-none">
+                {fmtMon(a.lastPrice > 0n ? a.lastPrice + (a.lastPrice * a.incrementBps) / 10000n : a.startPrice)}
               </div>
               <div className="text-[9px] text-white/25 mt-1.5">+{Number(a.incrementBps) / 100}%</div>
             </div>
@@ -232,7 +232,7 @@ function FeaturedAuctionHero({
                       ? 'LAST 15 SECONDS! Bid to reset clock.'
                       : 'Every bid resets to 120s.'
                   : a.winner !== '0x0000000000000000000000000000000000000000'
-                    ? `Won at ${fmtUsdc(a.finalPrice)} USDC`
+                    ? `Won at ${fmtMon(a.finalPrice)} MON`
                     : 'Auction closed without winner.'}
               </div>
             </div>
@@ -241,7 +241,7 @@ function FeaturedAuctionHero({
               to={nadbidDetailPath(a.id)}
               className={cn(
                 'inline-flex items-center gap-2 rounded-lg px-6 py-3.5 text-sm font-bold transition-all flex-shrink-0',
-                'bg-[#8b5cf6] text-[#0f0a1a] hover:bg-[#a78bfa] hover:shadow-[0_0_24px_rgba(0,212,255,0.3)]',
+                'bg-[#9333ea] text-white hover:bg-[#a855f7] hover:shadow-[0_0_32px_rgba(147,51,234,0.4)]',
                 danger && 'animate-pulse',
               )}
             >
@@ -259,8 +259,8 @@ function FeaturedAuctionHero({
 function EmptyStateHero() {
   return (
     <div className="nb-card flex flex-col items-center justify-center py-20 text-center animate-fade-in-up delay-100">
-      <div className="w-14 h-14 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center mb-5">
-        <Gavel className="h-7 w-7 text-[#8b5cf6]" />
+      <div className="w-14 h-14 rounded-xl bg-[#9333ea]/10 flex items-center justify-center mb-5">
+        <Gavel className="h-7 w-7 text-[#9333ea]" />
       </div>
       <h2 className="text-xl font-bold text-white font-display mb-2">No active auctions</h2>
       <p className="max-w-md text-sm text-white/40 leading-relaxed">
@@ -268,7 +268,7 @@ function EmptyStateHero() {
       </p>
       <Link
         to={ROUTES.NADBID_CREATE}
-        className="mt-6 inline-flex items-center gap-2 rounded-lg px-6 py-3 font-bold bg-[#8b5cf6] text-[#0f0a1a] hover:bg-[#a78bfa]"
+        className="mt-6 inline-flex items-center gap-2 rounded-lg px-6 py-3 font-bold bg-[#9333ea] text-white hover:bg-[#a855f7] hover:shadow-[0_0_24px_rgba(147,51,234,0.3)]"
       >
         <Plus className="h-4 w-4" />
         List first auction
@@ -289,8 +289,8 @@ function ProfitCalculator() {
   return (
     <div className="nb-card p-6 md:p-8">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 rounded-lg bg-[#8b5cf6]/10 flex items-center justify-center">
-          <BarChart3 className="h-4 w-4 text-[#8b5cf6]" />
+        <div className="w-9 h-9 rounded-lg bg-[#9333ea]/10 flex items-center justify-center">
+          <BarChart3 className="h-4 w-4 text-[#9333ea]" />
         </div>
         <div>
           <h2 className="text-lg font-bold text-white font-display">Profit Calculator</h2>
@@ -314,15 +314,15 @@ function ProfitCalculator() {
               className="flex-1 cursor-pointer"
             />
             <div className="w-24 text-right">
-              <span className="font-mono text-xl font-bold text-[#8b5cf6]">{bidAmount}</span>
-              <span className="text-xs text-white/35 ml-1">USDC</span>
+              <span className="font-mono text-xl font-bold text-[#9333ea]">{bidAmount}</span>
+              <span className="text-xs text-white/35 ml-1">MON</span>
             </div>
           </div>
 
           <div className="mt-5 p-3.5 rounded-lg bg-white/[0.025] border border-white/[0.06]">
             <div className="text-[10px] text-white/35 mb-1.5">Next bid required</div>
             <div className="font-mono text-base font-semibold text-white">
-              {nextBid.toFixed(1)} <span className="text-white/30 text-xs">USDC</span>
+              {nextBid.toFixed(1)} <span className="text-white/30 text-xs">MON</span>
             </div>
             <div className="text-[10px] text-white/25 mt-0.5">+1% increment</div>
           </div>
@@ -336,21 +336,21 @@ function ProfitCalculator() {
           <div className="space-y-2">
             <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.025] border border-white/[0.06]">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-md bg-[#8b5cf6]/10 flex items-center justify-center">
-                  <Trophy className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                <div className="w-7 h-7 rounded-md bg-[#9333ea]/10 flex items-center justify-center">
+                  <Trophy className="h-3.5 w-3.5 text-[#9333ea]" />
                 </div>
                 <span className="text-sm text-white/60">Seller share</span>
               </div>
-              <span className="font-mono font-semibold text-[#8b5cf6]">{sellerShare.toFixed(1)} USDC</span>
+              <span className="font-mono font-semibold text-[#9333ea]">{sellerShare.toFixed(1)} MON</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.025] border border-white/[0.06]">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-md bg-[#a3e635]/10 flex items-center justify-center">
-                  <Users className="h-3.5 w-3.5 text-[#a3e635]" />
+                <div className="w-7 h-7 rounded-md bg-[#ccff00]/10 flex items-center justify-center">
+                  <Users className="h-3.5 w-3.5 text-[#ccff00]" />
                 </div>
                 <span className="text-sm text-white/60">Previous bidders</span>
               </div>
-              <span className="font-mono font-semibold text-[#a3e635]">{rewardPool.toFixed(1)} USDC</span>
+              <span className="font-mono font-semibold text-[#ccff00]">{rewardPool.toFixed(1)} MON</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.025] border border-white/[0.06]">
               <div className="flex items-center gap-3">
@@ -359,7 +359,7 @@ function ProfitCalculator() {
                 </div>
                 <span className="text-sm text-white/60">Platform fee</span>
               </div>
-              <span className="font-mono font-semibold text-white/40">{platformFee.toFixed(1)} USDC</span>
+              <span className="font-mono font-semibold text-white/40">{platformFee.toFixed(1)} MON</span>
             </div>
           </div>
         </div>
@@ -373,19 +373,19 @@ function HowItWorks() {
   const steps = [
     {
       num: '01',
-      icon: <Gavel className="h-4 w-4 text-[#8b5cf6]" />,
+      icon: <Gavel className="h-4 w-4 text-[#9333ea]" />,
       title: 'Place a bid',
-      desc: 'Bid USDC at the next price level. Your bid is retained on-chain — no refunds.',
+      desc: 'Bid MON at the next price level. Your bid is retained on-chain — no refunds.',
     },
     {
       num: '02',
-      icon: <TrendingUp className="h-4 w-4 text-[#a3e635]" />,
+      icon: <TrendingUp className="h-4 w-4 text-[#ccff00]" />,
       title: 'Get dividends',
       desc: 'Outbid? Still earn 15% of every new bid. Your stake keeps paying as the auction grows.',
     },
     {
       num: '03',
-      icon: <Trophy className="h-4 w-4 text-[#fbbf24]" />,
+      icon: <Trophy className="h-4 w-4 text-[#ccff00]" />,
       title: 'Last bid wins',
       desc: '120s clock ends. Final bidder wins the asset. Seller takes 85% of the total pool.',
     },
@@ -430,7 +430,7 @@ function RecentAuctionsGrid({
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold text-white font-display">Recent auctions</h2>
-        <Link to={ROUTES.NADBID} className="group inline-flex items-center gap-1 text-xs text-[#8b5cf6] hover:text-[#a78bfa]">
+        <Link to={ROUTES.NADBID} className="group inline-flex items-center gap-1 text-xs text-[#9333ea] hover:text-[#a855f7]">
           View all <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
@@ -451,9 +451,9 @@ function RecentAuctionsGrid({
                   className={cn(
                     'rounded-full border px-2 py-0.5 text-[9px] font-medium',
                     a.status === AuctionStatus.LIVE
-                      ? 'border-[#8b5cf6]/30 bg-[#8b5cf6]/10 text-[#a78bfa]'
+                      ? 'border-[#9333ea]/30 bg-[#9333ea]/10 text-[#a855f7]'
                       : a.status === AuctionStatus.SETTLED
-                        ? 'border-[#a3e635]/30 bg-[#a3e635]/10 text-[#bef264]'
+                        ? 'border-[#ccff00]/30 bg-[#ccff00]/10 text-[#d9ff33]'
                         : 'border-white/10 bg-white/5 text-white/35',
                   )}
                 >
@@ -462,12 +462,12 @@ function RecentAuctionsGrid({
               </div>
 
               <div className="font-mono text-xl font-bold text-white">
-                {fmtUsdc(price)} <span className="text-xs text-white/25">USDC</span>
+                {fmtMon(price)} <span className="text-xs text-white/25">MON</span>
               </div>
 
               <div className="mt-1.5 flex items-center justify-between text-[11px] text-white/35">
                 <span className="truncate">{ASSET_LABEL[a.assetType] ?? 'Asset'}</span>
-                <span className="font-mono">{fmtUsdc(a.totalPool)} pool</span>
+                <span className="font-mono">{fmtMon(a.totalPool)} pool</span>
               </div>
             </Link>
           );

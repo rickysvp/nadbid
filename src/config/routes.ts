@@ -4,7 +4,7 @@
 
 export const ROUTES = {
   HOME: '/',
-  /** 新协议 NADBID（USDC 结算链上拍卖） */
+  /** 新协议 NADBID（MON 结算链上拍卖） */
   NADBID: '/nadbid',
   NADBID_DETAIL: '/nadbid/:id',
   NADBID_CREATE: '/nadbid/create',

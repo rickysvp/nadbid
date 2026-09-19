@@ -42,7 +42,7 @@ export default function Navbar() {
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         scrolled
-          ? 'bg-[#0d0b09]/80 backdrop-blur-xl border-b border-white/[0.06]'
+          ? 'bg-[#0f0a1a]/80 backdrop-blur-xl border-b border-white/[0.06]'
           : 'bg-transparent border-b border-transparent',
       )}
     >
@@ -72,7 +72,7 @@ export default function Navbar() {
                 className={cn(
                   'flex items-center px-4 py-2 rounded-full text-sm font-medium tracking-wide transition-all duration-200 border-0 shadow-none bg-transparent',
                   active
-                    ? 'bg-[#8b5cf6] text-[#0f0a1a] font-semibold'
+                    ? 'bg-[#9333ea] text-[#0f0a1a] font-semibold'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.06]',
                 )}
               >
@@ -81,7 +81,7 @@ export default function Navbar() {
                   <span
                     className={cn(
                       'ml-1.5 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none',
-                      active ? 'bg-black/20 text-[#0d0b09]' : 'bg-[#f97316]/20 text-[#fb923c]',
+                      active ? 'bg-black/20 text-[#0f0a1a]' : 'bg-[#f97316]/20 text-[#fb923c]',
                     )}
                   >
                     SOON
@@ -118,7 +118,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="lg:hidden overflow-hidden border-t border-white/[0.06] bg-[#0d0b09]/95 backdrop-blur-xl"
+            className="lg:hidden overflow-hidden border-t border-white/[0.06] bg-[#0f0a1a]/95 backdrop-blur-xl"
           >
             <div className="px-5 py-3 flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
@@ -130,7 +130,7 @@ export default function Navbar() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium tracking-wide transition-colors border-0 shadow-none bg-transparent',
                       active
-                        ? 'text-[#8b5cf6] bg-[#8b5cf6]/10'
+                        ? 'text-[#9333ea] bg-[#9333ea]/10'
                         : 'text-white/50 hover:text-white hover:bg-white/[0.06]',
                     )}
                   >
@@ -140,7 +140,7 @@ export default function Navbar() {
                         <span
                           className={cn(
                             'ml-1.5 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none',
-                            active ? 'bg-[#f59e0b]/30 text-[#f59e0b]' : 'bg-[#f97316]/20 text-[#fb923c]',
+                            active ? 'bg-[#9333ea]/30 text-[#9333ea]' : 'bg-[#f97316]/20 text-[#fb923c]',
                           )}
                         >
                           SOON

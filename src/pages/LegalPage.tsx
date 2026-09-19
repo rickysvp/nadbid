@@ -24,10 +24,10 @@ export interface LegalPageProps {
  */
 export default function LegalPage({ title, docName, updated, sections }: LegalPageProps) {
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-24 pb-24 text-[#111]">
+    <div className="mx-auto max-w-3xl px-6 pt-24 pb-24 text-white">
       <Link
         to={ROUTES.HOME}
-        className="inline-flex items-center gap-1.5 text-sm font-bold text-[#111]/50 transition hover:text-[#111]"
+        className="inline-flex items-center gap-1.5 text-sm font-bold text-white/50 transition hover:text-white"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to home
@@ -35,13 +35,13 @@ export default function LegalPage({ title, docName, updated, sections }: LegalPa
 
       <div className="nb-card mt-6 p-8 md:p-12">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-[#111] bg-[#8b5cf6] shadow-[3px_3px_0_#111]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-white/10 bg-[#9333ea] shadow-md">
             <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
-            <div className="text-xs font-black uppercase tracking-[0.2em] text-[#117a3d]">{docName}</div>
+            <div className="text-xs font-black uppercase tracking-[0.2em] text-[#ccff00]">{docName}</div>
             <h1 className="mt-1 text-3xl md:text-4xl font-black tracking-tighter">{title}</h1>
-            <p className="mt-2 text-xs text-[#111]/40">Last updated: {updated}</p>
+            <p className="mt-2 text-xs text-white/40">Last updated: {updated}</p>
           </div>
         </div>
 
@@ -51,7 +51,7 @@ export default function LegalPage({ title, docName, updated, sections }: LegalPa
               <h2 className="text-lg font-black tracking-tight">{s.heading}</h2>
               <div className="mt-3 space-y-3">
                 {s.body.map((p, i) => (
-                  <p key={i} className="text-sm leading-relaxed text-[#111]/70">
+                  <p key={i} className="text-sm leading-relaxed text-white/70">
                     {p}
                   </p>
                 ))}

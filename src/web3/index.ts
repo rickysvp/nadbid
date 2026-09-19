@@ -2,7 +2,7 @@
 export { wagmiConfig, monadTestnet, supportedChains } from './config';
 export { WagmiProvider } from './WagmiProvider';
 export { WalletStateSyncer } from './WalletStateSyncer';
-export { contractAddresses, nadbidAuctionAbi, usdcAbi } from './contracts';
+export { contractAddresses, nadbidAuctionAbi, monAbi } from './contracts';
 export type { ContractKey } from './contracts';
 export {
   classifyWeb3Error,

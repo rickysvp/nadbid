@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { monadTestnet } from '../config';
 import { formatUnits } from 'viem';
-import { contractAddresses, nadbidAuctionAbi, usdcAbi } from '../contracts';
+import { contractAddresses, nadbidAuctionAbi, monAbi } from '../contracts';
 import { useReadContract } from './useReadContract';
 import { useWriteContractTx } from './useWriteContractTx';
 
 /**
  * NADBIDAuction 新协议 hooks
- * —— 链上拍卖：USDC 结算、出价不退款、同区块同价随机保留一笔、
+ * —— 链上拍卖：MON 结算、出价不退款、同区块同价随机保留一笔、
  *    前序出价者持续分红（100x 硬顶）、85/15 资金分配、120s 倒计时。
  */
 
@@ -77,12 +77,12 @@ export interface BatchMeta {
   resolved: boolean;
 }
 
-export const USDC_DECIMALS = 6;
+export const MON_DECIMALS = 6;
 
 /** wei(6) → 可读字符串，千分位，2 位小数 */
-export function fmtUsdc(v: bigint | undefined): string {
+export function fmtMon(v: bigint | undefined): string {
   if (v === undefined) return '0.00';
-  const s = formatUnits(v, USDC_DECIMALS);
+  const s = formatUnits(v, MON_DECIMALS);
   const dot = s.indexOf('.');
   const intPart = dot === -1 ? s : s.slice(0, dot);
   const decPart = dot === -1 ? '' : s.slice(dot + 1);
@@ -115,8 +115,8 @@ export function useNadbidAuctionContract() {
   return { address, abi: nadbidAuctionAbi, isReady: address !== undefined };
 }
 
-export function useUsdcContract() {
-  return { address: contractAddresses.usdc, abi: usdcAbi };
+export function useMonContract() {
+  return { address: contractAddresses.mon, abi: monAbi };
 }
 
 // ---------------------------------------------------------------------------
@@ -273,18 +273,18 @@ export function useBatchUserState(batchId: bigint | undefined, address: `0x${str
   };
 }
 
-/** USDC 余额 */
+/** MON 余额 */
 export function useUsdcBalance(address: `0x${string}` | undefined) {
-  const { address: usdc, abi } = useUsdcContract();
-  return useReadContract({ address: usdc, abi, functionName: 'balanceOf', args: address ? [address] : [], chainId: monadTestnet.id, query: { enabled: !!address } });
+  const { address: mon, abi } = useMonContract();
+  return useReadContract({ address: mon, abi, functionName: 'balanceOf', args: address ? [address] : [], chainId: monadTestnet.id, query: { enabled: !!address } });
 }
 
-/** USDC 授权额度 */
-export function useUsdcAllowance(owner: `0x${string}` | undefined, spender: `0x${string}` | undefined) {
-  const { address: usdc, abi } = useUsdcContract();
+/** MON 授权额度 */
+export function useMonAllowance(owner: `0x${string}` | undefined, spender: `0x${string}` | undefined) {
+  const { address: mon, abi } = useMonContract();
   const enabled = !!owner && !!spender;
   return useReadContract({
-    address: usdc,
+    address: mon,
     abi,
     functionName: 'allowance',
     args: enabled ? [owner, spender] : [],
@@ -333,9 +333,9 @@ export function useCreateAuction() {
   return useWriteContractTxWith(address, 'createAuction');
 }
 
-/** USDC 授权 */
-export function useApproveUsdc() {
-  const { address } = useUsdcContract();
+/** MON 授权 */
+export function useApproveMon() {
+  const { address } = useMonContract();
   return useWriteContractTxWith(address, 'approve');
 }
 

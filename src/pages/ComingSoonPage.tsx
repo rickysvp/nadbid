@@ -19,9 +19,9 @@ export interface ComingSoonProps {
  */
 export default function ComingSoonPage({ title, tagline, features, note }: ComingSoonProps) {
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-28 pb-24 text-[#111]">
+    <div className="mx-auto max-w-3xl px-6 pt-28 pb-24 text-white">
       <div className="nb-card p-8 md:p-12 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-[#111] bg-[#ffe94a] shadow-[3px_3px_0_#111]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border-2 border-white/10 bg-[#9333ea] shadow-md">
           <Lock className="h-6 w-6" />
         </div>
 
@@ -30,25 +30,25 @@ export default function ComingSoonPage({ title, tagline, features, note }: Comin
         </div>
 
         <h1 className="mt-5 text-4xl md:text-5xl font-black tracking-tighter">{title}</h1>
-        <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-[#111]/60">{tagline}</p>
+        <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/60">{tagline}</p>
 
         <div className="mx-auto mt-8 max-w-md text-left">
-          <div className="text-xs font-black uppercase tracking-[0.2em] text-[#117a3d]">Planned</div>
+          <div className="text-xs font-black uppercase tracking-[0.2em] text-[#ccff00]">Planned</div>
           <ul className="mt-3 space-y-2.5">
             {features.map((f) => (
               <li key={f} className="nb-card-flat flex items-center gap-3 px-4 py-3 text-sm font-bold">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#9333ea]" />
                 {f}
               </li>
             ))}
           </ul>
         </div>
 
-        {note && <p className="mt-8 text-xs text-[#111]/40">{note}</p>}
+        {note && <p className="mt-8 text-xs text-white/40">{note}</p>}
 
         <Link
           to={ROUTES.NADBID}
-          className="mt-9 inline-flex items-center gap-2 rounded-xl border-2 border-[#111] bg-[#8b5cf6] px-7 py-3.5 font-black text-white shadow-[4px_4px_0_#111] transition hover:bg-[#a78bfa] hover:shadow-[6px_6px_0_#111] hover:-translate-y-0.5"
+          className="mt-9 inline-flex items-center gap-2 rounded-xl border-2 border-white/10 bg-[#9333ea] px-7 py-3.5 font-black text-white shadow-lg transition hover:bg-[#a855f7] hover:shadow-xl hover:-translate-y-0.5"
         >
           Back to auctions
           <ArrowRight className="h-4 w-4" />
